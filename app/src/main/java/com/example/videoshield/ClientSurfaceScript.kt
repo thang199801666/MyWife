@@ -19,7 +19,7 @@ object ClientSurfaceScript {
             window.__videoShieldExpandPlaybackWanted=wasPlaying || $resumePlaying;
             requestAnimationFrame(() => requestAnimationFrame(() => {
               window.dispatchEvent(new Event('resize'));
-              const video=document.querySelector('video');
+              const video=document.querySelector('.html5-video-player video.html5-main-video') || document.querySelector('video.html5-main-video') || document.querySelector('video');
               if(window.__videoShieldExpandPlaybackWanted && video && !video.ended &&
                   document.documentElement.getAttribute('data-votuibe-surface')==='expanded') {
                 const player=document.querySelector('.html5-video-player');
@@ -76,7 +76,7 @@ object ClientSurfaceScript {
           setTimeout(() => {
             if (!window.__videoShieldPipResumePending || !document.getElementById(id)) return;
             window.__videoShieldPipResumePending = false;
-            const video = document.querySelector('video');
+            const video = document.querySelector('.html5-video-player video.html5-main-video') || document.querySelector('video.html5-main-video') || document.querySelector('video');
             if (video && video.paused && !video.ended) video.play().catch(error => {
               window.__videoShieldPipResumeError = String(error && error.name || 'play failed');
             });

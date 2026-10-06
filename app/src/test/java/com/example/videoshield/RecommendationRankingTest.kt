@@ -51,4 +51,18 @@ class RecommendationRankingTest {
         val ranked = RecommendationEngine.rank(candidates, emptyList(), emptySet(), emptySet(), emptySet(), now, focus = seed)
         assertEquals(listOf("related"), ranked.map { it.video.videoId })
     }
+    @Test fun recentSearchesCanGuideDiscoveryWithoutWatchHistory() {
+        val candidates = listOf(
+            video("coffee", "Vietnamese coffee brewing guide", "Coffee Lab"),
+            video("cars", "Car suspension repair", "Garage")
+        )
+        val ranked = RecommendationEngine.rank(
+            candidates, emptyList(), emptySet(), emptySet(), emptySet(), now,
+            searchQueries = listOf("cà phê brewing")
+        )
+        assertEquals("coffee", ranked.first().video.videoId)
+        assertTrue(ranked.first().score > ranked.last().score)
+        assertTrue(ranked.first().reason.startsWith("Matches a recent search:"))
+    }
+
 }

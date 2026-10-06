@@ -12,34 +12,58 @@
         <LinearLayout
             android:id="@+id/topBar"
             android:layout_width="match_parent"
-            android:layout_height="56dp"
+            android:layout_height="60dp"
             android:orientation="horizontal"
             android:gravity="center_vertical"
             android:paddingStart="12dp"
-            android:paddingEnd="8dp"
+            android:paddingEnd="4dp"
             android:background="?attr/appSurface">
 
-            <Button android:id="@+id/backButton" style="@style/ToolbarButton" android:visibility="gone" android:text="‹" />
+            <com.example.videoshield.IconButton
+                android:id="@+id/backButton"
+                style="@style/ToolbarButton"
+                android:visibility="gone"
+                android:contentDescription="@string/ui_back"
+                android:drawableTop="@drawable/ic_ui_back" />
             <Button android:id="@+id/forwardButton" style="@style/ToolbarButton" android:visibility="gone" android:text="›" />
             <Button android:id="@+id/reloadButton" style="@style/ToolbarButton" android:visibility="gone" android:text="↻" />
 
-            <TextView
-                android:id="@+id/appBrand"
+            <LinearLayout
+                android:id="@+id/brandContainer"
                 android:layout_width="0dp"
-                android:layout_weight="1"
                 android:layout_height="match_parent"
+                android:layout_weight="1"
+                android:orientation="horizontal"
                 android:gravity="center_vertical"
-                android:paddingEnd="10dp"
-                android:text="@string/app_name"
-                android:textColor="?attr/appTextPrimary"
-                android:textSize="21sp"
-                android:textStyle="bold" />
+                android:clickable="true"
+                android:focusable="true"
+                android:paddingEnd="8dp">
+
+                <ImageView
+                    android:id="@+id/brandIcon"
+                    android:layout_width="34dp"
+                    android:layout_height="24dp"
+                    android:src="@drawable/ic_brand_play"
+                    android:contentDescription="@null" />
+
+                <TextView
+                    android:id="@+id/appBrand"
+                    android:layout_width="wrap_content"
+                    android:layout_height="match_parent"
+                    android:layout_marginStart="6dp"
+                    android:gravity="center_vertical"
+                    android:text="@string/app_name"
+                    android:textColor="?attr/appTextPrimary"
+                    android:textSize="22sp"
+                    android:textStyle="bold"
+                    android:fontFamily="sans-serif-condensed" />
+            </LinearLayout>
 
             <EditText
                 android:id="@+id/urlInput"
                 android:visibility="gone"
                 android:layout_width="0dp"
-                android:layout_height="40dp"
+                android:layout_height="42dp"
                 android:layout_weight="1"
                 android:singleLine="true"
                 android:inputType="text"
@@ -47,12 +71,30 @@
                 android:hint="@string/search_youtube"
                 android:textColor="?attr/appTextPrimary"
                 android:textColorHint="?attr/appTextTertiary"
-                android:textSize="14sp"
-                android:paddingHorizontal="12dp"
+                android:textSize="15sp"
+                android:paddingStart="16dp"
+                android:paddingEnd="12dp"
                 android:background="@drawable/bg_address" />
 
-            <com.example.videoshield.IconButton android:id="@+id/goButton" style="@style/ToolbarButton" android:layout_width="48dp" android:contentDescription="@string/ui_search"  android:drawableTop="@drawable/ic_search"/>
-            <com.example.videoshield.IconButton android:id="@+id/settingsButton" style="@style/ToolbarButton" android:contentDescription="@string/ui_settings"  android:drawableTop="@drawable/ic_ui_settings"/>
+            <com.example.videoshield.IconButton
+                android:id="@+id/notificationButton"
+                style="@style/ToolbarButton"
+                android:contentDescription="@string/ui_notifications"
+                android:drawableTop="@drawable/ic_notifications" />
+
+            <com.example.videoshield.IconButton
+                android:id="@+id/goButton"
+                style="@style/ToolbarButton"
+                android:contentDescription="@string/ui_search"
+                android:drawableTop="@drawable/ic_search" />
+
+            <!-- Settings remains addressable for compatibility; it is exposed from Quick Actions/You. -->
+            <com.example.videoshield.IconButton
+                android:id="@+id/settingsButton"
+                style="@style/ToolbarButton"
+                android:visibility="gone"
+                android:contentDescription="@string/ui_settings"
+                android:drawableTop="@drawable/ic_ui_settings" />
         </LinearLayout>
 
         <FrameLayout
@@ -62,10 +104,16 @@
             android:layout_weight="1">
 
             <!-- Browse surface remains alive while a video is playing. -->
-            <WebView
-                android:id="@+id/browseWebView"
+            <com.example.videoshield.HomePullRefreshLayout
+                android:id="@+id/homePullRefresh"
                 android:layout_width="match_parent"
-                android:layout_height="match_parent" />
+                android:layout_height="match_parent">
+
+                <WebView
+                    android:id="@+id/browseWebView"
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent" />
+            </com.example.videoshield.HomePullRefreshLayout>
 
             <!-- Dedicated playback surface. It can be expanded or collapsed into a mini-player. -->
             <com.example.videoshield.PlayerSurfaceLayout
@@ -204,10 +252,32 @@
 
             <View android:layout_width="match_parent" android:layout_height="1dp" android:background="?attr/appDivider" />
 
-            <LinearLayout android:layout_width="match_parent" android:layout_height="55dp" android:orientation="horizontal" android:gravity="center">
+            <LinearLayout
+                android:id="@+id/navigationBar"
+                android:layout_width="match_parent"
+                android:layout_height="64dp"
+                android:orientation="horizontal"
+                android:gravity="center"
+                android:paddingStart="2dp"
+                android:paddingEnd="2dp">
                 <Button android:id="@+id/navHomeButton" style="@style/BottomNavButton" android:text="@string/ui_home" />
                 <Button android:id="@+id/navShieldButton" style="@style/BottomNavButton" android:text="@string/shorts" />
-                <com.example.videoshield.IconButton android:id="@+id/navCreateButton" style="@style/BottomNavButton" android:contentDescription="@string/ui_quick_actions"  android:drawableTop="@drawable/ic_ui_create"/>
+                <FrameLayout
+                    android:layout_width="0dp"
+                    android:layout_height="match_parent"
+                    android:layout_weight="1">
+                    <com.example.videoshield.IconButton
+                        android:id="@+id/navCreateButton"
+                        android:layout_width="48dp"
+                        android:layout_height="48dp"
+                        android:layout_gravity="center"
+                        android:minWidth="0dp"
+                        android:minHeight="0dp"
+                        android:padding="0dp"
+                        android:background="@drawable/bg_create_circle"
+                        android:contentDescription="@string/ui_quick_actions"
+                        android:drawableTop="@drawable/ic_plus" />
+                </FrameLayout>
                 <Button android:id="@+id/navSubscriptionsButton" style="@style/BottomNavButton" android:text="@string/ui_subscriptions" />
                 <Button android:id="@+id/navLibraryButton" style="@style/BottomNavButton" android:text="@string/ui_you" />
             </LinearLayout>

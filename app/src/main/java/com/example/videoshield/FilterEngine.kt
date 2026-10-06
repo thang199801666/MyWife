@@ -1,6 +1,7 @@
 package com.example.videoshield
 
 import android.net.Uri
+import java.util.Locale
 
 class FilterEngine(
     private val preferences: ShieldPreferences,
@@ -12,8 +13,9 @@ class FilterEngine(
     fun shouldBlock(uri: Uri): Boolean {
         if (!preferences.shieldEnabled || preferences.safeMode || pageWhitelisted) return false
 
-        val host = uri.host?.lowercase() ?: return false
-        val path = uri.path.orEmpty()
+        val host = uri.host?.lowercase(Locale.ROOT) ?: return false
+        val path = uri.path.orEmpty().lowercase(Locale.ROOT)
+        val query = uri.encodedQuery?.lowercase(Locale.ROOT)
         val rules = rulePackManager.active()
 
         // Main YouTube media and ads can share googlevideo.com. Never blanket-block it.
@@ -21,8 +23,8 @@ class FilterEngine(
 
         if (rules.blockedHosts.any { host == it || host.endsWith(".$it") }) return true
 
-        if (rules.blockedPathFragments.any { NetworkRuleMatcher.matches(it, path, uri.encodedQuery) }) return true
-        return preferences.blockTrackers && rules.trackerFragments.any { NetworkRuleMatcher.matches(it, path, uri.encodedQuery) }
+        if (rules.blockedPathFragments.any { NetworkRuleMatcher.matchesNormalized(it, path, query) }) return true
+        return preferences.blockTrackers && rules.trackerFragments.any { NetworkRuleMatcher.matchesNormalized(it, path, query) }
     }
 
     fun rewriteNavigation(uri: Uri): Uri? {

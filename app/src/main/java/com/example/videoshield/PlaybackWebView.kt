@@ -1,13 +1,15 @@
 package com.example.videoshield
 
 import android.content.Context
-import android.util.AttributeSet
 import android.graphics.RectF
+import android.util.AttributeSet
 import android.view.MotionEvent
+import android.view.VelocityTracker
 import android.view.ViewConfiguration
 import android.webkit.WebView
 import org.json.JSONArray
 import kotlin.math.abs
+import kotlin.math.min
 
 /** Keeps the playback renderer active only while the app owns an allowed background session. */
 class PlaybackWebView @JvmOverloads constructor(
@@ -19,6 +21,8 @@ class PlaybackWebView @JvmOverloads constructor(
     var canSwipeMinimize: (() -> Boolean)? = null
     var onSwipeMinimize: (() -> Unit)? = null
     var onMinimizeDrag: ((Float) -> Unit)? = null
+    var onMinimizeCancel: (() -> Unit)? = null
+
     private var sequence = 0
     private var touchActive = false
     private var eligible = false
@@ -34,14 +38,20 @@ class PlaybackWebView @JvmOverloads constructor(
     private var cachedWidth = 0
     private var cachedScrollY = 0
     private var boundsRequestPending = false
+    private var velocityTracker: VelocityTracker? = null
+
     private val boundsRefresh = object : Runnable {
         override fun run() {
             if (!isAttachedToWindow || !hasWindowFocus()) return
-            if (canSwipeMinimize?.invoke() == true && !touchActive) refreshVideoBounds()
-            postDelayed(this, 500L)
+            val swipeEnabled = canSwipeMinimize?.invoke() == true
+            if (swipeEnabled && visibility == VISIBLE && !touchActive) refreshVideoBounds()
+            postDelayed(this, if (swipeEnabled) 1_500L else 5_000L)
         }
     }
-    private val captureDistance get() = maxOf(ViewConfiguration.get(context).scaledTouchSlop * 3f, 24f * resources.displayMetrics.density)
+
+    // Capture sooner than before; horizontal scrubbing is still protected by direction checks.
+    private val captureDistance
+        get() = maxOf(ViewConfiguration.get(context).scaledTouchSlop * 2f, 18f * resources.displayMetrics.density)
 
     override fun onAttachedToWindow() {
         super.onAttachedToWindow()
@@ -52,7 +62,7 @@ class PlaybackWebView @JvmOverloads constructor(
     override fun onDetachedFromWindow() {
         removeCallbacks(boundsRefresh)
         cachedVideoBounds = null
-        resetSwipe()
+        resetSwipe(cancelPreview = true)
         super.onDetachedFromWindow()
     }
 
@@ -62,12 +72,27 @@ class PlaybackWebView @JvmOverloads constructor(
         if (hasWindowFocus && isAttachedToWindow) post(boundsRefresh)
     }
 
-    private fun cachedHit(): Boolean {
-        if (cachedUrl != url || cachedWidth != width || android.os.SystemClock.elapsedRealtime() - cachedAt > 2000L) return false
+    private fun cachedHit(maxAgeMs: Long = 15_000L): Boolean {
+        if (cachedUrl != url || cachedWidth != width || android.os.SystemClock.elapsedRealtime() - cachedAt > maxAgeMs) return false
         val bounds = cachedVideoBounds?.let { RectF(it) } ?: return false
         bounds.offset(0f, (cachedScrollY - scrollY).toFloat())
-        bounds.bottom -= 24f * resources.displayMetrics.density
+        // Keep YouTube's bottom transport strip available for native scrubbing/taps.
+        bounds.bottom -= 18f * resources.displayMetrics.density
         return bounds.width() > 0 && bounds.height() > 0 && bounds.contains(startX, startY)
+    }
+
+    /**
+     * Renderer JS can be delayed on a busy watch page. A deterministic native fallback for
+     * the top video viewport prevents a quick downward swipe from being lost while waiting for
+     * getBoundingClientRect(). The fallback is intentionally limited to the visible player area.
+     */
+    private fun nativePlayerFallbackHit(): Boolean {
+        if (width <= 0 || height <= 0 || startX < 0f || startX > width) return false
+        val density = resources.displayMetrics.density
+        val aspectHeight = width * 9f / 16f
+        val maxPlayerBottom = min(height * 0.62f, aspectHeight + 72f * density)
+        val minPlayerBottom = min(height * 0.45f, 180f * density)
+        return startY in 0f..maxOf(minPlayerBottom, maxPlayerBottom)
     }
 
     private fun refreshVideoBounds(after: (() -> Unit)? = null) {
@@ -77,54 +102,74 @@ class PlaybackWebView @JvmOverloads constructor(
         val requestedWidth = width
         val requestedScroll = scrollY
         evaluateJavascript("""(() => {
-            const v=Array.from(document.querySelectorAll('video')).find(v=>{
+            const v=document.querySelector('.html5-video-player video.html5-main-video') ||
+              document.querySelector('video.video-stream.html5-main-video') ||
+              Array.from(document.querySelectorAll('video')).find(v=>{
                 const r=v.getBoundingClientRect();
                 return r.width>0 && r.height>0 && r.bottom>0 && r.top<innerHeight;
-            }); if(!v)return null;
+              });
+            if(!v)return null;
             const r=v.getBoundingClientRect();
             return [r.left,r.top,r.right,r.bottom,innerWidth];
         })()""") { json ->
             boundsRequestPending = false
             if (url != requestedUrl || width != requestedWidth) return@evaluateJavascript
             cachedVideoBounds = runCatching {
-                val a=JSONArray(json)
-                val viewport=a.getDouble(4).toFloat()
+                if (json.isNullOrBlank() || json == "null") return@runCatching null
+                val a = JSONArray(json)
+                val viewport = a.getDouble(4).toFloat()
                 if (viewport <= 0f) return@runCatching null
-                val scale=width/viewport
-                RectF(a.getDouble(0).toFloat()*scale,a.getDouble(1).toFloat()*scale,
-                    a.getDouble(2).toFloat()*scale,a.getDouble(3).toFloat()*scale)
+                val scale = width / viewport
+                RectF(
+                    a.getDouble(0).toFloat() * scale,
+                    a.getDouble(1).toFloat() * scale,
+                    a.getDouble(2).toFloat() * scale,
+                    a.getDouble(3).toFloat() * scale
+                )
             }.getOrNull()
-            cachedUrl=requestedUrl; cachedWidth=requestedWidth; cachedScrollY=requestedScroll
-            cachedAt=android.os.SystemClock.elapsedRealtime()
+            cachedUrl = requestedUrl
+            cachedWidth = requestedWidth
+            cachedScrollY = requestedScroll
+            cachedAt = android.os.SystemClock.elapsedRealtime()
             after?.invoke()
         }
     }
 
     override fun dispatchTouchEvent(event: MotionEvent): Boolean {
         if (event.actionMasked == MotionEvent.ACTION_DOWN) {
-            resetSwipe()
+            resetSwipe(cancelPreview = true)
             touchActive = true
             startX = event.x
             startY = event.y
             startRawX = event.rawX
             startRawY = event.rawY
+            velocityTracker = VelocityTracker.obtain().also { it.addMovement(event) }
             val token = sequence
             if (canSwipeMinimize?.invoke() == true) {
-                // A warm snapshot makes capture synchronous even on a busy renderer.
-                // Fresh URL/width and native scroll offset keep comments outside the region.
-                eligible = cachedHit()
-                if (!eligible) refreshVideoBounds {
-                    if (token == sequence && touchActive && canSwipeMinimize?.invoke() == true) eligible = cachedHit()
+                // Never make gesture capture depend solely on an asynchronous JS callback.
+                eligible = cachedHit() || nativePlayerFallbackHit()
+                refreshVideoBounds {
+                    if (token == sequence && touchActive && canSwipeMinimize?.invoke() == true) {
+                        eligible = cachedHit() || eligible || nativePlayerFallbackHit()
+                    }
                 }
             }
+        } else {
+            velocityTracker?.addMovement(event)
         }
-        if (event.actionMasked == MotionEvent.ACTION_POINTER_DOWN || canSwipeMinimize?.invoke() != true) {
+
+        if (event.actionMasked == MotionEvent.ACTION_POINTER_DOWN) {
+            val wasConsuming = consuming
+            resetSwipe(cancelPreview = true)
+            return if (wasConsuming) true else super.dispatchTouchEvent(event)
+        }
+
+        val swipeStillAllowed = canSwipeMinimize?.invoke() == true
+        if (!swipeStillAllowed && !consuming) {
             touchActive = false
             eligible = false
-            dragging = false
-            onMinimizeDrag?.invoke(0f)
-            // A captured sequence stays consumed until its terminal event.
         }
+
         val dx = event.rawX - startRawX
         val dy = event.rawY - startRawY
         if (event.actionMasked == MotionEvent.ACTION_MOVE && eligible && !consuming &&
@@ -137,28 +182,42 @@ class PlaybackWebView @JvmOverloads constructor(
             dragging = true
             parent?.requestDisallowInterceptTouchEvent(true)
         }
+
         if (consuming) {
-            if (dragging && event.actionMasked == MotionEvent.ACTION_MOVE) onMinimizeDrag?.invoke(dy.coerceAtLeast(0f))
+            if (dragging && event.actionMasked == MotionEvent.ACTION_MOVE) {
+                onMinimizeDrag?.invoke(dy.coerceAtLeast(0f))
+            }
             if (event.actionMasked == MotionEvent.ACTION_UP || event.actionMasked == MotionEvent.ACTION_CANCEL) {
+                velocityTracker?.computeCurrentVelocity(1_000)
+                val yVelocity = velocityTracker?.yVelocity ?: 0f
+                val density = resources.displayMetrics.density
+                val distanceCommit = dy >= 58f * density
+                val flingCommit = dy >= 22f * density && yVelocity >= 900f * density && dy > abs(dx) * 1.05f
                 val minimize = event.actionMasked == MotionEvent.ACTION_UP && dragging && eligible &&
-                    canSwipeMinimize?.invoke() == true && VideoSwipePolicy.downward(dx, dy, 64f * resources.displayMetrics.density)
-                resetSwipe()
+                    swipeStillAllowed && (distanceCommit || flingCommit)
+                resetSwipe(cancelPreview = !minimize)
                 if (minimize) onSwipeMinimize?.invoke()
             }
             return true
         }
+
         val handled = super.dispatchTouchEvent(event)
-        if (event.actionMasked == MotionEvent.ACTION_UP || event.actionMasked == MotionEvent.ACTION_CANCEL) resetSwipe()
+        if (event.actionMasked == MotionEvent.ACTION_UP || event.actionMasked == MotionEvent.ACTION_CANCEL) {
+            resetSwipe(cancelPreview = true)
+        }
         return handled
     }
 
-    private fun resetSwipe() {
+    private fun resetSwipe(cancelPreview: Boolean) {
+        val hadPreview = dragging || consuming
         ++sequence
         touchActive = false
         eligible = false
         dragging = false
         consuming = false
-        onMinimizeDrag?.invoke(0f)
+        velocityTracker?.recycle()
+        velocityTracker = null
+        if (cancelPreview && hadPreview) onMinimizeCancel?.invoke()
         parent?.requestDisallowInterceptTouchEvent(false)
     }
 
@@ -171,5 +230,5 @@ class PlaybackWebView @JvmOverloads constructor(
 /** Require a deliberate downward movement; horizontal scrubbing stays with YouTube. */
 object VideoSwipePolicy {
     fun downward(dx: Float, dy: Float, threshold: Float): Boolean =
-        dx.isFinite() && dy.isFinite() && dy >= threshold && dy > abs(dx) * 1.5f
+        dx.isFinite() && dy.isFinite() && dy >= threshold && dy > abs(dx) * 1.20f
 }

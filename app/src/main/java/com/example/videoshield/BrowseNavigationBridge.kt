@@ -37,8 +37,14 @@ object BrowseNavigationScript {
           }
           window.addEventListener('popstate',report);
           document.addEventListener('yt-navigate-finish',report,true);
-          // Some experiments replace the history methods after installation.
-          setInterval(report,1000);
+          // Some experiments replace the history methods after installation. The normal
+          // history + yt-navigate hooks are immediate, so this is only a low-frequency
+          // fallback instead of a permanent 1 Hz wake-up.
+          const fallback=()=>{
+            report();
+            setTimeout(fallback,document.visibilityState==='hidden'?15000:4000);
+          };
+          setTimeout(fallback,4000);
           report();
         })();
     """.trimIndent()

@@ -69,9 +69,9 @@ class ShieldPreferences(context: Context) {
         get() = prefs.getInt(KEY_DOUBLE_TAP_SEEK_SECONDS, 10).coerceIn(5, 30)
         set(value) = prefs.edit().putInt(KEY_DOUBLE_TAP_SEEK_SECONDS, value.coerceIn(5, 30)).apply()
 
-    /** Manual app chrome theme. false = black theme, true = light theme. */
+    /** Manual app chrome theme. YouTube-like light chrome is the default; black remains selectable. */
     var lightTheme: Boolean
-        get() = prefs.getBoolean(KEY_LIGHT_THEME, false)
+        get() = prefs.getBoolean(KEY_LIGHT_THEME, true)
         set(value) {
             prefs.edit()
                 .putBoolean(KEY_LIGHT_THEME, value)
@@ -94,7 +94,12 @@ class ShieldPreferences(context: Context) {
 
     var autoRepeat: Boolean
         get() = prefs.getBoolean(KEY_AUTO_REPEAT, false)
-        set(value) = prefs.edit().putBoolean(KEY_AUTO_REPEAT, value).apply()
+        set(value) {
+            // Repeat is a user-facing playback mode that must survive an immediate
+            // activity/process restart. commit() makes the state durable before the
+            // UI reports the toggle as enabled.
+            prefs.edit().putBoolean(KEY_AUTO_REPEAT, value).commit()
+        }
 
     var preferredQuality: String
         get() = prefs.getString(KEY_PREFERRED_QUALITY, "adaptive")
@@ -161,7 +166,10 @@ class ShieldPreferences(context: Context) {
 
     var playbackSpeed: Float
         get() = prefs.getFloat(KEY_PLAYBACK_SPEED, 1.0f).coerceIn(0.25f, 4.0f)
-        set(value) = prefs.edit().putFloat(KEY_PLAYBACK_SPEED, value.coerceIn(0.25f, 4.0f)).apply()
+        set(value) {
+            // Keep the selected rate stable across immediate app restarts as well.
+            prefs.edit().putFloat(KEY_PLAYBACK_SPEED, value.coerceIn(0.25f, 4.0f)).commit()
+        }
 
     var sleepTimerEndAtMs: Long
         get() = prefs.getLong(KEY_SLEEP_TIMER_END_AT_MS, 0L)

@@ -17,10 +17,12 @@ import java.util.concurrent.TimeUnit
 /** Small, bounded image cache; reused rows never receive another video's image. */
 class VideoThumbnailLoader {
     private val main = Handler(Looper.getMainLooper())
-    private val cache = object : LruCache<String, Bitmap>(4 * 1024 * 1024) {
+    private val cache = object : LruCache<String, Bitmap>(2 * 1024 * 1024) {
         override fun sizeOf(key: String, value: Bitmap) = value.byteCount
     }
-    private val worker = ThreadPoolExecutor(2, 2, 15, TimeUnit.SECONDS, ArrayBlockingQueue(40))
+    // One decoder avoids parallel bitmap allocations and an extra native thread stack;
+    // the queue keeps scrolling non-blocking while memory use stays bounded.
+    private val worker = ThreadPoolExecutor(1, 1, 15, TimeUnit.SECONDS, ArrayBlockingQueue(32))
     @Volatile private var closed = false
     private val validVideoId = Regex("[A-Za-z0-9_-]{11}")
     private val requests = mutableMapOf<String, MutableList<WeakReference<ImageView>>>()

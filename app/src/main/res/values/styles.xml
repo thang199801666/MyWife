@@ -50,11 +50,11 @@
     <style name="AppThemeLightBase" parent="android:style/Theme.Material.Light.NoActionBar">
         <item name="android:fontFamily">sans</item>
         <item name="android:windowLightStatusBar">true</item>
-        <item name="android:statusBarColor">#FAFAFA</item>
-        <item name="android:navigationBarColor">#FAFAFA</item>
+        <item name="android:statusBarColor">#FFFFFF</item>
+        <item name="android:navigationBarColor">#FFFFFF</item>
         <item name="android:colorAccent">#FF3358</item>
-        <item name="android:windowBackground">#FAFAFA</item>
-        <item name="appBackground">#FAFAFA</item>
+        <item name="android:windowBackground">#FFFFFF</item>
+        <item name="appBackground">#FFFFFF</item>
         <item name="appSurface">#FFFFFF</item>
         <item name="appSurfaceElevated">#F3F4F6</item>
         <item name="appControlSurface">#ECEFF3</item>
@@ -132,9 +132,12 @@
         <item name="android:minWidth">0dp</item>
         <item name="android:minHeight">0dp</item>
         <item name="android:textColor">?attr/appTextSecondary</item>
-        <item name="android:textSize">10sp</item>
-        <item name="android:drawablePadding">4dp</item>
-        <item name="android:padding">4dp</item>
+        <item name="android:textSize">11sp</item>
+        <item name="android:drawablePadding">3dp</item>
+        <item name="android:paddingTop">5dp</item>
+        <item name="android:paddingBottom">3dp</item>
+        <item name="android:paddingStart">2dp</item>
+        <item name="android:paddingEnd">2dp</item>
         <item name="android:textAllCaps">false</item>
             <item name="android:drawableTint">?attr/appIconColor</item>
     </style>

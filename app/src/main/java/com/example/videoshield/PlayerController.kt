@@ -27,7 +27,26 @@ class PlayerController(private val webView: WebView) {
     }
 
     fun setRepeatEnabled(enabled: Boolean) {
-        evaluate("window.__videoShieldSetRepeat && window.__videoShieldSetRepeat(${if (enabled) "true" else "false"})")
+        val value = if (enabled) "true" else "false"
+        evaluate(
+            """(() => {
+              const enabled = $value;
+              try {
+                if (!window.__videoShieldCfg) window.__videoShieldCfg = {};
+                window.__videoShieldCfg.autoRepeat = enabled;
+                if (typeof window.__videoShieldSetRepeat === 'function') {
+                  window.__videoShieldSetRepeat(enabled);
+                }
+                const player = document.querySelector('.html5-video-player');
+                const video = player?.querySelector('video.html5-main-video') ||
+                  document.querySelector('video.video-stream.html5-main-video') ||
+                  player?.querySelector('video') || document.querySelector('video');
+                if (!video) return false;
+                video.loop = enabled;
+                return video.loop === enabled;
+              } catch (_) { return false; }
+            })()""".trimIndent()
+        )
     }
 
     fun setPlaybackRate(rate: Float) {
@@ -43,14 +62,18 @@ class PlayerController(private val webView: WebView) {
                   return window.__videoShieldSetRate(rate);
                 }
                 const player = document.querySelector('.html5-video-player');
-                const video = player?.querySelector('video') || document.querySelector('video');
+                const video = player?.querySelector('video.html5-main-video') ||
+                  document.querySelector('video.video-stream.html5-main-video') ||
+                  player?.querySelector('video') || document.querySelector('video');
                 if (player && typeof player.setPlaybackRate === 'function') {
                   try { player.setPlaybackRate(rate); } catch (_) {}
                 }
                 if (!video) return false;
                 video.defaultPlaybackRate = rate;
                 video.playbackRate = rate;
-                return true;
+                // Read-back catches renderer/player resets; the injected policy will
+                // retry if YouTube replaces or normalizes the media element.
+                return Math.abs((Number(video.playbackRate) || 1) - rate) <= 0.01;
               } catch (_) { return false; }
             })()""".trimIndent()
         )

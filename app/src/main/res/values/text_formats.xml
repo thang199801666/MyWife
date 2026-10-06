@@ -23,6 +23,7 @@
     <string name="health_failed">Phát bị gián đoạn</string>
     <string name="search_suggestions">Gợi ý tìm kiếm</string>
     <string name="search_suggestion">Tìm kiếm %1$s</string>
+    <string name="search_history_suggestion">Tìm lại %1$s</string>
     <string name="brightness">Độ sáng %1$d%%</string>
     <string name="volume">Âm lượng %1$d%%</string>
     <string name="release_minimize">Thả tay để thu nhỏ video</string>
@@ -62,6 +63,7 @@
     <string name="recommend_followed">Từ kênh bạn đăng ký</string>
     <string name="recommend_watched">Vì bạn xem %1$s</string>
     <string name="recommend_interest">Hợp sở thích của bạn: %1$s</string>
+    <string name="recommend_search">Dựa trên tìm kiếm gần đây: %1$s</string>
     <string name="home_hint">Xem hoặc tìm kiếm video để khám phá thêm nội dung phù hợp với bạn.</string>
     <string name="history_suggestions">Gợi ý theo lịch sử xem</string>
     <string name="next_videos">Video phát tiếp theo</string>

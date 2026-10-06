@@ -23,6 +23,7 @@
     <string name="health_failed">Playback interrupted</string>
     <string name="search_suggestions">Search suggestions</string>
     <string name="search_suggestion">Search %1$s</string>
+    <string name="search_history_suggestion">Search again for %1$s</string>
     <string name="brightness">Brightness %1$d%%</string>
     <string name="volume">Volume %1$d%%</string>
     <string name="release_minimize">Release to minimize video</string>
@@ -62,6 +63,7 @@
     <string name="recommend_followed">From a channel you follow</string>
     <string name="recommend_watched">Because you watch %1$s</string>
     <string name="recommend_interest">Matches your interest: %1$s</string>
+    <string name="recommend_search">Based on a recent search: %1$s</string>
     <string name="home_hint">Watch or search for videos to discover more content you may like.</string>
     <string name="history_suggestions">Suggestions from your watch history</string>
     <string name="next_videos">Videos to play next</string>

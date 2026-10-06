@@ -26,6 +26,7 @@ object LocalizedPresentation {
         value == "From a channel you follow" -> context.getString(R.string.recommend_followed)
         value.startsWith("Because you watch ") -> context.getString(R.string.recommend_watched,value.removePrefix("Because you watch "))
         value.startsWith("Matches your interest: ") -> context.getString(R.string.recommend_interest,value.removePrefix("Matches your interest: "))
+        value.startsWith("Matches a recent search: ") -> context.getString(R.string.recommend_search,value.removePrefix("Matches a recent search: "))
         value.startsWith("Similar to: ") -> context.getString(R.string.recommend_similar,value.removePrefix("Similar to: "))
         value == "New discovery from pages you browsed" -> context.getString(R.string.recommend_new)
         else -> value

@@ -55,8 +55,8 @@ class LibraryActivity : LocalizedActivity() {
     private val searchFilter = Runnable { if (!isDestroyed && !isFinishing) displayRows() }
     private val miniPlayerTicker = object : Runnable {
         override fun run() {
-            refreshNowPlaying()
-            miniPlayerHandler.postDelayed(this, 1_000L)
+            val playing = refreshNowPlaying()
+            miniPlayerHandler.postDelayed(this, if (playing) 1_000L else 3_000L)
         }
     }
 
@@ -176,11 +176,11 @@ class LibraryActivity : LocalizedActivity() {
         refreshNowPlaying()
     }
 
-    private fun refreshNowPlaying() {
+    private fun refreshNowPlaying(): Boolean {
         val s = snapshotStore.get()
         val hasMedia = s.title.isNotBlank() && s.url.isNotBlank()
         miniPlayerBar.visibility = if (hasMedia) View.VISIBLE else View.GONE
-        if (!hasMedia) return
+        if (!hasMedia) return false
 
         val position = s.predictedPositionMs()
         val time = if (s.durationMs > 0L) " • ${formatTime(position)} / ${formatTime(s.durationMs)}" else ""
@@ -202,6 +202,7 @@ class LibraryActivity : LocalizedActivity() {
             ((position.coerceIn(0L, s.durationMs) * 1000L) / s.durationMs).toInt().coerceIn(0, 1000)
         } else 0
         if (nowPlayingProgress.progress != progress) nowPlayingProgress.progress = progress
+        return s.playing
     }
 
     private fun refresh() {
@@ -235,6 +236,7 @@ class LibraryActivity : LocalizedActivity() {
         empty.text = getString(R.string.ui_loading)
         val since = preferences.recommendationsSince
         val focus = relatedVideo
+        val recentSearches = SearchHistoryStore(this).recent(24).filter { it.usedAt >= since }.map { it.query }
         suggestionWorker.execute {
             val result = runCatching {
                 val favorites = store.favoriteIds()
@@ -243,7 +245,7 @@ class LibraryActivity : LocalizedActivity() {
                         val seed = focus ?: store.history(1).firstOrNull()
                         if (seed == null) emptyList() else store.recommendations(since, focus = seed).map { LibraryRow.Suggestion(it) }
                     }
-                    MODE_FOR_YOU -> store.recommendations(since).map { LibraryRow.Suggestion(it) }
+                    MODE_FOR_YOU -> store.recommendations(since, searchQueries = recentSearches).map { LibraryRow.Suggestion(it) }
                     MODE_CONTINUE -> store.history(1000).filter(LibraryPolicy::canResume).map { LibraryRow.Video(it, it.videoId in favorites, false) }
                     MODE_FAVORITES -> store.favorites().map { LibraryRow.Video(it, true, false) }
                     MODE_QUEUE -> store.queue().map { LibraryRow.Video(it, it.videoId in favorites, true) }

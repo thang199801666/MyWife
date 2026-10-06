@@ -4,6 +4,8 @@
     <string name="ui_subscriptions" formatted="false">Kênh đã đăng ký</string>
     <string name="ui_search" formatted="false">Tìm kiếm</string>
     <string name="ui_settings" formatted="false">Cài đặt</string>
+    <string name="ui_notifications" formatted="false">Thông báo</string>
+    <string name="no_new_notifications" formatted="false">Không có thông báo mới</string>
     <string name="ui_back" formatted="false">Quay lại</string>
     <string name="ui_close" formatted="false">Đóng</string>
     <string name="ui_close_menu" formatted="false">Đóng menu</string>
@@ -173,7 +175,7 @@
     <string name="ui_learn_viewing_habits_locally_and_suggest_videos_in_for_you" formatted="false">Học thói quen xem trên thiết bị và gợi ý trong Dành cho bạn</string>
     <string name="ui_clear_learned_preferences_and_suggestions" formatted="false">Xóa sở thích đã học và gợi ý</string>
     <string name="ui_learned_viewing_preferences_cleared" formatted="false">Đã xóa sở thích xem đã học</string>
-    <string name="ui_learning_requires_watch_history_suggestions_use_viewing_time_favo" formatted="false">Cần lịch sử xem để học sở thích. Gợi ý dựa trên thời gian xem, video yêu thích và kênh đăng ký trên thiết bị. Hồ sơ sở thích không được tải lên mạng. Xóa sẽ bỏ dữ liệu đã học, gợi ý và phản hồi; vẫn giữ yêu thích và kênh đăng ký.</string>
+    <string name="ui_learning_requires_watch_history_suggestions_use_viewing_time_favo" formatted="false">Cần lịch sử xem để học sở thích. Gợi ý dựa trên thời gian xem, video yêu thích, kênh đăng ký và các tìm kiếm gần đây trên thiết bị. Lịch sử tìm kiếm và hồ sơ sở thích không được tải lên mạng. Xóa sẽ bỏ dữ liệu đã học, gợi ý và phản hồi; vẫn giữ yêu thích và kênh đăng ký.</string>
     <string name="ui_remember_watch_history_and_playback_position_locally" formatted="false">Lưu lịch sử xem và vị trí phát trên thiết bị</string>
     <string name="ui_resume_videos_from_the_last_local_playback_position" formatted="false">Tiếp tục video từ vị trí xem trước đó</string>
     <string name="ui_automatically_play_the_next_item_in_queue" formatted="false">Tự phát video tiếp theo trong hàng đợi</string>

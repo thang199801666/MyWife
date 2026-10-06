@@ -16,7 +16,8 @@ object RecommendationEngine {
 
     fun rank(candidates: List<VideoItem>, evidence: List<InterestEvidence>, subscriptions: Set<String>,
              dismissed: Set<String>, seen: Set<String>, now: Long, limit: Int = 50,
-             blockedChannels: Set<String> = emptySet(), focus: VideoItem? = null): List<SuggestedVideo> {
+             blockedChannels: Set<String> = emptySet(), focus: VideoItem? = null,
+             searchQueries: List<String> = emptyList()): List<SuggestedVideo> {
         val channels = mutableMapOf<String, Double>()
         val topics = mutableMapOf<String, Double>()
         evidence.forEach { e ->
@@ -35,6 +36,13 @@ object RecommendationEngine {
             }
         }
         val subscribed = subscriptions.map { it.trim().lowercase(Locale.ROOT) }.toSet()
+        // Recent searches are weak, local-only interest evidence. They should influence discovery
+        // without overpowering actual watch time, favorites, or subscriptions.
+        val searchTopics = mutableMapOf<String, Double>()
+        searchQueries.take(24).forEachIndexed { index, query ->
+            val weight = 2.4 / (1.0 + index / 4.0)
+            tokens(query).forEach { token -> searchTopics[token] = (searchTopics[token] ?: 0.0) + weight }
+        }
         val blocked = blockedChannels.map { LibraryPolicy.channelKey(it) }.filter { it.isNotBlank() }.toSet()
         val focusTopics = focus?.let { tokens(it.title) }.orEmpty()
         val focusChannel = focus?.let { LibraryPolicy.channelKey(it.channel) }.orEmpty()
@@ -45,6 +53,8 @@ object RecommendationEngine {
             val channelScore = (channels[channel] ?: 0.0).coerceAtMost(12.0)
             val matches = tokens(video.title).filter { (topics[it] ?: 0.0) > 0 }.sortedByDescending { topics[it] }
             val topicScore = matches.take(4).sumOf { (topics[it] ?: 0.0).coerceAtMost(3.0) }
+            val searchMatches = tokens(video.title).filter { (searchTopics[it] ?: 0.0) > 0 }.sortedByDescending { searchTopics[it] }
+            val searchScore = searchMatches.take(4).sumOf { (searchTopics[it] ?: 0.0).coerceAtMost(2.4) }
             val subscription = channel.isNotBlank() && channel in subscribed
             val relatedTopics = tokens(video.title).intersect(focusTopics)
             val sameChannel = focusChannel.isNotBlank() && LibraryPolicy.channelKey(video.channel) == focusChannel
@@ -57,9 +67,10 @@ object RecommendationEngine {
                 subscription -> "From a channel you follow"
                 channelScore > 0 -> "Because you watch ${video.channel}"
                 matches.isNotEmpty() -> "Matches your interest: ${matches.take(2).joinToString(", ")}"
+                searchMatches.isNotEmpty() -> "Matches a recent search: ${searchMatches.take(2).joinToString(", ")}"
                 else -> "New discovery from pages you browsed"
             }
-            SuggestedVideo(video, reason, if (focus != null) relatedScore else channelScore * 2 + topicScore + if (subscription) 10.0 else 0.0)
+            SuggestedVideo(video, reason, if (focus != null) relatedScore else channelScore * 2 + topicScore + searchScore * 1.35 + if (subscription) 10.0 else 0.0)
         }.filter { focus == null || it.score > 0 }
             .sortedWith(compareByDescending<SuggestedVideo> { it.score }.thenByDescending { it.video.lastPlayedAt }.thenBy { it.video.videoId })
         // Avoid a single channel occupying the whole list. No automatic queue changes.

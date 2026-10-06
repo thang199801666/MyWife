@@ -40,6 +40,7 @@ class MainActivity : LocalizedActivity() {
     private val libraryWorker = java.util.concurrent.Executors.newSingleThreadExecutor()
     private val habitTracker = ViewingHabitTracker()
     private var homeRecommendationRequest = 0L
+    private var homeRecommendationOffset = 0
 
     private fun refreshHomeRecommendations() {
         if (!::browseWebView.isInitialized || isDestroyed || isFinishing || libraryWorker.isShutdown) return
@@ -47,13 +48,29 @@ class MainActivity : LocalizedActivity() {
         if (YouTubeRoute.parse(browseWebView.url).destination != YouTubeDestination.HOME) return
         val enabled = preferences.personalizedSuggestions && preferences.rememberHistory
         val since = preferences.recommendationsSince
+        val recommendationOffset = homeRecommendationOffset
+        val recentSearches = if (::searchHistoryStore.isInitialized) {
+            searchHistoryStore.recent(24).filter { it.usedAt >= since }.map { it.query }
+        } else emptyList()
+        val lightTheme = AppTheme.isLight(this)
         libraryWorker.execute {
-            val rows = if (enabled) runCatching { libraryStore.recommendations(since).take(12) }.getOrDefault(emptyList()) else emptyList()
-            val script = HomeRecommendationsScript.build(enabled, rows.map { it.copy(reason=LocalizedPresentation.recommendation(this,it.reason)) },getString(R.string.ui_for_you),getString(R.string.home_hint))
+            val ranked = if (enabled) runCatching { libraryStore.recommendations(since, searchQueries = recentSearches) }.getOrDefault(emptyList()) else emptyList()
+            val rows = if (ranked.size <= 12) ranked else {
+                val start = recommendationOffset.mod(ranked.size)
+                (ranked.drop(start) + ranked.take(start)).take(12)
+            }
+            val script = HomeRecommendationsScript.build(
+                enabled,
+                rows.map { it.copy(reason = LocalizedPresentation.recommendation(this, it.reason)) },
+                getString(R.string.ui_for_you),
+                getString(R.string.home_hint),
+                lightTheme
+            )
             runOnUiThread {
                 if (!isDestroyed && !isFinishing && request == homeRecommendationRequest &&
                     enabled == (preferences.personalizedSuggestions && preferences.rememberHistory) &&
                     since == preferences.recommendationsSince &&
+                    recommendationOffset == homeRecommendationOffset &&
                     YouTubeAdapter.isTrustedBridgeUrl(browseWebView.url) &&
                     YouTubeRoute.parse(browseWebView.url).destination == YouTubeDestination.HOME) {
                     browseWebView.evaluateJavascript(script, null)
@@ -82,6 +99,7 @@ class MainActivity : LocalizedActivity() {
     }
     private lateinit var webView: WebView
     private lateinit var browseWebView: WebView
+    private lateinit var homePullRefreshLayout: HomePullRefreshLayout
     private lateinit var playerSurfaceController: PlayerSurfaceController
     private var miniSurfaceApplied = false
     private var earlyPlayerScript: androidx.webkit.ScriptHandler? = null
@@ -111,6 +129,7 @@ class MainActivity : LocalizedActivity() {
     private lateinit var compatibilityMonitor: CompatibilityMonitor
     private lateinit var stats: ShieldStats
     private lateinit var libraryStore: LibraryStore
+    private lateinit var searchHistoryStore: SearchHistoryStore
     private lateinit var playerController: PlayerController
     private lateinit var playbackBackend: PlaybackBackend
     private lateinit var sleepTimerController: SleepTimerController
@@ -155,6 +174,7 @@ class MainActivity : LocalizedActivity() {
     private var surfaceBeforePip: String? = null
     private var playingBeforePip = false
     private var pipPlaybackWanted = false
+    private var browseWebViewPaused = false
 
 
     @SuppressLint("SetJavaScriptEnabled")
@@ -177,6 +197,7 @@ class MainActivity : LocalizedActivity() {
         browseFilterEngine = FilterEngine(preferences, rulePackManager)
         stats = ShieldStats(this)
         libraryStore = LibraryStore(this)
+        searchHistoryStore = SearchHistoryStore(this)
         playbackSession = PlaybackSessionCoordinator(PlaybackSnapshotStore(this), PlaybackServicePublisher(this))
         recoveryDiagnostics = RecoveryDiagnosticsStore(this)
         compatibilityDiagnostics = CompatibilityDiagnosticsStore(this)
@@ -210,11 +231,29 @@ class MainActivity : LocalizedActivity() {
 
         webView = findViewById(R.id.webView)
         browseWebView = findViewById(R.id.browseWebView)
+        homePullRefreshLayout = findViewById(R.id.homePullRefresh)
         playerSurfaceController = PlayerSurfaceController(
             this,
             findViewById(R.id.playerSurface),
             findViewById(R.id.miniPlayerChrome)
         )
+        homePullRefreshLayout.canStartRefresh = {
+            !isInPictureInPictureMode &&
+                browseWebView.visibility == View.VISIBLE &&
+                browseRoute.destination == YouTubeDestination.HOME &&
+                !playerSurfaceController.expanded
+        }
+        homePullRefreshLayout.onRefresh = {
+            if (!isDestroyed && !isFinishing && browseRoute.destination == YouTubeDestination.HOME) {
+                // Rotate the app's local For You block as well as asking YouTube for a fresh Home feed.
+                homeRecommendationOffset += 12
+                ++homeRecommendationRequest
+                if (YouTubeAdapter.isTrustedBridgeUrl(browseWebView.url)) browseWebView.reload()
+                else browseWebView.loadUrl(AppLanguage.youtubeUrl(this, YouTubeRoute.HOME_URL))
+            } else {
+                homePullRefreshLayout.finishRefresh()
+            }
+        }
         findViewById<PlayerSurfaceLayout>(R.id.playerSurface).apply {
             isMini = { playerSurfaceController.minimized && !isInPictureInPictureMode }
             onVideoTap = { expandPlayer() }
@@ -298,8 +337,13 @@ class MainActivity : LocalizedActivity() {
         fullscreenContainer.bindFeedback(findViewById(R.id.fullscreenGestureFeedback))
         fullscreenContainer.callback = object : FullscreenGestureLayout.Callback {
             override fun exitFullscreen() {
-                this@MainActivity.exitFullscreen()
-                minimizePlayer()
+                animateFullscreenMinimize()
+            }
+            override fun previewExit(distancePx: Float) {
+                previewFullscreenMinimize(distancePx)
+            }
+            override fun cancelExitPreview() {
+                cancelFullscreenMinimizePreview()
             }
             override fun currentPositionMs(): Long = playbackSession.estimatedPositionMs(preferences.playbackSpeed)
             override fun currentDurationMs(): Long = playbackSession.state.durationMs
@@ -373,6 +417,7 @@ class MainActivity : LocalizedActivity() {
             }
             onSwipeMinimize = { minimizePlayer() }
             onMinimizeDrag = { playerSurfaceController.previewMinimize(it) }
+            onMinimizeCancel = { playerSurfaceController.cancelMinimizePreview(animated = true) }
         }
         (webView as PlaybackWebView).keepActiveWhenHidden = {
             preferences.backgroundControls && preferences.screenOffPlayback &&
@@ -401,14 +446,8 @@ class MainActivity : LocalizedActivity() {
         webView.addJavascriptInterface(
             VideoShieldBridge(
                 originAllowed = { isTrustedBridgeOrigin() },
-                onPageAdsHidden = { count ->
-                    stats.pageAdsHidden(count)
-                    runOnUiThread { refreshUi() }
-                },
-                onAdSkipped = {
-                    stats.adSkipped()
-                    runOnUiThread { refreshUi() }
-                },
+                onPageAdsHidden = { count -> stats.pageAdsHidden(count) },
+                onAdSkipped = { stats.adSkipped() },
                 onSegmentSkipped = { category, durationMs ->
                     stats.segmentSkipped()
                     runOnUiThread {
@@ -416,7 +455,6 @@ class MainActivity : LocalizedActivity() {
                             val seconds = (durationMs / 1000L).coerceAtLeast(1L)
                             Toast.makeText(this, getString(R.string.segment_skipped,segmentCategoryLabel(category),seconds), Toast.LENGTH_SHORT).show()
                         }
-                        refreshUi()
                     }
                 },
                 onPlaybackState = { playing, title, channel, channelUrl, videoId, positionMs, durationMs ->
@@ -461,6 +499,12 @@ class MainActivity : LocalizedActivity() {
                     0,
                     FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT)
                 )
+                fullscreenContainer.animate().cancel()
+                fullscreenContainer.translationX = 0f
+                fullscreenContainer.translationY = 0f
+                fullscreenContainer.scaleX = 1f
+                fullscreenContainer.scaleY = 1f
+                fullscreenContainer.alpha = 1f
                 fullscreenContainer.visibility = View.VISIBLE
                 webView.visibility = View.GONE
                 topBar.visibility = View.GONE
@@ -484,10 +528,7 @@ class MainActivity : LocalizedActivity() {
                     (if (isInPictureInPictureMode) "\n" + ClientSurfaceScript.pip(true, pipPlaybackWanted) else "") +
                     (if (playerSurfaceController.minimized) "\n" + ClientSurfaceScript.mini(true, playbackSession.state.playing) else "")
             },
-            onBlocked = {
-                stats.networkBlocked()
-                runOnUiThread { refreshUi() }
-            },
+            onBlocked = { stats.networkBlocked() },
             onUrlChanged = { url ->
                 runOnUiThread {
                     preferences.lastUrl = url
@@ -606,10 +647,7 @@ class MainActivity : LocalizedActivity() {
                     preferredQualityOverride = effectivePreferredQuality()
                 ) + "\n" + EarlyAdScript.build(preferences) + "\n" + DiscoveryScript.build(preferences.personalizedSuggestions && preferences.rememberHistory) + "\n" + ClientSurfaceScript.browse(preferences.lightTheme) + "\n" + BrowseNavigationScript.build() + "\n" + SearchPreviewScript.build()
             },
-            onBlocked = {
-                stats.networkBlocked()
-                runOnUiThread { refreshUi() }
-            },
+            onBlocked = { stats.networkBlocked() },
             onUrlChanged = { url ->
                 runOnUiThread {
                     val route = YouTubeRoute.parse(url)
@@ -634,11 +672,20 @@ class MainActivity : LocalizedActivity() {
             onNavigationStarted = { url ->
                 val route = YouTubeRoute.parse(url)
                 if (!route.isPlayback) browseRoute = route
-                runOnUiThread { refreshUi() }
+                runOnUiThread {
+                    if (route.destination != YouTubeDestination.HOME) homePullRefreshLayout.finishRefresh()
+                    refreshUi()
+                }
             },
-            onPageReady = { runOnUiThread { refreshHomeRecommendations() } },
+            onPageReady = {
+                runOnUiThread {
+                    homePullRefreshLayout.finishRefresh()
+                    refreshHomeRecommendations()
+                }
+            },
             onMainFrameError = { message ->
                 runOnUiThread {
+                    homePullRefreshLayout.finishRefresh()
                     if (message.isNotBlank() && !playerSurfaceController.expanded) {
                         statusText.text = getString(R.string.browse_error,message)
                     }
@@ -673,17 +720,18 @@ class MainActivity : LocalizedActivity() {
         findViewById<Button>(R.id.minimizePlayerButton).setLeadingIcon(R.drawable.ic_ui_minimize)
         findViewById<Button>(R.id.sleepButton).setLeadingIcon(R.drawable.ic_ui_timer)
         findViewById<Button>(R.id.pipButton).setLeadingIcon(R.drawable.ic_ui_pip)
+        findViewById<View>(R.id.brandContainer).setOnClickListener { showBrowseDestination(YouTubeRoute.HOME_URL) }
         findViewById<TextView>(R.id.appBrand).setOnClickListener { showBrowseDestination(YouTubeRoute.HOME_URL) }
-        findViewById<Button>(R.id.backButton).setOnClickListener { if (browseWebView.canGoBack()) browseWebView.goBack() }
+        findViewById<Button>(R.id.backButton).setOnClickListener {
+            if (urlInput.visibility == View.VISIBLE) exitSearchMode() else if (browseWebView.canGoBack()) browseWebView.goBack()
+        }
         findViewById<Button>(R.id.forwardButton).setOnClickListener { if (browseWebView.canGoForward()) browseWebView.goForward() }
         findViewById<Button>(R.id.reloadButton).setOnClickListener { browseWebView.reload() }
         findViewById<Button>(R.id.goButton).setOnClickListener {
-            if (urlInput.visibility != View.VISIBLE) {
-                findViewById<View>(R.id.appBrand).visibility = View.GONE
-                urlInput.visibility = View.VISIBLE
-                urlInput.requestFocus()
-                (getSystemService(INPUT_METHOD_SERVICE) as android.view.inputmethod.InputMethodManager).showSoftInput(urlInput, android.view.inputmethod.InputMethodManager.SHOW_IMPLICIT)
-            } else navigateFromAddressBar()
+            if (urlInput.visibility != View.VISIBLE) enterSearchMode() else navigateFromAddressBar()
+        }
+        findViewById<Button>(R.id.notificationButton).setOnClickListener {
+            Toast.makeText(this, getString(R.string.no_new_notifications), Toast.LENGTH_SHORT).show()
         }
         findViewById<Button>(R.id.pipButton).setOnClickListener { enterPip() }
         findViewById<Button>(R.id.settingsButton).setOnClickListener {
@@ -796,8 +844,8 @@ class MainActivity : LocalizedActivity() {
         super.onResume()
         if (::searchSuggestions.isInitialized) searchSuggestions.resume()
         refreshHomeRecommendations()
-        if (::browseWebView.isInitialized) try { browseWebView.onResume() } catch (_: Exception) {}
         if (::webViewLifecycle.isInitialized) webViewLifecycle.onActivityResumed()
+        syncBrowseWebViewActivity()
         if (::rendererCrashGuard.isInitialized) rendererCrashGuard.markStable()
         if (::networkStateMonitor.isInitialized) networkStateMonitor.start()
         if (::playbackRecovery.isInitialized) playbackRecovery.setActive(true)
@@ -830,6 +878,12 @@ class MainActivity : LocalizedActivity() {
                 lastPolicyFingerprint = fingerprint
                 applyPolicyAndRefresh()
             }
+            // Playback rate/repeat are live controls, not page policies. Always re-assert
+            // them after returning from Settings or foregrounding the app.
+            if (::playbackBackend.isInitialized && playerSurfaceController.visible) {
+                playbackBackend.setRepeatEnabled(preferences.autoRepeat)
+                playbackBackend.setPlaybackRate(preferences.playbackSpeed)
+            }
         }
     }
 
@@ -838,11 +892,25 @@ class MainActivity : LocalizedActivity() {
         if (::searchSuggestions.isInitialized) searchSuggestions.pause()
         window.decorView.removeCallbacks(uiRefreshFrame)
         uiRefreshPending = false
-        if (::browseWebView.isInitialized) try { browseWebView.onPause() } catch (_: Exception) {}
+        setBrowseWebViewPaused(true)
         if (::webViewLifecycle.isInitialized) webViewLifecycle.onActivityPaused()
         if (::networkStateMonitor.isInitialized) networkStateMonitor.stop()
         if (::playbackRecovery.isInitialized) playbackRecovery.setActive(false)
         super.onPause()
+    }
+
+    private fun setBrowseWebViewPaused(paused: Boolean) {
+        if (!::browseWebView.isInitialized || browseWebViewPaused == paused) return
+        try {
+            if (paused) browseWebView.onPause() else browseWebView.onResume()
+            browseWebViewPaused = paused
+        } catch (_: Exception) {}
+    }
+
+    private fun syncBrowseWebViewActivity() {
+        if (!::browseWebView.isInitialized || !::playerSurfaceController.isInitialized) return
+        val foreground = !::webViewLifecycle.isInitialized || webViewLifecycle.foreground
+        setBrowseWebViewPaused(!foreground || playerSurfaceController.expanded || isInPictureInPictureMode)
     }
 
     private fun applyPolicyAndRefresh() {
@@ -881,15 +949,37 @@ class MainActivity : LocalizedActivity() {
         earlyScriptPolicy = script
     }
 
-    private fun navigateFromAddressBar() {
-        searchSuggestions.dismiss()
-        val target = NavigationTargetResolver.resolveAddressInput(urlInput.text.toString()) ?: return
-        navigateClient(target, expandPlayback = true)
+    private fun enterSearchMode() {
+        if (urlInput.visibility == View.VISIBLE) return
+        findViewById<View>(R.id.brandContainer).visibility = View.GONE
+        findViewById<View>(R.id.notificationButton).visibility = View.GONE
+        findViewById<View>(R.id.backButton).visibility = View.VISIBLE
+        urlInput.visibility = View.VISIBLE
+        urlInput.requestFocus()
+        (getSystemService(INPUT_METHOD_SERVICE) as android.view.inputmethod.InputMethodManager)
+            .showSoftInput(urlInput, android.view.inputmethod.InputMethodManager.SHOW_IMPLICIT)
+    }
+
+    private fun exitSearchMode(clearText: Boolean = true) {
+        if (::searchSuggestions.isInitialized) searchSuggestions.dismiss()
         urlInput.clearFocus()
-        urlInput.setText("")
+        if (clearText) urlInput.setText("")
         urlInput.visibility = View.GONE
-        findViewById<View>(R.id.appBrand).visibility = View.VISIBLE
-        (getSystemService(INPUT_METHOD_SERVICE) as android.view.inputmethod.InputMethodManager).hideSoftInputFromWindow(urlInput.windowToken, 0)
+        findViewById<View>(R.id.backButton).visibility = View.GONE
+        findViewById<View>(R.id.brandContainer).visibility = View.VISIBLE
+        findViewById<View>(R.id.notificationButton).visibility = View.VISIBLE
+        (getSystemService(INPUT_METHOD_SERVICE) as android.view.inputmethod.InputMethodManager)
+            .hideSoftInputFromWindow(urlInput.windowToken, 0)
+    }
+
+    private fun navigateFromAddressBar() {
+        val target = NavigationTargetResolver.resolveAddressInput(urlInput.text.toString()) ?: return
+        val route = YouTubeRoute.parse(target)
+        if (route.destination == YouTubeDestination.SEARCH && route.query.isNotBlank()) {
+            searchSuggestions.recordSubmitted(route.query)
+        }
+        navigateClient(target, expandPlayback = true)
+        exitSearchMode()
     }
 
     private fun navigateClient(rawUrl: String, expandPlayback: Boolean) {
@@ -907,13 +997,16 @@ class MainActivity : LocalizedActivity() {
         val normalized = YouTubeAdapter.normalizeIncomingUrl(target) ?: return
         val route = YouTubeRoute.parse(normalized)
         if (!route.isPlayback || route.videoId.isBlank()) return
-        // Multiple WebView/history callbacks can describe the same transition.
-        if (!playerSurfaceController.expanded || playerRoute.videoId != route.videoId) openPlayer(normalized, expand = true)
+        // Return the browse surface to its previous destination before pausing it behind
+        // the expanded player. This preserves browse history without leaving a second
+        // YouTube playback document active in the background.
         if (YouTubeRoute.parse(browseWebView.url).isPlayback) {
             browseWebView.evaluateJavascript("document.querySelectorAll('video').forEach(v=>v.pause())", null)
             val returnUrl = preferences.lastBrowseUrl.takeUnless { YouTubeRoute.parse(it).isPlayback } ?: YouTubeRoute.HOME_URL
             browseWebView.loadUrl(AppLanguage.youtubeUrl(this,returnUrl))
         }
+        // Multiple WebView/history callbacks can describe the same transition.
+        if (!playerSurfaceController.expanded || playerRoute.videoId != route.videoId) openPlayer(normalized, expand = true)
     }
 
     private fun showBrowseDestination(url: String, minimizePlayer: Boolean = true) {
@@ -922,6 +1015,7 @@ class MainActivity : LocalizedActivity() {
         }
         val normalized = YouTubeAdapter.normalizeIncomingUrl(url) ?: url
         browseRoute = YouTubeRoute.parse(normalized)
+        if (browseRoute.destination != YouTubeDestination.HOME) homeRecommendationOffset = 0
         preferences.lastBrowseUrl = normalized
         browseWebView.loadUrl(AppLanguage.youtubeUrl(this,normalized))
         refreshUi()
@@ -946,6 +1040,7 @@ class MainActivity : LocalizedActivity() {
         }
         playerRoute = route
         if (expand) playerSurfaceController.expand() else minimizePlayerSurface()
+        syncBrowseWebViewActivity()
         val current = webView.url.orEmpty()
         val currentId = YouTubeAdapter.videoIdFromUrl(current)
         if (currentId.isNullOrBlank() || currentId != route.videoId || !YouTubeAdapter.isTrustedBridgeUrl(current)) {
@@ -957,20 +1052,24 @@ class MainActivity : LocalizedActivity() {
     private fun expandPlayer() {
         if (!playerSurfaceController.visible) return
         playerSurfaceController.expand()
+        syncBrowseWebViewActivity()
         refreshUi()
     }
 
     private fun minimizePlayer() {
         if (!playerSurfaceController.visible) return
-        minimizePlayerSurface()
+        minimizePlayerSurface(animated = playerSurfaceController.expanded)
         refreshUi()
     }
 
-    private fun minimizePlayerSurface() {
+    private fun minimizePlayerSurface(animated: Boolean = false) {
         miniSurfaceApplied = true
+        // Install the mini playback policy before the viewport starts shrinking so YouTube does
+        // not interpret the resize as a reason to pause or rebuild the current MediaSource.
         webView.evaluateJavascript(ClientSurfaceScript.mini(true, playbackSession.state.playing), null)
         try { webView.scrollTo(0, 0) } catch (_: Exception) {}
-        playerSurfaceController.minimize()
+        playerSurfaceController.minimize(animated = animated)
+        syncBrowseWebViewActivity()
     }
 
     private fun closePlayer() {
@@ -981,6 +1080,7 @@ class MainActivity : LocalizedActivity() {
         playbackHealth.reset()
         playerRoute = YouTubeRoute.parse(ShieldPreferences.HOME_URL)
         playerSurfaceController.hide()
+        syncBrowseWebViewActivity()
         errorOverlay.visibility = View.GONE
         try { webView.loadUrl("about:blank") } catch (_: Exception) {}
         refreshUi()
@@ -1521,7 +1621,64 @@ class MainActivity : LocalizedActivity() {
             bottomBar.visibility = View.VISIBLE
             updateBrowserChromeVisibility(webView.url)
         }
+        syncBrowseWebViewActivity()
         findViewById<View>(android.R.id.content).requestApplyInsets()
+    }
+
+    private fun previewFullscreenMinimize(distancePx: Float) {
+        if (customView == null || fullscreenContainer.height <= 0) return
+        fullscreenContainer.animate().cancel()
+        val progress = (distancePx / (fullscreenContainer.height * 0.42f).coerceAtLeast(1f)).coerceIn(0f, 1f)
+        val scale = 1f - 0.055f * progress
+        fullscreenContainer.pivotX = fullscreenContainer.width * 0.5f
+        fullscreenContainer.pivotY = fullscreenContainer.height * 0.5f
+        fullscreenContainer.translationY = distancePx * (0.48f - 0.08f * progress)
+        fullscreenContainer.scaleX = scale
+        fullscreenContainer.scaleY = scale
+        fullscreenContainer.alpha = 1f - 0.10f * progress
+    }
+
+    private fun cancelFullscreenMinimizePreview() {
+        if (customView == null) return
+        fullscreenContainer.animate().cancel()
+        fullscreenContainer.animate()
+            .translationX(0f)
+            .translationY(0f)
+            .scaleX(1f)
+            .scaleY(1f)
+            .alpha(1f)
+            .setDuration(170L)
+            .setInterpolator(android.view.animation.PathInterpolator(0.20f, 0f, 0f, 1f))
+            .start()
+    }
+
+    private fun animateFullscreenMinimize() {
+        if (customView == null) {
+            minimizePlayer()
+            return
+        }
+        val density = resources.displayMetrics.density
+        val currentY = fullscreenContainer.translationY.coerceAtLeast(0f)
+        val targetY = maxOf(currentY, maxOf(72f * density, fullscreenContainer.height * 0.16f))
+        fullscreenContainer.animate().cancel()
+        fullscreenContainer.animate()
+            .translationY(targetY)
+            .scaleX(0.955f)
+            .scaleY(0.955f)
+            .alpha(0.72f)
+            .setDuration(145L)
+            .setInterpolator(android.view.animation.PathInterpolator(0.20f, 0f, 0f, 1f))
+            .withEndAction {
+                fullscreenContainer.translationX = 0f
+                fullscreenContainer.translationY = 0f
+                fullscreenContainer.scaleX = 1f
+                fullscreenContainer.scaleY = 1f
+                fullscreenContainer.alpha = 1f
+                this@MainActivity.exitFullscreen()
+                minimizePlayerSurface(animated = false)
+                refreshUi()
+            }
+            .start()
     }
 
     private fun exitFullscreen() {
@@ -1638,8 +1795,9 @@ class MainActivity : LocalizedActivity() {
             Triple(R.id.navSubscriptionsButton, R.drawable.ic_nav_subscriptions, YouTubeDestination.SUBSCRIPTIONS),
             Triple(R.id.navLibraryButton, R.drawable.ic_nav_you, YouTubeDestination.OTHER)).forEach { (id, icon, route) ->
             findViewById<Button>(id).apply {
-                setCompoundDrawablesWithIntrinsicBounds(0, icon, 0, 0)
                 val selected = destination == route
+                val resolvedIcon = if (id == R.id.navHomeButton && selected) R.drawable.ic_nav_home_filled else icon
+                setCompoundDrawablesWithIntrinsicBounds(0, resolvedIcon, 0, 0)
                 val color = if (selected) AppTheme.primary(this@MainActivity) else AppTheme.tertiary(this@MainActivity)
                 compoundDrawableTintList = android.content.res.ColorStateList.valueOf(color)
                 setTextColor(color)
@@ -1736,7 +1894,6 @@ class MainActivity : LocalizedActivity() {
         preferences.backgroundControls,
         preferences.amoledTheme,
         preferences.lightTheme,
-        preferences.autoRepeat,
         preferences.preferredQuality,
         preferences.preferredQualityMobile,
         preferences.communitySponsorSkip,
@@ -1845,11 +2002,11 @@ class MainActivity : LocalizedActivity() {
     }
 
     private fun handleBackNavigation() {
-        if (::searchSuggestions.isInitialized && searchSuggestions.dismiss()) {
-            urlInput.clearFocus()
-            (getSystemService(INPUT_METHOD_SERVICE) as android.view.inputmethod.InputMethodManager).hideSoftInputFromWindow(urlInput.windowToken, 0)
+        if (::urlInput.isInitialized && urlInput.visibility == View.VISIBLE) {
+            exitSearchMode()
             return
         }
+        if (::searchSuggestions.isInitialized && searchSuggestions.dismiss()) return
         when {
             customView != null -> exitFullscreen()
             playerSurfaceController.expanded -> minimizePlayer()

@@ -127,6 +127,20 @@ class SettingsActivity : LocalizedActivity() {
         refreshPlaybackControls()
     }
 
+
+    override fun onResume() {
+        super.onResume()
+        if (::p.isInitialized) {
+            findViewById<CompoundButton>(R.id.settingAutoRepeat)?.let { button ->
+                if (button.isChecked != p.autoRepeat) {
+                    button.setOnCheckedChangeListener(null)
+                    button.isChecked = p.autoRepeat
+                    button.setOnCheckedChangeListener { _, checked -> p.autoRepeat = checked }
+                }
+            }
+        }
+    }
+
     private fun cycleGestureSensitivity() {
         val values = floatArrayOf(0.75f, 1.0f, 1.25f, 1.5f)
         val current = p.gestureSensitivity

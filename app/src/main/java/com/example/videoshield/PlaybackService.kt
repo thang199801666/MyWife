@@ -198,7 +198,13 @@ class PlaybackService : Service() {
                 connection.connectTimeout = 4_000
                 connection.readTimeout = 4_000
                 connection.instanceFollowRedirects = true
-                connection.inputStream.use { BitmapFactory.decodeStream(it) }.also { connection.disconnect() }
+                connection.inputStream.use { input ->
+                    BitmapFactory.decodeStream(input, null, BitmapFactory.Options().apply {
+                        // Notification artwork never needs the full 480x360 source bitmap.
+                        // Sampling cuts the retained pixel allocation by roughly 75%.
+                        inSampleSize = 2
+                    })
+                }.also { connection.disconnect() }
             } catch (_: Exception) { null }
             if (bitmap != null && videoId == id) {
                 artwork = bitmap

@@ -32,7 +32,13 @@ class DownloadsActivity : LocalizedActivity() {
     private val chips=mutableListOf<Button>()
     private var sheet: Dialog?=null
     private var resumed=false
-    private val ticker=object: Runnable { override fun run() { refresh(); if(resumed) main.postDelayed(this,1500) } }
+    private var lastCleanupAt=0L
+    private val ticker=object: Runnable {
+        override fun run() {
+            refresh()
+            if(resumed) main.postDelayed(this, if(rows.any { it.status in ACTIVE_STATUSES } || DownloadService.running) 1_500L else 6_000L)
+        }
+    }
     override fun onCreate(state: Bundle?) {
         super.onCreate(state)
         filter=state?.getInt("filter")?.coerceIn(0,3) ?: 0
@@ -76,7 +82,12 @@ class DownloadsActivity : LocalizedActivity() {
     }
     private fun refresh() {
         worker.execute {
-            val store=OfflineStore(this); store.cleanup()
+            val store=OfflineStore(this)
+            val now=System.currentTimeMillis()
+            if(now-lastCleanupAt>=60_000L) {
+                store.cleanup(now)
+                lastCleanupAt=now
+            }
             if(!DownloadService.running) store.all().filter { it.status in setOf("downloading","processing") }.forEach {
                 store.put(it.copy(status="failed",error=getString(R.string.download_interrupted)))
             }
@@ -97,7 +108,7 @@ class DownloadsActivity : LocalizedActivity() {
             button.setTextColor(if(index==filter) AppTheme.selectedText(this@DownloadsActivity) else AppTheme.primary(this@DownloadsActivity))
             button.background=GradientDrawable().apply { setColor(if(index==filter) AppTheme.selectedSurface(this@DownloadsActivity) else AppTheme.control(this@DownloadsActivity)); cornerRadius=dp(10).toFloat() }
         }
-        val active=rows.count { it.status in setOf("queued","downloading","processing") }
+        val active=rows.count { it.status in ACTIVE_STATUSES }
         summary.setTextIfChanged(if(active>0) getString(R.string.downloads_active,rows.size,active) else getString(R.string.downloads_summary,rows.size))
         adapter.replace(items)
         empty.setTextIfChanged(if(rows.isEmpty()) getString(R.string.ui_no_downloads_yet_n_nopen_a_video_download_to_save_video_or_mp3) else getString(R.string.ui_nothing_in_this_category_yet_n_nselect_all_to_see_everything))
@@ -129,8 +140,9 @@ class DownloadsActivity : LocalizedActivity() {
             else -> worker.execute { OfflineStore(this).remove(job.id); main.post { if(!isDestroyed) refresh() } }
         } }
     }
-    override fun onResume() { super.onResume(); resumed=true; main.post(ticker) }
+    override fun onResume() { super.onResume(); resumed=true; main.removeCallbacks(ticker); main.post(ticker) }
     override fun onPause() { resumed=false; main.removeCallbacks(ticker); super.onPause() }
     override fun onSaveInstanceState(state: Bundle) { state.putInt("filter",filter); super.onSaveInstanceState(state) }
     override fun onDestroy() { sheet?.dismiss(); adapter.close(); main.removeCallbacksAndMessages(null); worker.shutdownNow(); super.onDestroy() }
+    companion object { private val ACTIVE_STATUSES=setOf("queued","downloading","processing") }
 }

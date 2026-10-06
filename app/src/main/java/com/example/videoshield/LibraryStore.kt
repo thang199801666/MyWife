@@ -86,7 +86,8 @@ class LibraryStore(context: Context) : SQLiteOpenHelper(context.applicationConte
         } finally { db.endTransaction() }
     }
 
-    fun recommendations(since: Long, now: Long = System.currentTimeMillis(), focus: VideoItem? = null): List<SuggestedVideo> {
+    fun recommendations(since: Long, now: Long = System.currentTimeMillis(), focus: VideoItem? = null,
+                        searchQueries: List<String> = emptyList()): List<SuggestedVideo> {
         val watched = mutableMapOf<String, Long>()
         readableDatabase.rawQuery("SELECT video_id,watched_ms FROM viewing_interest", null).use { c -> while (c.moveToNext()) watched[c.getString(0)] = c.getLong(1) }
         val history = history(1000)
@@ -98,7 +99,7 @@ class LibraryStore(context: Context) : SQLiteOpenHelper(context.applicationConte
         readableDatabase.rawQuery("SELECT video_id FROM dismissed_suggestions", null).use { c -> while (c.moveToNext()) dismissed += c.getString(0) }
         val candidates = queryVideos("SELECT video_id,title,channel,url,last_played_at,0,0 FROM discovered_videos ORDER BY last_played_at DESC LIMIT 1000", emptyArray())
         return RecommendationEngine.rank(candidates, evidence, subscriptions().map { it.name }.toSet(), dismissed, history.map { it.videoId }.toSet(), now,
-            blockedChannels = blockedChannels(), focus = focus)
+            blockedChannels = blockedChannels(), focus = focus, searchQueries = searchQueries)
     }
 
     fun dismissSuggestion(videoId: String) {

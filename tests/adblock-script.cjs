@@ -87,14 +87,14 @@ test('continuous DOM mutations batch scans without delaying an ad transition ind
   const scansBefore = f.state.scans;
   for (let i = 0; i < 120; i++) f.state.mutate();
   assert.equal(f.state.scans, scansBefore, 'mutations must not scan synchronously');
-  const batch = [...f.state.timers.entries()].filter(([,timer]) => timer.delay === 200);
+  const batch = [...f.state.timers.entries()].filter(([,timer]) => timer.delay === 500);
   assert.equal(batch.length, 1, 'one fixed-deadline scan for a burst of mutations');
   f.state.ad = true;
   f.state.timers.delete(batch[0][0]);
   batch[0][1].callback();
   assert.equal(f.state.clicks, 1, 'the scheduled scan must still handle the newly active ad');
   f.state.mutate();
-  assert.equal([...f.state.timers.values()].filter(timer => timer.delay === 200).length, 1,
+  assert.equal([...f.state.timers.values()].filter(timer => timer.delay === 500).length, 1,
     'later mutations must be able to schedule another batch');
 });
 
@@ -488,6 +488,7 @@ test('expand resize pause protection never defeats explicit native Pause',()=>{
 });
 test('native next-video handling disables the independent website countdown',()=>{
   const f=fixture(),p=f.sandbox.document.querySelector('.html5-video-player'),states=[];
+  f.sandbox.__videoShieldCfg.autoRepeat=false;
   p.setAutonavState=s=>states.push(s);f.sweep();f.sweep();
   assert.deepEqual(states,[1]);
   for(let i=0;i<4;i++)f.sweep();assert.deepEqual(states,[1,1]);

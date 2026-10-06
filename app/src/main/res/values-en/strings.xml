@@ -4,6 +4,8 @@
     <string name="ui_subscriptions" formatted="false">Subscriptions</string>
     <string name="ui_search" formatted="false">Search</string>
     <string name="ui_settings" formatted="false">Settings</string>
+    <string name="ui_notifications" formatted="false">Notifications</string>
+    <string name="no_new_notifications" formatted="false">No new notifications</string>
     <string name="ui_back" formatted="false">Back</string>
     <string name="ui_close" formatted="false">Close</string>
     <string name="ui_close_menu" formatted="false">Close menu</string>
@@ -173,7 +175,7 @@
     <string name="ui_learn_viewing_habits_locally_and_suggest_videos_in_for_you" formatted="false">Learn viewing habits on this device and suggest videos in For You</string>
     <string name="ui_clear_learned_preferences_and_suggestions" formatted="false">Clear learned preferences and suggestions</string>
     <string name="ui_learned_viewing_preferences_cleared" formatted="false">Learned viewing preferences cleared</string>
-    <string name="ui_learning_requires_watch_history_suggestions_use_viewing_time_favo" formatted="false">Learning requires watch history. Suggestions use viewing time, favorites and followed channels on this device. No preference profile is uploaded. Clear removes learned viewing time, suggestions and feedback; favorites and subscriptions stay saved.</string>
+    <string name="ui_learning_requires_watch_history_suggestions_use_viewing_time_favo" formatted="false">Learning requires watch history. Suggestions use viewing time, favorites, followed channels and recent searches on this device. Search history and the preference profile are not uploaded. Clear removes learned viewing time, suggestions and feedback; favorites and subscriptions stay saved.</string>
     <string name="ui_remember_watch_history_and_playback_position_locally" formatted="false">Remember watch history and playback position locally</string>
     <string name="ui_resume_videos_from_the_last_local_playback_position" formatted="false">Resume videos from the last local playback position</string>
     <string name="ui_automatically_play_the_next_item_in_queue" formatted="false">Automatically play the next item in Queue</string>

@@ -31,6 +31,8 @@ class FullscreenGestureLayout @JvmOverloads constructor(
         fun currentDurationMs(): Long
         fun seekToMs(positionMs: Long)
         fun exitFullscreen()
+        fun previewExit(distancePx: Float) {}
+        fun cancelExitPreview() {}
     }
 
     private enum class Mode { NONE, SEEK, BRIGHTNESS, VOLUME, DOUBLE_TAP, EXIT }
@@ -124,8 +126,11 @@ class FullscreenGestureLayout @JvmOverloads constructor(
                 if (max(ax, ay) < threshold) return false
                 lastTapAt = 0L
 
+                val strongDownwardExit = dy > threshold * 1.35f && ay > ax * 1.20f &&
+                    (downY < height * 0.42f || dy > threshold * 2.6f)
                 mode = when {
                     ax > ay * 1.2f && durationMs > 0L -> Mode.SEEK
+                    strongDownwardExit -> Mode.EXIT
                     ay > ax * 1.2f && downX < width * 0.35f -> Mode.BRIGHTNESS
                     ay > ax * 1.2f && downX > width * 0.65f -> Mode.VOLUME
                     ay > ax * 1.2f && dy > 0 -> Mode.EXIT
@@ -168,10 +173,10 @@ class FullscreenGestureLayout @JvmOverloads constructor(
                 if (mode == Mode.EXIT) updateGesture(event)
                 if (mode == Mode.SEEK || mode == Mode.DOUBLE_TAP) callback?.seekToMs(previewPositionMs)
                 val shouldExit = mode == Mode.EXIT && exitReady
-                finishGesture()
+                finishGesture(cancelExitPreview = !shouldExit)
                 if (shouldExit) callback?.exitFullscreen()
             }
-            MotionEvent.ACTION_CANCEL -> finishGesture()
+            MotionEvent.ACTION_CANCEL -> finishGesture(cancelExitPreview = true)
         }
         return true
     }
@@ -211,7 +216,9 @@ class FullscreenGestureLayout @JvmOverloads constructor(
             }
 
             Mode.EXIT -> {
-                exitReady = dy >= max(72f * resources.displayMetrics.density, heightSafe * 0.22f)
+                val distance = dy.coerceAtLeast(0f)
+                exitReady = distance >= max(64f * resources.displayMetrics.density, heightSafe * 0.18f)
+                callback?.previewExit(distance)
                 showFeedback(context.getString(if (exitReady) R.string.release_minimize else R.string.swipe_minimize))
             }
 
@@ -240,7 +247,7 @@ class FullscreenGestureLayout @JvmOverloads constructor(
         }
     }
 
-    private fun finishGesture() {
+    private fun finishGesture(cancelExitPreview: Boolean = true) {
         feedbackView?.apply {
             animate().cancel()
             animate().alpha(0f).setStartDelay(450L).setDuration(180L).withEndAction {
@@ -248,10 +255,12 @@ class FullscreenGestureLayout @JvmOverloads constructor(
                 alpha = 1f
             }.start()
         }
+        if (cancelExitPreview && mode == Mode.EXIT) callback?.cancelExitPreview()
         resetGesture(keepFeedback = true)
     }
 
     private fun resetGesture(keepFeedback: Boolean = false) {
+        if (mode == Mode.EXIT && !keepFeedback) callback?.cancelExitPreview()
         mode = Mode.NONE
         exitReady = false
         lastTapAt = 0L

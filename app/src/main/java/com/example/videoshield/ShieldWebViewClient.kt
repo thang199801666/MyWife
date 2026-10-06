@@ -24,6 +24,7 @@ class ShieldWebViewClient(
     private val onRendererGone: (didCrash: Boolean) -> Unit,
     private val navigationInterceptor: (String) -> Boolean = { false }
 ) : WebViewClient() {
+    private var injectedUrl: String? = null
 
     override fun shouldInterceptRequest(view: WebView?, request: WebResourceRequest?): WebResourceResponse? {
         val uri = request?.url ?: return null
@@ -39,6 +40,7 @@ class ShieldWebViewClient(
     override fun onPageStarted(view: WebView?, url: String?, favicon: Bitmap?) {
         super.onPageStarted(view, url, favicon)
         if (url != null) {
+            injectedUrl = null
             onNavigationStarted(url)
             onUrlChanged(url)
         }
@@ -65,9 +67,11 @@ class ShieldWebViewClient(
     }
 
     private fun injectShield(view: WebView?, url: String?) {
-        if (YouTubeAdapter.isTrustedBridgeUrl(url) && YouTubeAdapter.isTrustedBridgeUrl(view?.url)) {
-            view?.evaluateJavascript(scriptProvider(), null)
-        }
+        val current = view?.url ?: return
+        if (!YouTubeAdapter.isTrustedBridgeUrl(url) || !YouTubeAdapter.isTrustedBridgeUrl(current)) return
+        if (injectedUrl == current) return
+        injectedUrl = current
+        view.evaluateJavascript(scriptProvider(), null)
     }
 
     override fun onReceivedError(view: WebView?, request: WebResourceRequest?, error: WebResourceError?) {
