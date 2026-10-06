@@ -7,18 +7,18 @@ import org.junit.Test
 
 class AppReleaseTest {
     private fun manifest() = JSONObject().put("schemaVersion", 1)
-        .put("packageName", "com.example.videoshield").put("versionCode", 40)
-        .put("versionName", "1.7.0").put("minSdk", 26).put("abi", "arm64-v8a")
-        .put("assetName", "VoTui-v1.7.0-release-arm64-v8a.apk")
+        .put("packageName", "com.example.videoshield").put("versionCode", 41)
+        .put("versionName", "0.1.0").put("minSdk", 26).put("abi", "arm64-v8a")
+        .put("assetName", "VoTui-v0.1.0-release-arm64-v8a.apk")
         .put("size", 54344788).put("sha256", "a".repeat(64))
 
     private fun release(): JSONObject {
         val assets = JSONArray()
-        for (name in listOf("update.json", "VoTui-v1.7.0-release-arm64-v8a.apk")) {
+        for (name in listOf("update.json", "VoTui-v0.1.0-release-arm64-v8a.apk")) {
             assets.put(JSONObject().put("name", name).put("state", "uploaded").put("size", 54344788)
-                .put("browser_download_url", "https://github.com/${AppRelease.REPOSITORY}/releases/download/v1.7.0/$name"))
+                .put("browser_download_url", "https://github.com/${AppRelease.REPOSITORY}/releases/download/v0.1.0/$name"))
         }
-        return JSONObject().put("tag_name", "v1.7.0").put("draft", false).put("prerelease", false)
+        return JSONObject().put("tag_name", "v0.1.0").put("draft", false).put("prerelease", false)
             .put("body", "New update").put("assets", assets)
     }
 
@@ -29,10 +29,10 @@ class AppReleaseTest {
 
     @Test fun stableReleaseMatchesItsPublishedAsset() {
         val parsed = AppRelease.parse(release(), manifest(), "com.example.videoshield")
-        assertEquals(40L, parsed.versionCode)
-        assertEquals("1.7.0", parsed.versionName)
+        assertEquals(41L, parsed.versionCode)
+        assertEquals("0.1.0", parsed.versionName)
         assertEquals("New update", parsed.notes)
-        assertTrue(AppRelease.manifestUrl(release()).endsWith("/v1.7.0/update.json"))
+        assertTrue(AppRelease.manifestUrl(release()).endsWith("/v0.1.0/update.json"))
     }
 
     @Test fun refusesDraftsAndPrereleases() {
@@ -67,7 +67,7 @@ class AppReleaseTest {
     @Test fun refusesApksFromAnotherRepository() {
         val wrong = release()
         wrong.getJSONArray("assets").getJSONObject(1).put("browser_download_url",
-            "https://github.com/other/repo/releases/download/v1.7.0/VoTui-v1.7.0-release-arm64-v8a.apk")
+            "https://github.com/other/repo/releases/download/v0.1.0/VoTui-v0.1.0-release-arm64-v8a.apk")
         rejects(wrong)
     }
 

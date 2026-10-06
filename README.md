@@ -1,9 +1,14 @@
-# Vợ Tui v1.7.0
+# Vợ Tui v0.1.0 — Base
 
 [Tải bản mới nhất](https://github.com/thang199801666/MyWife/releases/latest) ·
 [Source code](https://github.com/thang199801666/MyWife)
 
-Version 1.7.0 adds an in-app update screen backed by this repository's GitHub
+This is the initial base release, numbered **0.1.0** while the app is still under
+development. Earlier 1.x entries below record development iterations, not a
+production 1.0 release. Android versionCode remains monotonic so existing installs
+can update without removing their data.
+
+The base includes an in-app update screen backed by this repository's GitHub
 Releases. Open Settings → Check for updates, or You → About → Check for updates.
 Downloads are verified against SHA-256, package/version and the installed signing
 certificate before handing installation to Android. See [release publishing](GITHUB_RELEASES.md).

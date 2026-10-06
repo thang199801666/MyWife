@@ -2,6 +2,11 @@
 
 Repo: https://github.com/thang199801666/MyWife
 
+Bản base hiện tại là **0.1.0**, `versionCode = 41`. Các số 1.x trước đó là nhãn
+trong quá trình phát triển. App so sánh `versionCode`, không so sánh thứ tự
+`versionName`, nên bản đã cài 1.7.0 (code 40) vẫn cập nhật được lên base 0.1.0.
+Các bản base tiếp theo dùng 0.1.1, 0.1.2… và luôn tăng versionCode.
+
 App đọc release ổn định mới nhất qua:
 `https://api.github.com/repos/thang199801666/MyWife/releases/latest`.
 Draft và prerelease không được dùng làm bản cập nhật. Không nhúng token GitHub trong APK.
