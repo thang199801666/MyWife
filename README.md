@@ -1,4 +1,4 @@
-# Vợ Tui v0.1.1 — Base
+# Vợ Tui v0.1.2 — Base
 
 [Tải bản mới nhất](https://github.com/thang199801666/MyWife/releases/latest) ·
 [Source code](https://github.com/thang199801666/MyWife)
@@ -7,6 +7,9 @@ This is the base release series, numbered **0.x** while the app is still under
 development. Earlier 1.x entries below record development iterations, not a
 production 1.0 release. Android versionCode remains monotonic so existing installs
 can update without removing their data.
+
+Version 0.1.2 fixes an Android 11+ startup crash by creating the window decor
+before accessing its system bar controller. It preserves existing app data.
 
 Version 0.1.1 preserves playing/paused state when switching quality, including
 stream reload pauses, and avoids applying a new native quality selection twice.

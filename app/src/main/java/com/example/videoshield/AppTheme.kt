@@ -27,14 +27,16 @@ object AppTheme {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
             val mask = android.view.WindowInsetsController.APPEARANCE_LIGHT_STATUS_BARS or
                 android.view.WindowInsetsController.APPEARANCE_LIGHT_NAVIGATION_BARS
-            activity.window.insetsController?.setSystemBarsAppearance(if (light) mask else 0, mask)
+            // onCreate can run before setContentView. Accessing decorView first
+            // creates the decor instead of asking PhoneWindow for an absent one.
+            activity.window.decorView.windowInsetsController?.setSystemBarsAppearance(if (light) mask else 0, mask)
         } else {
             @Suppress("DEPRECATION")
             var flags = activity.window.decorView.systemUiVisibility
             @Suppress("DEPRECATION")
             val status = View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR
             @Suppress("DEPRECATION")
-            val nav = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) View.SYSTEM_UI_FLAG_LIGHT_NAVIGATION_BAR else 0
+            val nav = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O_MR1) View.SYSTEM_UI_FLAG_LIGHT_NAVIGATION_BAR else 0
             flags = if (light) flags or status or nav else flags and status.inv() and nav.inv()
             @Suppress("DEPRECATION")
             run { activity.window.decorView.systemUiVisibility = flags }
