@@ -485,9 +485,41 @@ test('manual choice persists on the next video and never upgrades when healthy',
 });
 test('expand resize pause protection never defeats explicit native Pause',()=>{
   const f=fixture();f.sandbox.document.documentElement.getAttribute=()=> 'expanded';
-  f.sandbox.__videoShieldExpandPlaybackWanted=true;f.video.pause();assert.equal(f.video.paused,false);
+  f.sandbox.__videoShieldExpandPlaybackWanted=true;
+  f.sandbox.__videoShieldExpandPlaybackUntil=12000;
+  f.video.pause();assert.equal(f.video.paused,false);
   f.sandbox.__videoShieldControl('pause');assert.equal(f.video.paused,true);
   assert.equal(f.sandbox.__videoShieldExpandPlaybackWanted,false);
+});
+
+test('expanded player pause protection expires even if resize callbacks never finish',()=>{
+  const f=fixture();f.sandbox.document.documentElement.getAttribute=()=> 'expanded';
+  f.sandbox.__videoShieldExpandPlaybackWanted=true;
+  f.sandbox.__videoShieldExpandPlaybackUntil=10400;
+  f.sweep(2000);f.video.pause();
+  assert.equal(f.video.paused,true,'an expired resize guard must not swallow Pause');
+});
+
+test('website Play/Pause clicks release resize and stale surface resume flags',()=>{
+  const f=fixture();f.sandbox.document.documentElement.getAttribute=()=> 'expanded';
+  f.sandbox.__videoShieldExpandPlaybackWanted=true;
+  f.sandbox.__videoShieldExpandPlaybackUntil=12000;
+  f.sandbox.__videoShieldPipPlaybackWanted=true;f.state.pip=true;
+  const target={closest:selector=>selector.includes('.ytp-play-button')?{}:null,getAttribute:()=> 'Pause'};
+  for(const listener of f.state.listeners.get('click')||[])listener({target});
+  f.video.pause();
+  assert.equal(f.video.paused,true,'click-only controls must retain explicit Pause');
+});
+
+test('website keyboard Pause overrides resize protection but typing does not',()=>{
+  const f=fixture();f.sandbox.document.documentElement.getAttribute=()=> 'expanded';
+  f.sandbox.__videoShieldExpandPlaybackWanted=true;
+  f.sandbox.__videoShieldExpandPlaybackUntil=12000;
+  const keydown=f.state.listeners.get('keydown')[0];
+  keydown({key:' ',target:{closest:()=>({})}});
+  assert.equal(f.sandbox.__videoShieldExpandPlaybackWanted,true,'typing must not affect playback');
+  keydown({key:'k',target:{closest:()=>null}});f.video.pause();
+  assert.equal(f.video.paused,true);
 });
 test('native next-video handling disables the independent website countdown',()=>{
   const f=fixture(),p=f.sandbox.document.querySelector('.html5-video-player'),states=[];

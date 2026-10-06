@@ -17,20 +17,28 @@ object ClientSurfaceScript {
           if (!$enabled) {
             style?.remove();
             window.__videoShieldExpandPlaybackWanted=wasPlaying || $resumePlaying;
+            const resumeUntil=Date.now()+1200;
+            window.__videoShieldExpandPlaybackUntil=resumeUntil;
+            // requestAnimationFrame may be suspended while the renderer is hidden.
+            // Expire independently so a delayed resize cannot lock website Pause.
+            setTimeout(()=>{
+              if(window.__videoShieldExpandPlaybackUntil===resumeUntil)
+                window.__videoShieldExpandPlaybackWanted=false;
+            },1200);
             requestAnimationFrame(() => requestAnimationFrame(() => {
               window.dispatchEvent(new Event('resize'));
               const video=document.querySelector('.html5-video-player video.html5-main-video') || document.querySelector('video.html5-main-video') || document.querySelector('video');
-              if(window.__videoShieldExpandPlaybackWanted && video && !video.ended &&
+              if(window.__videoShieldExpandPlaybackWanted && Date.now()<resumeUntil && video && !video.ended &&
                   document.documentElement.getAttribute('data-votuibe-surface')==='expanded') {
                 const player=document.querySelector('.html5-video-player');
                 if(typeof player?.playVideo==='function') player.playVideo();
                 else if(video.paused) video.play().catch(()=>{});
               }
-              setTimeout(()=>{window.__videoShieldExpandPlaybackWanted=false;},400);
             }));
             return;
           }
           window.__videoShieldExpandPlaybackWanted=false;
+          window.__videoShieldExpandPlaybackUntil=0;
           if (!style) { style=document.createElement('style'); style.id=id; (document.head||document.documentElement).appendChild(style); }
           style.textContent=`
             html,body { overflow:hidden !important; background:#000 !important; }

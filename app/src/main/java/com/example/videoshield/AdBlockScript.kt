@@ -1665,6 +1665,24 @@ object AdBlockScript {
               window.addEventListener('popstate', syncMode, {passive:true});
             }
 
+            function releaseUserPlaybackProtection() {
+              window.__videoShieldExpandPlaybackWanted = false;
+              window.__videoShieldExpandPlaybackUntil = 0;
+              window.__videoShieldPipResumePending = false;
+              window.__videoShieldPipPlaybackWanted = false;
+              window.__videoShieldMiniPlaybackWanted = false;
+              cancelQualityPlaybackRestore();
+            }
+
+            function isWebsitePlaybackControl(target) {
+              try {
+                if (target?.closest?.('.ytp-play-button,.ytp-large-play-button,.player-control-play-pause-icon')) return true;
+                const button = target?.closest?.('button,[role="button"]') || target;
+                const label = String(button?.getAttribute?.('aria-label') || '').trim();
+                return /^(play|pause|phát|tạm dừng|tiếp tục phát)(?:\s|$)/i.test(label);
+              } catch (_) { return false; }
+            }
+
             // The mobile player pauses on small viewports. In native PiP only, preserve the
             // explicit playback intent; native Pause clears it before calling video.pause().
             if (typeof HTMLMediaElement !== 'undefined') {
@@ -1673,7 +1691,9 @@ object AdBlockScript {
                 const playerVideo = getPlayerVideo();
                 const keepPlaying = (window.__videoShieldPipPlaybackWanted && document.getElementById('youtoobee-pip-style')) ||
                     (window.__videoShieldMiniPlaybackWanted && document.getElementById('youtoobee-mini-style')) ||
-                    (window.__videoShieldExpandPlaybackWanted && document.documentElement.getAttribute('data-votuibe-surface')==='expanded');
+                    (window.__videoShieldExpandPlaybackWanted &&
+                      Date.now() < Number(window.__videoShieldExpandPlaybackUntil || 0) &&
+                      document.documentElement.getAttribute('data-votuibe-surface')==='expanded');
                 if (this === playerVideo && keepPlaying && !this.ended && !isPlayerAd()) return;
                 return nativePause.call(this);
               };
@@ -1688,6 +1708,8 @@ object AdBlockScript {
             }, true);
             for(const eventName of ['pointerdown','touchstart']) document.addEventListener(eventName,event=>{
               window.__videoShieldExpandPlaybackWanted=false;
+              window.__videoShieldExpandPlaybackUntil=0;
+              if (isWebsitePlaybackControl(event.target)) releaseUserPlaybackProtection();
               const repeatItem = repeatMenuItem(event.target);
               if (repeatItem) repeatUiInteractionUntil = Date.now() + 1200;
               const rateItem = playbackRateMenuItem(event.target);
@@ -1703,6 +1725,8 @@ object AdBlockScript {
               } else cancelQualityPlaybackRestore();
             },true);
             document.addEventListener('click', event => {
+              // Accessibility and some mobile controls emit click without pointerdown.
+              if (isWebsitePlaybackControl(event.target)) releaseUserPlaybackProtection();
               const repeatItem = repeatMenuItem(event.target);
               if (repeatItem) beginWebsiteRepeatInteraction(repeatItem);
 
@@ -1717,7 +1741,14 @@ object AdBlockScript {
                 setTimeout(() => settleWebsitePlaybackRate(null), 320);
               }
             }, true);
-            document.addEventListener('keydown', cancelQualityPlaybackRestore, true);
+            document.addEventListener('keydown', event => {
+              cancelQualityPlaybackRestore();
+              const key = String(event.key || '').toLowerCase();
+              if ((key === ' ' || key === 'k' || key === 'mediaplaypause' ||
+                    (key === 'enter' && isWebsitePlaybackControl(event.target))) &&
+                  !event.target?.closest?.('input,textarea,[contenteditable="true"]'))
+                releaseUserPlaybackProtection();
+            }, true);
             for (const eventName of ['loadedmetadata', 'durationchange', 'canplay', 'playing', 'play', 'volumechange']) {
               document.addEventListener(eventName, event => {
                 if (event.target === getPlayerVideo()) {
