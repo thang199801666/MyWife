@@ -136,8 +136,10 @@ class AppUpdateActivity : LocalizedActivity() {
                         val available = next ?: return@runOnUiThread
                         release = available
                         status.text = getString(R.string.app_update_available, available.versionName)
-                        details.text = getString(R.string.app_update_size, available.size / 1024 / 1024) +
-                            "\n\n" + available.notes
+                        details.text = getString(
+                            R.string.app_update_size,
+                            ((available.size + 1024L * 1024L - 1L) / (1024L * 1024L)).coerceAtLeast(1L)
+                        )
                         action.setText(R.string.app_update_download)
                         if (autoDownloadRequested) {
                             autoDownloadRequested = false

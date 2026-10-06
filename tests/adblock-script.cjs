@@ -17,7 +17,8 @@ function fixture({ ad = false, skip = true, instantSkip = false, safeMode = fals
     buffered: {length:0}, seeking:false,
     getBoundingClientRect: () => ({left:0,top:0,right:400,bottom:225,width:400,height:225}) };
   Object.setPrototypeOf(video, Media.prototype);
-  const player = { classList: { contains: name => state.ad && name === 'ad-showing' }, querySelector: () => state.video,
+  const player = { classList: { contains: name => state.ad && name === 'ad-showing' },
+    querySelector: selector => selector.startsWith('video') ? state.video : selector === '.skip' && skip ? button : null,
     querySelectorAll: selector => selector === 'video' && state.video ? [state.video] : [],
     setPlaybackQualityRange: (min, max) => state.qualities.push([min, max]) };
   const moduleStyle = new Map();
@@ -287,7 +288,7 @@ test('page ad filtering preserves player Skip controls across ad transitions', (
 });
 test('manual replay reports a new ended event for queue advancement', () => {
   const f = fixture();
-  f.sandbox.__videoShieldCfg.autoRepeat = false;
+  f.sandbox.__videoShieldSetRepeat(false);
   f.video.ended = true;
   f.sweep();
   assert.equal(f.state.ended, 1);
@@ -414,7 +415,7 @@ test('pause, seeking, buffered content and background timer gaps do not downgrad
 });
 test('unrelated preference changes preserve the adaptive downgrade',()=>{
   const f=adaptiveFixture();f.video.readyState=2;for(let i=0;i<5;i++)f.sweep();
-  const before=f.state.qualities.length;f.sandbox.__videoShieldCfg.autoRepeat=false;
+  const before=f.state.qualities.length;f.sandbox.__videoShieldSetRepeat(false);
   f.sandbox.__videoShieldPreferencesChanged();f.sweep();
   assert.equal(f.state.qualities.length,before);
   assert.equal(f.sandbox.__videoShieldQualityState().target,'hd720');
@@ -488,7 +489,7 @@ test('expand resize pause protection never defeats explicit native Pause',()=>{
 });
 test('native next-video handling disables the independent website countdown',()=>{
   const f=fixture(),p=f.sandbox.document.querySelector('.html5-video-player'),states=[];
-  f.sandbox.__videoShieldCfg.autoRepeat=false;
+  f.sandbox.__videoShieldSetRepeat(false);
   p.setAutonavState=s=>states.push(s);f.sweep();f.sweep();
   assert.deepEqual(states,[1]);
   for(let i=0;i<4;i++)f.sweep();assert.deepEqual(states,[1,1]);

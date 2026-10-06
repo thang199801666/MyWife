@@ -9,14 +9,17 @@ class BrowseNavigationBridge(private val navigate: (String) -> Unit) {
     }
 }
 
-/** Route changes in YouTube's SPA must enter the native playback surface too. */
+/** Classic watch-page route changes in YouTube's SPA enter the native playback surface. Shorts stay in browse. */
 object BrowseNavigationScript {
     fun build(): String = """
         (() => {
           if (window.__voTuibeNavigationInstalled) return;
           window.__voTuibeNavigationInstalled=true;
+          // Keep Shorts inside the browse surface. A Shorts swipe updates history to
+          // /shorts/<id>; treating that as a player navigation tears down the vertical
+          // feed and reloads it at item 0. Only classic /watch links are promoted.
           const playback=url=>url.protocol==='https:' && /^(m\.|www\.)?youtube\.com$/.test(url.hostname) &&
-            ((url.pathname==='/watch' && !!url.searchParams.get('v')) || /^\/shorts\/[^/]+/.test(url.pathname));
+            url.pathname==='/watch' && !!url.searchParams.get('v');
           const open=href=>{
             try {
               const url=new URL(href,location.href);

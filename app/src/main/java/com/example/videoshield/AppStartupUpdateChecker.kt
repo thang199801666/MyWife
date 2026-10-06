@@ -18,7 +18,6 @@ import java.util.concurrent.atomic.AtomicReference
  */
 object AppStartupUpdateChecker {
     private const val NO_VERSION = Long.MIN_VALUE
-    private const val MAX_PROMPT_NOTES = 1600
     private const val PREFS = "app_update_prompt"
     private const val KEY_DECLINED_VERSION_CODE = "declined_version_code"
 
@@ -68,20 +67,12 @@ object AppStartupUpdateChecker {
     }
 
     private fun showPrompt(activity: Activity, release: AppRelease) {
-        val currentVersion = runCatching {
-            activity.packageManager.getPackageInfo(activity.packageName, 0).versionName.orEmpty()
-        }.getOrDefault("")
         val sizeMb = ((release.size + 1024L * 1024L - 1L) / (1024L * 1024L)).coerceAtLeast(1L)
-        val notes = release.notes.trim().take(MAX_PROMPT_NOTES)
-        val message = buildString {
-            append(activity.getString(R.string.app_update_startup_versions, currentVersion, release.versionName))
-            append('\n')
-            append(activity.getString(R.string.app_update_startup_size, sizeMb))
-            if (notes.isNotBlank()) {
-                append("\n\n")
-                append(notes)
-            }
-        }
+        val message = activity.getString(
+            R.string.app_update_startup_message,
+            release.versionName,
+            sizeMb
+        )
 
         var handled = false
         AlertDialog.Builder(activity)

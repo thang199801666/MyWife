@@ -208,7 +208,7 @@ class ShieldPreferences(context: Context) {
             val saved = prefs.getString(KEY_LAST_BROWSE_URL, null)
             if (!saved.isNullOrBlank()) return saved
             val legacy = lastUrl
-            return if (YouTubeRoute.parse(legacy).isPlayback) HOME_URL else legacy
+            return if (YouTubeRoute.parse(legacy).isNativePlayback) HOME_URL else legacy
         }
         set(value) = prefs.edit().putString(KEY_LAST_BROWSE_URL, value).apply()
 

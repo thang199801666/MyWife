@@ -465,6 +465,14 @@ class MainActivity : LocalizedActivity() {
                 },
                 onDownloadRequested = { showCurrentDownload() },
                 onQualitySelected = { quality -> saveManualQuality(quality); refreshUi() },
+                onRepeatSelected = { enabled ->
+                    // YouTube's in-player Repeat switch is a first-class control too.
+                    // Persist it immediately so reopening the menu/activity reflects
+                    // the same state and native queue advancement cannot race it.
+                    if (preferences.autoRepeat != enabled) preferences.autoRepeat = enabled
+                    playbackBackend.setRepeatEnabled(enabled)
+                    refreshUi()
+                },
                 onCompatibilityReport = { playerFound, videoFound, scriptErrors, ruleVersion ->
                     runOnUiThread {
                         val activeRuleVersion = rulePackManager.active().ruleVersion
@@ -598,7 +606,7 @@ class MainActivity : LocalizedActivity() {
             navigationInterceptor = { target ->
                 val normalized = YouTubeAdapter.normalizeIncomingUrl(target) ?: target
                 val route = YouTubeRoute.parse(normalized)
-                if (YouTubeAdapter.isTrustedBridgeUrl(normalized) && !route.isPlayback) {
+                if (YouTubeAdapter.isTrustedBridgeUrl(normalized) && !route.isNativePlayback) {
                     runOnUiThread { showBrowseDestination(normalized) }
                     true
                 } else {
@@ -651,7 +659,7 @@ class MainActivity : LocalizedActivity() {
             onUrlChanged = { url ->
                 runOnUiThread {
                     val route = YouTubeRoute.parse(url)
-                    if (route.isPlayback) {
+                    if (route.isNativePlayback) {
                         promoteBrowsePlayback(url)
                         return@runOnUiThread
                     }
@@ -671,7 +679,7 @@ class MainActivity : LocalizedActivity() {
             },
             onNavigationStarted = { url ->
                 val route = YouTubeRoute.parse(url)
-                if (!route.isPlayback) browseRoute = route
+                if (!route.isNativePlayback) browseRoute = route
                 runOnUiThread {
                     if (route.destination != YouTubeDestination.HOME) homePullRefreshLayout.finishRefresh()
                     refreshUi()
@@ -706,7 +714,7 @@ class MainActivity : LocalizedActivity() {
             navigationInterceptor = { target ->
                 val normalized = YouTubeAdapter.normalizeIncomingUrl(target) ?: target
                 val route = YouTubeRoute.parse(normalized)
-                if (route.isPlayback) {
+                if (route.isNativePlayback) {
                     runOnUiThread { openPlayer(normalized, expand = true) }
                     true
                 } else {
@@ -746,10 +754,11 @@ class MainActivity : LocalizedActivity() {
         findViewById<Button>(R.id.speedButton).setOnClickListener { cyclePlaybackSpeed() }
         findViewById<Button>(R.id.qualityButton).setOnClickListener { showQualityDialog() }
         findViewById<Button>(R.id.repeatButton).setOnClickListener {
-            preferences.autoRepeat = !preferences.autoRepeat
-            playbackBackend.setRepeatEnabled(preferences.autoRepeat)
-            applyPolicyAndRefresh()
-            Toast.makeText(this, if (preferences.autoRepeat) getString(R.string.ui_repeat_enabled) else getString(R.string.ui_repeat_disabled), Toast.LENGTH_SHORT).show()
+            val enabled = !preferences.autoRepeat
+            preferences.autoRepeat = enabled
+            playbackBackend.setRepeatEnabled(enabled)
+            refreshUi()
+            Toast.makeText(this, if (enabled) getString(R.string.ui_repeat_enabled) else getString(R.string.ui_repeat_disabled), Toast.LENGTH_SHORT).show()
         }
         findViewById<Button>(R.id.sleepButton).setOnClickListener { showSleepTimerDialog() }
         findViewById<Button>(R.id.minimizePlayerButton).setOnClickListener { minimizePlayer() }
@@ -985,7 +994,7 @@ class MainActivity : LocalizedActivity() {
     private fun navigateClient(rawUrl: String, expandPlayback: Boolean) {
         val normalized = YouTubeAdapter.normalizeIncomingUrl(rawUrl) ?: rawUrl
         val route = YouTubeRoute.parse(normalized)
-        if (route.isPlayback) {
+        if (route.isNativePlayback) {
             openPlayer(normalized, expandPlayback)
         } else {
             showBrowseDestination(normalized)
@@ -996,13 +1005,13 @@ class MainActivity : LocalizedActivity() {
         if (!YouTubeAdapter.isTrustedBridgeUrl(target)) return
         val normalized = YouTubeAdapter.normalizeIncomingUrl(target) ?: return
         val route = YouTubeRoute.parse(normalized)
-        if (!route.isPlayback || route.videoId.isBlank()) return
+        if (!route.isNativePlayback || route.videoId.isBlank()) return
         // Return the browse surface to its previous destination before pausing it behind
         // the expanded player. This preserves browse history without leaving a second
         // YouTube playback document active in the background.
-        if (YouTubeRoute.parse(browseWebView.url).isPlayback) {
+        if (YouTubeRoute.parse(browseWebView.url).isNativePlayback) {
             browseWebView.evaluateJavascript("document.querySelectorAll('video').forEach(v=>v.pause())", null)
-            val returnUrl = preferences.lastBrowseUrl.takeUnless { YouTubeRoute.parse(it).isPlayback } ?: YouTubeRoute.HOME_URL
+            val returnUrl = preferences.lastBrowseUrl.takeUnless { YouTubeRoute.parse(it).isNativePlayback } ?: YouTubeRoute.HOME_URL
             browseWebView.loadUrl(AppLanguage.youtubeUrl(this,returnUrl))
         }
         // Multiple WebView/history callbacks can describe the same transition.
@@ -1034,7 +1043,7 @@ class MainActivity : LocalizedActivity() {
     private fun openPlayer(url: String, expand: Boolean = true) {
         val normalized = YouTubeAdapter.normalizeIncomingUrl(url) ?: url
         val route = YouTubeRoute.parse(normalized)
-        if (!route.isPlayback) {
+        if (!route.isNativePlayback) {
             showBrowseDestination(normalized)
             return
         }

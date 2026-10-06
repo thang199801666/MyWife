@@ -59,11 +59,13 @@ object RegressionFixtureHarness {
 
         checks["client route detects watch"] =
             YouTubeRoute.parse("https://m.youtube.com/watch?v=abcdefghijk").let {
-                it.destination == YouTubeDestination.WATCH && it.videoId == "abcdefghijk" && it.isPlayback
+                it.destination == YouTubeDestination.WATCH && it.videoId == "abcdefghijk" &&
+                    it.isPlayback && it.isNativePlayback
             }
         checks["client route detects shorts"] =
             YouTubeRoute.parse("https://m.youtube.com/shorts/abcdefghijk").let {
-                it.destination == YouTubeDestination.SHORTS && it.videoId == "abcdefghijk" && it.isPlayback
+                it.destination == YouTubeDestination.SHORTS && it.videoId == "abcdefghijk" &&
+                    it.isPlayback && !it.isNativePlayback
             }
         checks["shorts feed is browse route"] =
             YouTubeRoute.parse(YouTubeRoute.SHORTS_URL).let {
@@ -75,6 +77,8 @@ object RegressionFixtureHarness {
             !ClientChromePolicy.forRoute(YouTubeRoute.parse(YouTubeRoute.HOME_URL), false, false).showPlaybackActions
         checks["client chrome exposes actions on watch"] =
             ClientChromePolicy.forRoute(YouTubeRoute.parse("https://m.youtube.com/watch?v=abcdefghijk"), false, false).showPlaybackActions
+        checks["client chrome leaves Shorts controls to feed"] =
+            !ClientChromePolicy.forRoute(YouTubeRoute.parse("https://m.youtube.com/shorts/abcdefghijk"), false, false).showPlaybackActions
         checks["client chrome hides in PiP"] =
             !ClientChromePolicy.forRoute(YouTubeRoute.parse("https://m.youtube.com/watch?v=abcdefghijk"), false, true).showAppBar
 

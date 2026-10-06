@@ -27,8 +27,8 @@ object ClientChromePolicy {
             )
         }
         return ClientChromeState(
-            showAppBar = !(minimalPlaybackChrome && route.isPlayback),
-            showPlaybackActions = route.isPlayback,
+            showAppBar = !(minimalPlaybackChrome && route.isNativePlayback),
+            showPlaybackActions = route.isNativePlayback,
             navSelection = route.destination,
             searchHint = if (route.destination == YouTubeDestination.SEARCH && route.query.isNotBlank()) {
                 route.query.take(80)

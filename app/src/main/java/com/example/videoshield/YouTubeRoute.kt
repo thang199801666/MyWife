@@ -19,8 +19,15 @@ data class YouTubeRoute(
     val videoId: String = "",
     val query: String = ""
 ) {
+    /** True for routes that represent a concrete media item. */
     val isPlayback: Boolean get() = destination == YouTubeDestination.WATCH ||
         (destination == YouTubeDestination.SHORTS && videoId.isNotBlank())
+
+    /** Only classic /watch pages belong in the dedicated native player surface.
+     * Shorts stay in the browse WebView so YouTube can preserve its vertical feed,
+     * adjacent-item preload and swipe position.
+     */
+    val isNativePlayback: Boolean get() = destination == YouTubeDestination.WATCH && videoId.isNotBlank()
 
     companion object {
         const val HOME_URL = "https://m.youtube.com/"

@@ -13,7 +13,8 @@ class VideoShieldBridge(
     private val onPlaybackEnded: (String) -> Unit,
     private val onCompatibilityReport: (Boolean, Boolean, Int, Int) -> Unit,
     private val onDownloadRequested: () -> Unit,
-    private val onQualitySelected: (String) -> Unit = {}
+    private val onQualitySelected: (String) -> Unit = {},
+    private val onRepeatSelected: (Boolean) -> Unit = {}
 ) {
     private val mainHandler = Handler(Looper.getMainLooper())
 
@@ -29,6 +30,16 @@ class VideoShieldBridge(
     fun onQualitySelected(quality: String?) {
         val value=quality.orEmpty()
         if(value in ShieldPreferences.SUPPORTED_QUALITY_VALUES) dispatch { onQualitySelected.invoke(value) }
+    }
+
+    /**
+     * Mirrors the repeat switch exposed by YouTube's own player settings back into
+     * the native preference store. Without this bridge the injected repeat policy
+     * can race the website UI and immediately turn a user-selected loop back off.
+     */
+    @JavascriptInterface
+    fun onRepeatSelected(enabled: Boolean) {
+        dispatch { onRepeatSelected.invoke(enabled) }
     }
 
     @JavascriptInterface

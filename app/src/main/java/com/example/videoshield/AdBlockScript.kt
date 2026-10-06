@@ -56,6 +56,9 @@ object AdBlockScript {
             let repeatEndedHandler = null;
             let repeatRestartAt = 0;
             let repeatRestartVideoId = "";
+            let repeatUiInteractionUntil = 0;
+            let repeatUiPending = false;
+            let repeatLastReportedState = null;
             let rateBoundVideo = null;
             let rateChangeHandler = null;
             let rateRetryTimer = null;
@@ -91,10 +94,50 @@ object AdBlockScript {
 
             const EMPTY = '__VS_EMPTY__';
 
+            function isShortsRoute() {
+              try { return /^\/shorts(?:\/|$)/.test(new URL(location.href).pathname); }
+              catch (_) { return false; }
+            }
+
+            function isBrowseShortsSurface() {
+              // Shorts need to stay owned by YouTube's scroll/feed renderer. The browse
+              // WebView intentionally has no VideoShieldBridge; the dedicated player does.
+              return isShortsRoute() && typeof window.VideoShieldBridge !== 'object';
+            }
+
             function getPlayerVideo() {
               try {
-                // YouTube can keep preload/ad/preview <video> elements in the same DOM.
-                // Always prefer the actual html5-main-video used by the active player.
+                // Shorts keep several adjacent media elements mounted so the next clip can
+                // start immediately. querySelector() returns the first item, not necessarily
+                // the one centered on screen. Pick the visible/playing Shorts video first.
+                if (isShortsRoute()) {
+                  const shortsVideos = Array.from(document.querySelectorAll(
+                    'video.video-stream.html5-main-video, video.html5-main-video, video'
+                  )).filter(video => video && video.isConnected !== false);
+                  let best = null;
+                  let bestScore = -Infinity;
+                  const viewportHeight = Math.max(1, window.innerHeight || document.documentElement?.clientHeight || 1);
+                  const viewportWidth = Math.max(1, window.innerWidth || document.documentElement?.clientWidth || 1);
+                  for (const video of shortsVideos) {
+                    try {
+                      const rect = video.getBoundingClientRect();
+                      if (rect.width <= 1 || rect.height <= 1) continue;
+                      const visibleWidth = Math.max(0, Math.min(rect.right, viewportWidth) - Math.max(rect.left, 0));
+                      const visibleHeight = Math.max(0, Math.min(rect.bottom, viewportHeight) - Math.max(rect.top, 0));
+                      const area = Math.max(1, rect.width * rect.height);
+                      const visibleRatio = (visibleWidth * visibleHeight) / area;
+                      if (visibleRatio <= 0.01) continue;
+                      const center = (rect.top + rect.bottom) * 0.5;
+                      const centerDistance = Math.abs(center - viewportHeight * 0.5) / viewportHeight;
+                      const score = visibleRatio * 100 + (!video.paused && !video.ended ? 30 : 0) +
+                        (video.readyState >= 2 ? 8 : 0) - centerDistance * 20;
+                      if (score > bestScore) { best = video; bestScore = score; }
+                    } catch (_) {}
+                  }
+                  if (best) return best;
+                }
+
+                // Normal watch pages have one authoritative html5-main-video.
                 const main = document.querySelector('.html5-video-player video.html5-main-video') ||
                   document.querySelector('video.video-stream.html5-main-video') ||
                   document.querySelector('video.html5-main-video');
@@ -119,7 +162,14 @@ object AdBlockScript {
               }
             }
 
+            function releasePreloadPolicy() {
+              try { preloadAttributeObserver?.disconnect?.(); } catch (_) {}
+              preloadAttributeObserver = null;
+              preloadBoundVideo = null;
+            }
+
             function applyPreloadPolicy(video) {
+              if (isBrowseShortsSurface()) { releasePreloadPolicy(); return; }
               if (!video || video !== getPlayerVideo()) return;
               try {
                 // YouTube normally feeds this element through MediaSource. `load()` must not be
@@ -150,10 +200,15 @@ object AdBlockScript {
 
             function playerForVideo(video) {
               try {
-                return video?.closest?.('.html5-video-player') || document.querySelector('.html5-video-player');
+                const closest = video?.closest?.('.html5-video-player');
+                if (closest) return closest;
+                // Never fall back to the first Shorts player: adjacent Shorts are kept
+                // mounted and the first one may be several swipes away from the viewport.
+                if (isShortsRoute()) return null;
+                return document.querySelector('.html5-video-player');
               } catch (_) {
                 internalErrors++;
-                return document.querySelector('.html5-video-player');
+                return isShortsRoute() ? null : document.querySelector('.html5-video-player');
               }
             }
 
@@ -179,6 +234,7 @@ object AdBlockScript {
             }
 
             function applyPlaybackRatePolicy(video) {
+              if (isBrowseShortsSurface()) { bindPlaybackRateVideo(null); return false; }
               if (!video) return false;
               bindPlaybackRateVideo(video);
               const target = configuredPlaybackRate();
@@ -256,6 +312,99 @@ object AdBlockScript {
               rateRetryTimer = setTimeout(restore, delays[0]);
             }
 
+            function repeatMenuItem(node) {
+              try {
+                let item = node?.nodeType === 1 ? node : node?.parentElement;
+                // The visible switch/thumb is often a child button whose own label is
+                // only "On/Off". Walk up to the containing menu row instead of stopping
+                // at the first button, otherwise taps directly on the switch are missed.
+                for (let depth = 0; item && depth < 9; depth++, item = item.parentElement) {
+                  const candidate = item.matches?.(
+                    '[role="menuitem"],[role="menuitemcheckbox"],[role="switch"],ytm-menu-item,ytm-menu-service-item-renderer,ytm-toggle-item-renderer,tp-yt-paper-item,button'
+                  );
+                  if (!candidate) continue;
+                  const label = String(item.getAttribute?.('aria-label') || item.innerText || item.textContent || '')
+                    .replace(/\s+/g, ' ').trim().toLocaleLowerCase();
+                  if (/(^|\s)(repeat|loop|lặp lại|lap lai)(\s|$)/i.test(label)) return item;
+                }
+              } catch (_) {}
+              return null;
+            }
+
+            function repeatUiState(item, video) {
+              try {
+                const candidates = [
+                  item,
+                  item?.querySelector?.('[role="switch"][aria-checked]'),
+                  item?.querySelector?.('[role="checkbox"][aria-checked]'),
+                  item?.querySelector?.('[aria-checked]'),
+                  item?.querySelector?.('input[type="checkbox"]'),
+                  item?.querySelector?.('tp-yt-paper-toggle-button')
+                ].filter(Boolean);
+                for (const candidate of candidates) {
+                  const aria = candidate.getAttribute?.('aria-checked');
+                  if (aria === 'true') return true;
+                  if (aria === 'false') return false;
+                  if (typeof candidate.checked === 'boolean') return !!candidate.checked;
+                  if (candidate.hasAttribute?.('checked')) return true;
+                }
+              } catch (_) { internalErrors++; }
+              return video ? !!video.loop : null;
+            }
+
+            function reportRepeatSelection(enabled) {
+              const value = !!enabled;
+              if (repeatLastReportedState === value) return;
+              repeatLastReportedState = value;
+              try {
+                if (typeof window.VideoShieldBridge?.onRepeatSelected === 'function') {
+                  window.VideoShieldBridge.onRepeatSelected(value);
+                }
+              } catch (_) { internalErrors++; }
+            }
+
+            function commitWebsiteRepeatSelection(item, fallbackState) {
+              const video = getPlayerVideo();
+              if (!video || isPlayerAd()) return;
+              let enabled = repeatUiState(item, video);
+              // Some mobile YouTube builds keep the toggle state in an internal
+              // renderer model and update video.loop a little later. A click on the
+              // Repeat row still has unambiguous toggle semantics, so fall back to
+              // the inverse of the state captured before the click.
+              if (enabled === null || enabled === fallbackState) {
+                const mediaState = !!video.loop;
+                enabled = mediaState !== fallbackState ? mediaState : !fallbackState;
+              }
+              if (!window.__videoShieldCfg) window.__videoShieldCfg = {};
+              window.__videoShieldCfg.autoRepeat = !!enabled;
+              repeatUiInteractionUntil = Date.now() + 500;
+              repeatUiPending = false;
+              // Apply only the ON side immediately. On OFF, leaving video.loop alone
+              // for this turn lets YouTube finish its own click handler without a race.
+              if (enabled) {
+                try { video.loop = true; } catch (_) { internalErrors++; }
+                lastEndedVideoId = '';
+              } else {
+                repeatRestartAt = 0;
+                repeatRestartVideoId = '';
+              }
+              reportRepeatSelection(enabled);
+            }
+
+            function beginWebsiteRepeatInteraction(item) {
+              if (!item) return;
+              repeatUiInteractionUntil = Date.now() + 1200;
+              if (repeatUiPending) return;
+              repeatUiPending = true;
+              const before = !!(window.__videoShieldCfg || {}).autoRepeat;
+              // Run after YouTube's own click/toggle handler. Multiple checkpoints
+              // cover both synchronous renderers and Polymer updates deferred a frame.
+              setTimeout(() => commitWebsiteRepeatSelection(item, before), 40);
+              setTimeout(() => {
+                if (repeatUiPending) commitWebsiteRepeatSelection(item, before);
+              }, 180);
+            }
+
             function bindRepeatVideo(video) {
               if (repeatBoundVideo === video) return;
               try {
@@ -272,11 +421,11 @@ object AdBlockScript {
                 if (!c.autoRepeat || video !== getPlayerVideo() || isPlayerAd()) return;
                 const duration = Number(video.duration);
                 const position = Number(video.currentTime);
-                // Restart just before YouTube's own end/autonav handler can replace the
-                // current watch route. The threshold is intentionally tiny so the final
-                // frame is not perceptibly clipped.
-                if (video.ended || (Number.isFinite(duration) && duration > 0.5 &&
-                    Number.isFinite(position) && !video.seeking && position >= duration - 0.08)) {
+                // When loop=true the HTML media element loops at the exact end and the
+                // ended event is suppressed. Only use an early restart as a fallback if
+                // YouTube has unexpectedly cleared loop while repeat is still enabled.
+                if (video.ended || (!video.loop && Number.isFinite(duration) && duration > 0.5 &&
+                    Number.isFinite(position) && !video.seeking && position >= duration - 0.18)) {
                   restartRepeatedVideo(video);
                 }
               };
@@ -297,6 +446,7 @@ object AdBlockScript {
               repeatRestartAt = now;
               lastEndedVideoId = '';
               try {
+                video.loop = true;
                 const player = video.closest?.('.html5-video-player') || document.querySelector('.html5-video-player');
                 if (player && typeof player.seekTo === 'function') player.seekTo(0, true);
                 try { video.currentTime = 0; } catch (_) {}
@@ -316,25 +466,40 @@ object AdBlockScript {
               }
             }
 
-            function applyRepeatPolicy(video) {
+            function applyRepeatPolicy(video, explicit = false) {
+              if (isBrowseShortsSurface()) {
+                bindRepeatVideo(null);
+                repeatRestartAt = 0; repeatRestartVideoId = '';
+                return;
+              }
               bindRepeatVideo(video);
               const enabled = !!(window.__videoShieldCfg || {}).autoRepeat;
               if (!video) return;
               try {
-                // During an ad, keep the ad itself non-looping while updating the content
-                // state that will be restored after the ad ends.
-                if (adState && adState.video === video) adState.loop = enabled;
-                video.loop = enabled && !isPlayerAd();
-                if (enabled) {
+                const inWebsiteToggle = Date.now() < repeatUiInteractionUntil;
+                // If the website turned loop on while the native preference was off,
+                // adopt that state instead of fighting the user's own player menu.
+                if (!explicit && !inWebsiteToggle && !enabled && !!video.loop && !isPlayerAd()) {
+                  window.__videoShieldCfg.autoRepeat = true;
+                  reportRepeatSelection(true);
+                }
+                const effective = !!(window.__videoShieldCfg || {}).autoRepeat;
+                if (adState && adState.video === video && effective) adState.loop = true;
+                if (!isPlayerAd() && !inWebsiteToggle) {
+                  // Periodic policy only enforces ON. OFF is written only by an explicit
+                  // native setting, so the website's Repeat switch can change state.
+                  if (effective) video.loop = true;
+                  else if (explicit) video.loop = false;
+                }
+                if (effective) {
                   const player = playerForVideo(video);
-                  // Native queue/repeat owns end-of-video navigation. Disable the site's
-                  // autonav countdown where this internal API is available.
                   if (player && typeof player.setAutonavState === 'function') {
                     try { player.setAutonavState(1); } catch (_) {}
                   }
+                  lastEndedVideoId = '';
                 }
               } catch (_) { internalErrors++; }
-              if (!enabled) {
+              if (!(window.__videoShieldCfg || {}).autoRepeat) {
                 repeatRestartAt = 0;
                 repeatRestartVideoId = '';
               }
@@ -501,6 +666,7 @@ object AdBlockScript {
 
             window.__videoShieldCancelQualityChange = cancelQualityPlaybackRestore;
             window.__videoShieldPrepareQualityChange = () => {
+              if (isBrowseShortsSurface()) { cancelQualityPlaybackRestore(); return false; }
               const video = getPlayerVideo();
               if (!video || video.ended || isPlayerAd()) return false;
               const id = getVideoId();
@@ -581,6 +747,7 @@ object AdBlockScript {
             }
 
             window.__videoShieldCommitQualityChange = () => {
+              if (isBrowseShortsSurface()) { cancelQualityPlaybackRestore(); return false; }
               const transition = qualityTransition;
               if (transition) return restoreQualityPlaybackNow(transition);
               const video = getPlayerVideo();
@@ -595,6 +762,13 @@ object AdBlockScript {
 
             function applyPlaybackEnhancements(video) {
               if (!video) return;
+              if (isBrowseShortsSurface()) {
+                releasePreloadPolicy();
+                bindPlaybackRateVideo(null);
+                bindRepeatVideo(null);
+                cancelQualityPlaybackRestore();
+                return;
+              }
               const c = window.__videoShieldCfg || {};
               applyPreloadPolicy(video);
               applyRepeatPolicy(video);
@@ -707,7 +881,7 @@ object AdBlockScript {
             }
 
             function handleCommunitySegments(video) {
-              if (!video || !communitySkippingEnabled()) return;
+              if (isBrowseShortsSurface() || !video || !communitySkippingEnabled()) return;
               const videoId = getVideoId();
               if (!videoId || videoId !== segmentVideoId || !Array.isArray(communitySegments)) return;
               const now = Number(video.currentTime) || 0;
@@ -740,8 +914,9 @@ object AdBlockScript {
 
             function clickSkip() {
               if (!aggressiveBlockingAllowed() || !isPlayerAd()) return false;
+              const activePlayer = playerForVideo(getPlayerVideo());
               const candidates = hasLegacyAdSignal() ? selectorsFor('skip').map(selector => {
-                try { return document.querySelector(selector); } catch (_) { return null; }
+                try { return activePlayer?.querySelector?.(selector) || null; } catch (_) { return null; }
               }) : [mobileSkipButton()];
               for (const button of candidates) {
                 try {
@@ -776,7 +951,7 @@ object AdBlockScript {
             }
 
             function hasLegacyAdSignal() {
-              const player = document.querySelector('.html5-video-player');
+              const player = playerForVideo(getPlayerVideo());
               return !!(player && player.classList &&
                 (player.classList.contains('ad-showing') || player.classList.contains('ad-interrupting')));
             }
@@ -812,8 +987,8 @@ object AdBlockScript {
             }
 
             function handlePlayerAd() {
-              const player = document.querySelector('.html5-video-player');
-              const video = player ? player.querySelector('video') : getPlayerVideo();
+              const video = getPlayerVideo();
+              const player = playerForVideo(video);
               if (!aggressiveBlockingAllowed()) {
                 restorePlayerState(video);
                 return;
@@ -880,6 +1055,9 @@ object AdBlockScript {
             }
 
             function updatePlaybackBridge() {
+              // The browse Shorts feed owns its own lifecycle. Reporting/repeat/queue logic here
+              // would mistake adjacent Shorts media for one dedicated playback session.
+              if (isBrowseShortsSurface()) return;
               // Ad media time must never overwrite the content resume position or advance the queue.
               if (isPlayerAd()) return;
               const now = Date.now();
@@ -963,7 +1141,8 @@ object AdBlockScript {
                 const video = getPlayerVideo();
                 const playing = !!(video && !video.paused && !video.ended);
                 const hidden = document.visibilityState === 'hidden';
-                const delay = playing ? (hidden ? 1800 : 1000) : (hidden ? 8000 : 2500);
+                const delay = isBrowseShortsSurface() ? (hidden ? 8000 : 2500) :
+                  playing ? (hidden ? 1800 : 1000) : (hidden ? 8000 : 2500);
                 fallbackSweepTimer = setTimeout(() => {
                   fallbackSweepTimer = null;
                   const fullDom = Date.now() - lastFullDomSweepAt >= (hidden ? 10000 : 5000);
@@ -1074,7 +1253,8 @@ object AdBlockScript {
               try {
                 if (!window.__videoShieldCfg) window.__videoShieldCfg = {};
                 window.__videoShieldCfg.autoRepeat = !!enabled;
-                applyRepeatPolicy(getPlayerVideo());
+                repeatLastReportedState = !!enabled;
+                applyRepeatPolicy(getPlayerVideo(), true);
                 if (enabled) lastEndedVideoId = '';
                 return true;
               } catch (_) { internalErrors++; return false; }
@@ -1083,7 +1263,7 @@ object AdBlockScript {
             window.__videoShieldPreferencesChanged = () => {
               const media = getPlayerVideo();
               applyPreloadPolicy(media);
-              applyRepeatPolicy(media);
+              applyRepeatPolicy(media, true);
               applyPlaybackRatePolicy(media);
               if (media && !isPlayerAd()) schedulePlaybackRateRestore(media);
               // Unrelated settings must not reset a user's quality or adaptive downgrade.
@@ -1136,12 +1316,18 @@ object AdBlockScript {
             document.addEventListener('play', updatePlaybackBridge, true);
             for(const eventName of ['pointerdown','touchstart']) document.addEventListener(eventName,event=>{
               window.__videoShieldExpandPlaybackWanted=false;
-              const menu = event.target?.closest?.('.ytp-settings-button,.ytp-menuitem,[role="menuitem"],[role="menuitemradio"]');
+              const repeatItem = repeatMenuItem(event.target);
+              if (repeatItem) repeatUiInteractionUntil = Date.now() + 1200;
+              const menu = event.target?.closest?.('.ytp-settings-button,.ytp-menuitem,[role="menuitem"],[role="menuitemradio"],[role="menuitemcheckbox"]');
               if (menu) {
                 if (!qualityPlaybackIntent || qualityPlaybackIntent.id !== getVideoId())
                   window.__videoShieldPrepareQualityChange();
               } else cancelQualityPlaybackRestore();
             },true);
+            document.addEventListener('click', event => {
+              const repeatItem = repeatMenuItem(event.target);
+              if (repeatItem) beginWebsiteRepeatInteraction(repeatItem);
+            }, true);
             document.addEventListener('keydown', cancelQualityPlaybackRestore, true);
             for (const eventName of ['loadedmetadata', 'durationchange', 'canplay', 'playing', 'play', 'volumechange']) {
               document.addEventListener(eventName, event => {
