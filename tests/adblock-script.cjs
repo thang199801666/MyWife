@@ -8,6 +8,8 @@ const source = fs.readFileSync(path.join(__dirname, '../app/src/main/java/com/ex
 const scriptMatch = source.match(/(?:return|val script =)\s*"""([\s\S]*?)"""\.trimIndent\(\)/);
 assert(scriptMatch, 'embedded player script must be found');
 const template = scriptMatch[1];
+const surfaceSource = fs.readFileSync(path.join(__dirname, '../app/src/main/java/com/example/videoshield/ClientSurfaceScript.kt'), 'utf8');
+const miniTemplate = surfaceSource.split('fun mini(')[1].split('"""')[1];
 let checks = 0;
 function fixture({ ad = false, skip = true, instantSkip = false, safeMode = false, ended = false, readyState = 4, duration = 120, adContainer = false, playbackSpeed = 1.5, mobileLabel = '', mobileOutside = false } = {}) {
   let now = 10000;
@@ -520,6 +522,50 @@ test('website keyboard Pause overrides resize protection but typing does not',()
   assert.equal(f.sandbox.__videoShieldExpandPlaybackWanted,true,'typing must not affect playback');
   keydown({key:'k',target:{closest:()=>null}});f.video.pause();
   assert.equal(f.video.paused,true);
+});
+
+test('minimize then expand reconciles website player state before its Pause click',()=>{
+  const f=fixture(),p=f.sandbox.document.querySelector('.html5-video-player');
+  const styles=new Map();let surface='expanded',playerState=1,repairs=0;
+  f.sandbox.Event=class {constructor(type){this.type=type;}};
+  f.sandbox.dispatchEvent=()=>{};
+  f.sandbox.requestAnimationFrame=callback=>callback();
+  f.sandbox.document.documentElement.setAttribute=(_,value)=>surface=value;
+  f.sandbox.document.documentElement.getAttribute=()=>surface;
+  f.sandbox.document.getElementById=id=>styles.get(id)||null;
+  f.sandbox.document.createElement=()=>({remove(){styles.delete(this.id);}});
+  f.sandbox.document.head={appendChild(style){styles.set(style.id,style);}};
+  p.getPlayerState=()=>playerState;
+  p.playVideo=()=>{if(f.video.paused){f.video.play();playerState=1;}};
+  f.video.dispatchEvent=e=>{if(e.type==='playing'){playerState=1;repairs++;}};
+  const mini=enabled=>vm.runInContext(miniTemplate.replaceAll('$enabled',String(enabled)).replaceAll('$resumePlaying','true'),f.sandbox);
+  for(let cycle=0;cycle<3;cycle++){
+    mini(true);playerState=2;f.video.pause();
+    assert.equal(f.video.paused,false,'resize guard keeps actual media running');
+    mini(false);
+    assert.equal(playerState,1,'expanded website controls must agree with playing media');
+    assert.equal(styles.has('youtoobee-mini-style'),false);
+    f.sandbox.__videoShieldExpandPlaybackWanted=false;
+    // YouTube chooses Pause or Play from its own state, not video.paused.
+    if(playerState===1){playerState=2;f.video.pause();}else p.playVideo();
+    assert.equal(f.video.paused,true,'website Pause must stop media after expansion');
+    f.video.play();playerState=1;f.sweep(3000);
+  }
+  assert.equal(repairs,3,'one reconciliation per mismatched expansion');
+  playerState=2;
+  const late=[...f.state.timers.values()].find(t=>t.delay===600);
+  assert(late,'late resize reconciliation scheduled');late.callback();
+  assert.equal(playerState,1,'a delayed website resize state must also be reconciled');
+  f.video.paused=true;playerState=2;late.callback();
+  assert.equal(playerState,2);assert.equal(f.video.paused,true,'late repair must honor actual Pause');
+});
+
+test('surface state reconciliation never resumes an intentionally paused video',()=>{
+  const f=fixture(),p=f.sandbox.document.querySelector('.html5-video-player');let events=0;
+  f.video.paused=true;p.getPlayerState=()=>2;
+  f.video.dispatchEvent=()=>events++;
+  assert.equal(f.sandbox.__videoShieldSyncPlayerState(),false);
+  assert.equal(events,0);assert.equal(f.video.paused,true);
 });
 test('native next-video handling disables the independent website countdown',()=>{
   const f=fixture(),p=f.sandbox.document.querySelector('.html5-video-player'),states=[];

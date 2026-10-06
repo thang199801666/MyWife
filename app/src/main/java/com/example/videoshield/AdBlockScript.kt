@@ -1530,6 +1530,21 @@ object AdBlockScript {
               configuredRate: configuredPlaybackRate(), mediaRate: Number(getPlayerVideo()?.playbackRate || 1),
               requestedRate: lastRequestedRate });
             window.__videoShieldScheduleCompatibility = scheduleCompatibility;
+            window.__videoShieldSyncPlayerState = () => {
+              const video = getPlayerVideo();
+              if (!video || video.paused || video.ended || video.readyState < 3 || isPlayerAd()) return false;
+              const player = playerForVideo(video);
+              try {
+                // A resize Pause can be blocked below while YouTube still changes
+                // its own state to PAUSED. playVideo() then sees already-playing
+                // media and may never emit the event needed to repair its controls.
+                if (typeof player?.getPlayerState !== 'function' || player.getPlayerState() !== 2) return false;
+                // Report the real running media state without pause/play, seeking,
+                // load(), or rebuilding its buffered MediaSource.
+                video.dispatchEvent(new Event('playing'));
+                return true;
+              } catch (_) { internalErrors++; return false; }
+            };
             window.__videoShieldControl = (cmd) => {
               if (cmd === 'pause' || cmd === 'toggle' || cmd === 'play') cancelQualityPlaybackRestore();
               if(cmd==='pause' || cmd==='toggle') window.__videoShieldExpandPlaybackWanted=false;

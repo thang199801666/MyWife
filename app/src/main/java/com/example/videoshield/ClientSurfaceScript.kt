@@ -34,6 +34,14 @@ object ClientSurfaceScript {
                 if(typeof player?.playVideo==='function') player.playVideo();
                 else if(video.paused) video.play().catch(()=>{});
               }
+              window.__videoShieldSyncPlayerState?.();
+              // YouTube can publish its resize Pause after the first expanded
+              // frame. Reconcile a few bounded checkpoints; the helper never
+              // resumes paused media or touches a later mini/PiP surface.
+              for(const delay of [250,600,1200]) setTimeout(()=>{
+                if(document.documentElement.getAttribute('data-votuibe-surface')==='expanded')
+                  window.__videoShieldSyncPlayerState?.();
+              },delay);
             }));
             return;
           }
