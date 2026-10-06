@@ -34,12 +34,12 @@ class DownloadListAdapter(private val activity: Activity, private val options: (
     }
     private inner class Holder {
         val root=LinearLayout(activity).apply { gravity=Gravity.TOP; setPadding(dp(16),dp(12),dp(8),dp(12)) }
-        val image=ImageView(activity).apply { scaleType=ImageView.ScaleType.CENTER_CROP; background=rounded(Color.rgb(40,40,40)); clipToOutline=true }
+        val image=ImageView(activity).apply { scaleType=ImageView.ScaleType.CENTER_CROP; background=rounded(AppTheme.control(activity)); clipToOutline=true }
         val badge=TextView(activity).apply { textSize=10f; setTextColor(Color.WHITE); background=rounded(0xcc000000.toInt(),4); setPadding(dp(4),dp(2),dp(4),dp(2)) }
-        val title=TextView(activity).apply { textSize=14f; setTextColor(Color.WHITE); maxLines=2; ellipsize=android.text.TextUtils.TruncateAt.END; setTypeface(null,Typeface.BOLD) }
-        val detail=TextView(activity).apply { textSize=11f; setTextColor(Color.LTGRAY); maxLines=2; setPadding(0,dp(5),0,0) }
+        val title=TextView(activity).apply { textSize=14f; setTextColor(AppTheme.primary(activity)); maxLines=2; ellipsize=android.text.TextUtils.TruncateAt.END; setTypeface(null,Typeface.BOLD) }
+        val detail=TextView(activity).apply { textSize=11f; setTextColor(AppTheme.secondary(activity)); maxLines=2; setPadding(0,dp(5),0,0) }
         val status=TextView(activity).apply { textSize=11f; setPadding(0,dp(6),0,dp(4)) }
-        val progress=ProgressBar(activity,null,android.R.attr.progressBarStyleHorizontal).apply { max=100; progressTintList=ColorStateList.valueOf(Color.rgb(255,51,88)); progressBackgroundTintList=ColorStateList.valueOf(Color.rgb(55,55,55)) }
+        val progress=ProgressBar(activity,null,android.R.attr.progressBarStyleHorizontal).apply { max=100; progressTintList=ColorStateList.valueOf(Color.rgb(255,51,88)); progressBackgroundTintList=ColorStateList.valueOf(AppTheme.divider(activity)) }
         val more=IconButton(activity,null,android.R.attr.borderlessButtonStyle).apply { setIcon(R.drawable.ic_ui_more); isFocusable=false }
         init {
             val preview=FrameLayout(activity)
@@ -55,7 +55,7 @@ class DownloadListAdapter(private val activity: Activity, private val options: (
         val job=items[position]; val state=state(job)
         holder.title.text=job.title; holder.detail.text="${LocalizedPresentation.quality(activity,job.quality)}\n${if(job.temporary) activity.getString(R.string.ui_temporary_30_days) else activity.getString(R.string.ui_on_device)}"
         holder.status.text=state.text
-        holder.status.setTextColor(if(state.failed) Color.rgb(255,125,142) else if(state.active) Color.rgb(62,166,255) else Color.LTGRAY)
+        holder.status.setTextColor(if(state.failed) Color.rgb(255,125,142) else if(state.active) Color.rgb(62,166,255) else AppTheme.secondary(activity))
         holder.badge.text=if(job.mp3) "MP3" else "VIDEO"
         holder.more.contentDescription=activity.getString(R.string.options_for,job.title); holder.more.setOnClickListener { options(job) }
         holder.progress.visibility=if(state.active) View.VISIBLE else View.GONE

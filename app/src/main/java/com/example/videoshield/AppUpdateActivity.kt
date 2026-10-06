@@ -29,14 +29,16 @@ class AppUpdateActivity : LocalizedActivity() {
     private var downloaded: File? = null
     private var busy = false
     private var waitingForPermission = false
+    private var autoDownloadRequested = false
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         client = AppReleaseClient(applicationContext)
+        autoDownloadRequested = intent.getBooleanExtra(EXTRA_AUTO_DOWNLOAD, false)
         val root = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             setPadding(dp(20), dp(20), dp(20), dp(20))
-            setBackgroundColor(Color.BLACK)
+            setBackgroundColor(AppTheme.background(this@AppUpdateActivity))
         }
         val scroll = ScrollView(this).apply { addView(root) }
         setContentView(scroll)
@@ -44,16 +46,16 @@ class AppUpdateActivity : LocalizedActivity() {
         root.addView(TextView(this).apply {
             text = getString(R.string.app_update_title)
             textSize = 24f
-            setTextColor(Color.WHITE)
+            setTextColor(AppTheme.primary(this@AppUpdateActivity))
         })
         root.addView(TextView(this).apply {
             val version = packageManager.getPackageInfo(packageName, 0).versionName.orEmpty()
             text = getString(R.string.app_update_current, version)
             textSize = 14f
-            setTextColor(Color.LTGRAY)
+            setTextColor(AppTheme.secondary(this@AppUpdateActivity))
             setPadding(0, dp(12), 0, dp(16))
         })
-        status = TextView(this).apply { textSize = 18f; setTextColor(Color.WHITE) }
+        status = TextView(this).apply { textSize = 18f; setTextColor(AppTheme.primary(this@AppUpdateActivity)) }
         root.addView(status)
         progress = ProgressBar(this, null, android.R.attr.progressBarStyleHorizontal).apply {
             max = 100
@@ -62,7 +64,7 @@ class AppUpdateActivity : LocalizedActivity() {
         root.addView(progress, LinearLayout.LayoutParams(-1, dp(12)).apply { topMargin = dp(16) })
         details = TextView(this).apply {
             textSize = 14f
-            setTextColor(Color.LTGRAY)
+            setTextColor(AppTheme.secondary(this@AppUpdateActivity))
             setPadding(0, dp(16), 0, dp(16))
         }
         root.addView(details)
@@ -110,23 +112,37 @@ class AppUpdateActivity : LocalizedActivity() {
                 progress.visibility = android.view.View.GONE
                 action.isEnabled = true
                 if (result.isFailure) {
+                    autoDownloadRequested = false
                     status.setText(R.string.app_update_check_failed)
                     action.setText(R.string.app_update_retry)
                     return@runOnUiThread
                 }
                 val next = result.getOrNull()
                 val installed = client.versionCode(packageManager.getPackageInfo(packageName, 0))
-                when {
-                    next == null -> status.setText(R.string.app_update_no_release)
-                    next.versionCode <= installed -> status.setText(R.string.app_update_up_to_date)
-                    next.minSdk > Build.VERSION.SDK_INT || next.abi !in Build.SUPPORTED_ABIS ->
+                when (AppUpdatePolicy.availability(next, installed, Build.VERSION.SDK_INT, Build.SUPPORTED_ABIS.asList())) {
+                    AppUpdateAvailability.NO_RELEASE -> {
+                        autoDownloadRequested = false
+                        status.setText(R.string.app_update_no_release)
+                    }
+                    AppUpdateAvailability.UP_TO_DATE -> {
+                        autoDownloadRequested = false
+                        status.setText(R.string.app_update_up_to_date)
+                    }
+                    AppUpdateAvailability.INCOMPATIBLE -> {
+                        autoDownloadRequested = false
                         status.setText(R.string.app_update_incompatible)
-                    else -> {
-                        release = next
-                        status.text = getString(R.string.app_update_available, next.versionName)
-                        details.text = getString(R.string.app_update_size, next.size / 1024 / 1024) +
-                            "\n\n" + next.notes
+                    }
+                    AppUpdateAvailability.AVAILABLE -> {
+                        val available = next ?: return@runOnUiThread
+                        release = available
+                        status.text = getString(R.string.app_update_available, available.versionName)
+                        details.text = getString(R.string.app_update_size, available.size / 1024 / 1024) +
+                            "\n\n" + available.notes
                         action.setText(R.string.app_update_download)
+                        if (autoDownloadRequested) {
+                            autoDownloadRequested = false
+                            download()
+                        }
                     }
                 }
             }
@@ -203,4 +219,8 @@ class AppUpdateActivity : LocalizedActivity() {
     }
 
     private fun dp(value: Int) = (value * resources.displayMetrics.density).toInt()
+    companion object {
+        const val EXTRA_AUTO_DOWNLOAD = "com.example.videoshield.extra.AUTO_DOWNLOAD_UPDATE"
+    }
+
 }

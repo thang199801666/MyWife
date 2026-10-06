@@ -25,7 +25,7 @@ class SaveVideoController(private val activity: Activity) {
         ),title) { index ->
                 val temporary=index==1
                 sheet=ActionSheet.show(activity,if(temporary) activity.getString(R.string.ui_temporary_save) else activity.getString(R.string.ui_save_to_device),listOf(
-                    ActionSheet.Action("Video",activity.getString(R.string.ui_choose_a_resolution_from_the_source),R.drawable.ic_ui_play),
+                    ActionSheet.Action(activity.getString(R.string.ui_video),activity.getString(R.string.ui_choose_a_resolution_from_the_source),R.drawable.ic_ui_play),
                     ActionSheet.Action("MP3",activity.getString(R.string.ui_audio_only_choose_quality),R.drawable.ic_ui_audio)
                 )) { type ->
                         if(type==1) choose(url,title,temporary,true,DownloadPolicy.mp3Qualities)
@@ -47,7 +47,7 @@ class SaveVideoController(private val activity: Activity) {
                 dialog?.dismiss(); inspection=""
                 result.onSuccess { choose(url,it.title.ifBlank { title },temporary,false,it.qualities) }
                     .onFailure { AlertDialog.Builder(activity).setTitle(activity.getString(R.string.ui_could_not_read_the_download_source))
-                        .setMessage(DownloadFailure.describe(it,activity)).setPositiveButton("OK",null).show() }
+                        .setMessage(DownloadFailure.describe(it,activity)).setPositiveButton(activity.getString(R.string.ui_ok),null).show() }
             }
         }
     }

@@ -5,7 +5,7 @@ import org.json.JSONObject
 
 /** Render local rankings in Home; result links enter the existing native player. */
 object HomeRecommendationsScript {
-    fun build(enabled: Boolean, rows: List<SuggestedVideo>, heading: String = "Dành cho bạn", hint: String = "Xem hoặc tìm kiếm video để khám phá thêm nội dung phù hợp với bạn."): String {
+    fun build(enabled: Boolean, rows: List<SuggestedVideo>, heading: String, hint: String): String {
         val headingJson = JSONObject.quote(heading)
         val hintJson = JSONObject.quote(hint)
         val payload = JSONArray()

@@ -2,7 +2,7 @@
 <ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="#0B0C0F">
+    android:background="?attr/appBackground">
 
     <LinearLayout
         android:id="@+id/settingsRoot"
@@ -27,6 +27,7 @@
             android:layout_height="wrap_content" android:minHeight="48dp"
             android:text="@string/ui_apply_enhanced_client_defaults"
             android:textAllCaps="false" />
+        <Switch android:id="@+id/settingLightTheme" style="@style/SettingsSwitch" android:text="@string/ui_light_theme" />
         <Switch android:id="@+id/settingShield" style="@style/SettingsSwitch" android:text="@string/ui_block_youtube_ads" />
         <Switch android:id="@+id/settingTrackers" style="@style/SettingsSwitch" android:text="@string/ui_block_tracking_requests" />
         <Switch android:id="@+id/settingSafeMode" style="@style/SettingsSwitch" android:text="@string/ui_safe_mode_disable_network_and_aggressive_player_filtering" />
@@ -42,11 +43,10 @@
         <Switch android:id="@+id/settingAutoPip" style="@style/SettingsSwitch" android:text="@string/ui_automatically_enter_pip_when_leaving_app" />
         <Switch android:id="@+id/settingBackgroundControls" style="@style/SettingsSwitch" android:text="@string/ui_lock_screen_notification_controls" />
         <Switch android:id="@+id/settingFullscreenGestures" style="@style/SettingsSwitch" android:text="@string/ui_player_gestures_swipe_down_to_minimize_fullscreen_seek_brightness" />
-        <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:text="@string/ui_on_a_regular_video_page_swipe_down_on_the_video_image_to_minimize" android:textColor="#8B919D" android:textSize="12sp" android:paddingBottom="6dp" />
-        <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:text="@string/ui_swipe_horizontally_to_seek_swipe_vertically_on_the_left_for_brigh" android:textColor="#8B919D" android:textSize="12sp" android:paddingBottom="6dp" />
+        <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:text="@string/ui_on_a_regular_video_page_swipe_down_on_the_video_image_to_minimize" android:textColor="?attr/appTextTertiary" android:textSize="12sp" android:paddingBottom="6dp" />
+        <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:text="@string/ui_swipe_horizontally_to_seek_swipe_vertically_on_the_left_for_brigh" android:textColor="?attr/appTextTertiary" android:textSize="12sp" android:paddingBottom="6dp" />
         <Button android:id="@+id/gestureSensitivityButton" android:layout_width="match_parent" android:layout_height="wrap_content" android:minHeight="48dp" android:text="@string/ui_gesture_sensitivity_1" android:textAllCaps="false" />
         <Button android:id="@+id/doubleTapSeekButton" android:layout_width="match_parent" android:layout_height="wrap_content" android:minHeight="48dp" android:text="@string/ui_double_tap_seek_10s" android:textAllCaps="false" />
-        <Switch android:id="@+id/settingAmoledTheme" style="@style/SettingsSwitch" android:text="@string/ui_amoled_black_theme" />
         <Switch android:id="@+id/settingCompactChrome" style="@style/SettingsSwitch" android:text="@string/ui_minimal_player_chrome_hide_app_bar_while_watching" />
         <Switch android:id="@+id/settingAutoRepeat" style="@style/SettingsSwitch" android:text="@string/ui_always_repeat_the_current_video" />
         <Button android:id="@+id/preferredQualityButton" android:layout_width="match_parent" android:layout_height="wrap_content" android:minHeight="48dp" android:text="@string/ui_wi_fi_unmetered_quality_auto" android:textAllCaps="false" />
@@ -55,7 +55,7 @@
         <TextView style="@style/SettingsSection" android:text="@string/ui_community_segment_skip" />
         <Switch android:id="@+id/settingCommunitySponsorSkip" style="@style/SettingsSwitch" android:text="@string/ui_skip_sponsor_self_promo_and_interaction_segments" />
         <Switch android:id="@+id/settingSkipIntrosOutros" style="@style/SettingsSwitch" android:text="@string/ui_skip_community_marked_intros_and_outros" />
-        <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:text="@string/community_privacy" android:textColor="#8B919D" android:textSize="12sp" android:paddingBottom="6dp"/>
+        <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:text="@string/community_privacy" android:textColor="?attr/appTextTertiary" android:textSize="12sp" android:paddingBottom="6dp"/>
 
         <TextView style="@style/SettingsSection" android:text="@string/ui_reliability" />
         <Switch android:id="@+id/settingPlaybackRecovery" style="@style/SettingsSwitch" android:text="@string/ui_automatically_recover_stalled_foreground_playback" />
@@ -65,11 +65,11 @@
         <TextView style="@style/SettingsSection" android:text="@string/ui_local_library" />
         <Switch android:id="@+id/settingPersonalization" style="@style/SettingsSwitch" android:text="@string/ui_learn_viewing_habits_locally_and_suggest_videos_in_for_you" />
         <Button android:id="@+id/resetPersonalizationButton" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="@string/ui_clear_learned_preferences_and_suggestions" android:textAllCaps="false" />
-        <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:textColor="#8B919D" android:textSize="12sp" android:text="@string/ui_learning_requires_watch_history_suggestions_use_viewing_time_favo" />
+        <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:textColor="?attr/appTextTertiary" android:textSize="12sp" android:text="@string/ui_learning_requires_watch_history_suggestions_use_viewing_time_favo" />
         <Switch android:id="@+id/settingRememberHistory" style="@style/SettingsSwitch" android:text="@string/ui_remember_watch_history_and_playback_position_locally" />
         <Switch android:id="@+id/settingResumePlayback" style="@style/SettingsSwitch" android:text="@string/ui_resume_videos_from_the_last_local_playback_position" />
         <Switch android:id="@+id/settingAutoAdvanceQueue" style="@style/SettingsSwitch" android:text="@string/ui_automatically_play_the_next_item_in_queue" />
-        <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:text="@string/ui_subscriptions_favorites_queue_and_history_are_stored_only_on_this" android:textColor="#8B919D" android:textSize="12sp" android:paddingBottom="6dp"/>
+        <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:text="@string/ui_subscriptions_favorites_queue_and_history_are_stored_only_on_this" android:textColor="?attr/appTextTertiary" android:textSize="12sp" android:paddingBottom="6dp"/>
 
         <TextView style="@style/SettingsSection" android:text="@string/ui_rule_pack" />
         <Switch android:id="@+id/settingAutoRuleUpdates" style="@style/SettingsSwitch" android:text="@string/ui_automatically_check_configured_rule_source_every_24_hours" />
@@ -77,7 +77,7 @@
             android:id="@+id/ruleStatus"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:textColor="#C7CBD4"
+            android:textColor="?attr/appTextSecondary"
             android:textSize="13sp"
             android:paddingVertical="8dp" />
 
@@ -88,8 +88,8 @@
             android:singleLine="true"
             android:inputType="textUri"
             android:hint="https://…/videoshield-rules.json"
-            android:textColor="#F2F4F8"
-            android:textColorHint="#6F7580"
+            android:textColor="?attr/appTextPrimary"
+            android:textColorHint="?attr/appTextTertiary"
             android:textSize="13sp"
             android:paddingHorizontal="12dp"
             android:background="@drawable/bg_address" />
@@ -126,7 +126,7 @@
             android:id="@+id/allowlistStatus"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:textColor="#C7CBD4"
+            android:textColor="?attr/appTextSecondary"
             android:textSize="13sp"
             android:paddingVertical="8dp" />
         <Button
@@ -140,7 +140,7 @@
             android:layout_height="wrap_content"
             android:layout_marginTop="20dp"
             android:text="@string/rules_explanation"
-            android:textColor="#8B919D"
+            android:textColor="?attr/appTextTertiary"
             android:textSize="12sp" />
 
         <Button

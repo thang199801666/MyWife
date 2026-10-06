@@ -1,4 +1,3 @@
-<?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_update_title">Cập nhật Vợ Tui</string>
     <string name="app_update_check">Kiểm tra cập nhật</string>
@@ -16,9 +15,14 @@
     <string name="app_update_download_failed">Chưa tải hoặc xác minh được bản cập nhật. Hãy thử lại.</string>
     <string name="app_update_ready">Bản cập nhật đã tải và xác minh thành công.</string>
     <string name="app_update_install">Cài đặt bản cập nhật</string>
-    <string name="app_update_allow_install">Để cập nhật, hãy cho phép Vợ Tui cài ứng dụng từ nguồn này trong cài đặt Android. Sau đó quay lại app để tiếp tục.</string>
+    <string name="app_update_allow_install">Để cập nhật, hãy cho phép Vợ Tui cài ứng dụng từ nguồn này trong phần Cài đặt Android. Sau đó quay lại Vợ Tui để tiếp tục.</string>
     <string name="app_update_open_settings">Mở cài đặt Android</string>
-    <string name="app_update_install_failed">Chưa mở được trình cài đặt. Bạn có thể tải APK từ trang phát hành.</string>
+    <string name="app_update_install_failed">Không thể mở trình cài đặt. Bạn có thể tải APK từ trang phát hành.</string>
     <string name="app_update_releases">Xem trang phát hành GitHub</string>
     <string name="app_update_browser_missing">Chưa mở được trình duyệt trên thiết bị này.</string>
+    <string name="app_update_startup_title">Có bản cập nhật mới</string>
+    <string name="app_update_startup_versions">Vợ Tui %1$s → %2$s</string>
+    <string name="app_update_startup_size">Dung lượng tải xuống: khoảng %1$d MB</string>
+    <string name="app_update_now">Cập nhật</string>
+    <string name="app_update_later">Không, cảm ơn</string>
 </resources>

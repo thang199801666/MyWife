@@ -11,11 +11,25 @@ class IconButton @JvmOverloads constructor(context: Context, attrs: AttributeSet
     defStyleAttr: Int = android.R.attr.buttonStyle) : Button(context, attrs, defStyleAttr) {
     private var icon: Drawable? = compoundDrawables[1]?.mutate()
     private var iconResource = 0
-    init { text = ""; setCompoundDrawables(null, null, null, null) }
+    private var iconTint: Int? = null
+    init {
+        text = ""
+        setCompoundDrawables(null, null, null, null)
+        icon?.setTint(AppTheme.icon(context))
+    }
     fun setIcon(resource: Int) {
-        if (resource == iconResource) return
+        if (resource == iconResource) {
+            icon?.setTint(iconTint ?: AppTheme.icon(context))
+            invalidate()
+            return
+        }
         iconResource = resource
-        icon = context.getDrawable(resource)?.mutate()
+        icon = context.getDrawable(resource)?.mutate()?.apply { setTint(iconTint ?: AppTheme.icon(context)) }
+        invalidate()
+    }
+    fun setIconTint(color: Int?) {
+        iconTint = color
+        icon?.setTint(color ?: AppTheme.icon(context))
         invalidate()
     }
     override fun onDraw(canvas: Canvas) {

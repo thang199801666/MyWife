@@ -8,7 +8,8 @@ import android.content.Context
  * session while preserving manual Retry/Home controls.
  */
 class RendererCrashLoopGuard(context: Context) {
-    private val prefs = context.applicationContext.getSharedPreferences("videoshield_renderer_guard", Context.MODE_PRIVATE)
+    private val appContext = context.applicationContext
+    private val prefs = appContext.getSharedPreferences("videoshield_renderer_guard", Context.MODE_PRIVATE)
 
     fun recordRendererExit(didCrash: Boolean, now: Long = System.currentTimeMillis()) {
         val first = prefs.getLong(KEY_WINDOW_STARTED_AT, 0L)
@@ -37,8 +38,9 @@ class RendererCrashLoopGuard(context: Context) {
         val first = prefs.getLong(KEY_WINDOW_STARTED_AT, 0L)
         val count = prefs.getInt(KEY_COUNT, 0)
         val active = isGuardActive(now)
-        return "renderer exits $count/$EXIT_THRESHOLD • guard ${if (active) "ACTIVE" else "clear"}" +
-            if (first > 0L) " • window age ${(now - first).coerceAtLeast(0L) / 1000}s" else ""
+        return appContext.getString(R.string.diag_renderer_guard, count, EXIT_THRESHOLD,
+            appContext.getString(if (active) R.string.diag_active else R.string.diag_clear)) +
+            if (first > 0L) appContext.getString(R.string.diag_window_age, (now - first).coerceAtLeast(0L) / 1000L) else ""
     }
 
     fun clear() = prefs.edit().clear().apply()

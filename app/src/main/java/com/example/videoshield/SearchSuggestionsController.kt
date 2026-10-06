@@ -35,18 +35,18 @@ class SearchSuggestionsController(
     private val values = mutableListOf<String>()
     private val list = ListView(input.context).apply {
         visibility = View.GONE
-        setBackgroundColor(Color.rgb(14,14,14))
+        setBackgroundColor(AppTheme.surface(input.context))
         dividerHeight = 0
         contentDescription = input.context.getString(R.string.search_suggestions)
     }
     private val adapter = object : ArrayAdapter<String>(input.context, android.R.layout.simple_list_item_1, values) {
         override fun getView(position: Int, convertView: View?, parent: ViewGroup): View {
             val row = super.getView(position, convertView, parent) as TextView
-            row.setTextColor(Color.WHITE); row.textSize = 16f
+            row.setTextColor(AppTheme.primary(input.context)); row.textSize = 16f
             row.contentDescription = input.context.getString(R.string.search_suggestion,getItem(position))
             val icon = input.context.getDrawable(R.drawable.ic_search)?.mutate()
             val size = (20 * input.resources.displayMetrics.density).toInt()
-            icon?.setTint(Color.LTGRAY); icon?.setBounds(0,0,size,size)
+            icon?.setTint(AppTheme.secondary(input.context)); icon?.setBounds(0,0,size,size)
             row.setCompoundDrawables(icon,null,null,null)
             row.compoundDrawablePadding = size
             return row

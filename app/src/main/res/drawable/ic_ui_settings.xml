@@ -1,1 +1,6 @@
-<vector xmlns:android="http://schemas.android.com/apk/res/android" android:width="24dp" android:height="24dp" android:viewportWidth="24" android:viewportHeight="24"><path android:fillColor="#00000000" android:strokeColor="#FFFFFFFF" android:strokeWidth="1.7" android:strokeLineCap="round" android:strokeLineJoin="round" android:pathData="M9,3H15L16,6L19,7L21,10L19,12L21,14L19,17L16,18L15,21H9L8,18L5,17L3,14L5,12L3,10L5,7L8,6Z M8,12A4,4 0,1 1,16,12A4,4 0,1 1,8,12"/></vector>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp" android:height="24dp" android:viewportWidth="24" android:viewportHeight="24">
+    <path android:fillColor="#00000000" android:strokeColor="#FFFFFFFF" android:strokeWidth="1.8"
+        android:strokeLineCap="round" android:strokeLineJoin="round"
+        android:pathData="M12,3.2 L13.5,3.5 L14.2,5.4 L16,6.1 L17.8,5.2 L19.1,6.5 L18.3,8.4 L19,10.2 L21,10.8 V13.2 L19,13.8 L18.3,15.6 L19.1,17.5 L17.8,18.8 L16,17.9 L14.2,18.6 L13.5,20.5 L10.5,20.5 L9.8,18.6 L8,17.9 L6.2,18.8 L4.9,17.5 L5.7,15.6 L5,13.8 L3,13.2 V10.8 L5,10.2 L5.7,8.4 L4.9,6.5 L6.2,5.2 L8,6.1 L9.8,5.4 L10.5,3.5 Z M8.7,12 A3.3,3.3 0,1 1,15.3,12 A3.3,3.3 0,1 1,8.7,12"/>
+</vector>

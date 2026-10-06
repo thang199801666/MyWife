@@ -12,6 +12,7 @@ interface PlaybackBackend {
     fun seekBack()
     fun seekForward()
     fun seekToMs(positionMs: Long)
+    fun setRepeatEnabled(enabled: Boolean)
     fun setPlaybackRate(rate: Float)
     fun setCommunitySegments(videoId: String, segments: List<CommunitySegment>)
     fun clearCommunitySegments()
@@ -26,6 +27,7 @@ class WebViewPlaybackBackend(
     override fun seekBack() = controller.seekBack()
     override fun seekForward() = controller.seekForward()
     override fun seekToMs(positionMs: Long) = controller.seekToMs(positionMs)
+    override fun setRepeatEnabled(enabled: Boolean) = controller.setRepeatEnabled(enabled)
     override fun setPlaybackRate(rate: Float) = controller.setPlaybackRate(rate)
     override fun setCommunitySegments(videoId: String, segments: List<CommunitySegment>) =
         controller.setCommunitySegments(videoId, segments)

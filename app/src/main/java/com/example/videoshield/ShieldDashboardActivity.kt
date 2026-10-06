@@ -3,7 +3,6 @@ package com.example.videoshield
 import android.app.Activity
 import android.content.Intent
 import android.os.Bundle
-import android.graphics.Color
 import android.view.View
 import android.widget.Button
 import android.widget.TextView
@@ -86,19 +85,17 @@ class ShieldDashboardActivity : LocalizedActivity() {
     }
 
     private fun applyThemeSurface() {
-        val color = if (prefs.amoledTheme) Color.BLACK else Color.rgb(11, 12, 15)
-        window.statusBarColor = color
-        window.navigationBarColor = color
-        findViewById<View>(R.id.dashboardRoot).setBackgroundColor(color)
+        AppTheme.applySystemBars(this)
+        findViewById<View>(R.id.dashboardRoot).setBackgroundColor(AppTheme.background(this))
     }
 
     private fun refresh() {
         val active = rules.active()
         findViewById<TextView>(R.id.dashboardState).text = buildString {
             append(if (prefs.shieldEnabled) getString(R.string.ui_ad_filtering_active) else getString(R.string.ui_ad_filtering_disabled))
-            if (prefs.safeMode) append(" • SAFE MODE")
-            append("\nRules v${active.ruleVersion} • ${active.name}")
-            if (prefs.safeModeReason.isNotBlank()) append("\n${prefs.safeModeReason}")
+            if (prefs.safeMode) append(" • ${getString(R.string.ui_safe_mode_badge)}")
+            append("\n"); append(getString(R.string.ui_rules_version, active.ruleVersion, active.name))
+            if (prefs.safeModeReason.isNotBlank()) append("\n${LocalizedPresentation.safeModeReason(this@ShieldDashboardActivity, prefs.safeModeReason)}")
         }
         findViewById<TextView>(R.id.networkCount).text = stats.lifetimeNetwork().toString()
         findViewById<TextView>(R.id.cosmeticCount).text = stats.lifetimePageAds().toString()

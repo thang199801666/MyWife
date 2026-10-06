@@ -14,6 +14,11 @@ object DownloadFailure {
             "Không thể hoàn tất tải. Chi tiết từ nguồn tải ở bên dưới." -> R.string.download_error_generic
             "Nguồn chưa trả về luồng video tải được sau khi thử lại. Hãy thử lại sau; nếu vẫn lỗi, gửi link video và chi tiết bên dưới." -> R.string.download_error_source
             "Chưa hỗ trợ lưu livestream đang phát." -> R.string.download_error_live
+            "Không tìm thấy file hoàn tất." -> R.string.download_error_no_completed_file
+            "Không thể tạo file trong Downloads." -> R.string.download_error_destination_create
+            "Chọn vị trí lưu file trên thiết bị." -> R.string.download_error_destination_select
+            "Download already running" -> R.string.download_error_already_running
+            "Cannot reset partial download" -> R.string.download_error_reset_partial
             else -> return message
         }
         return context.getString(resource) + if(parts.size>1) "\n\n"+parts[1] else ""
@@ -32,6 +37,11 @@ object DownloadFailure {
                 "Nguồn yêu cầu đăng nhập hoặc có giới hạn truy cập; bộ tải hiện chưa dùng phiên đăng nhập trong app."
             "403" in text || "429" in text -> "Máy chủ từ chối hoặc giới hạn lượt tải. Thử lại sau hoặc đổi kết nối mạng."
             "chưa hỗ trợ lưu livestream" in text -> "Chưa hỗ trợ lưu livestream đang phát."
+            "không tìm thấy file hoàn tất" in text -> "Không tìm thấy file hoàn tất."
+            "không thể tạo file trong downloads" in text -> "Không thể tạo file trong Downloads."
+            "chọn vị trí lưu file trên thiết bị" in text -> "Chọn vị trí lưu file trên thiết bị."
+            "download already running" in text -> "Download already running"
+            "cannot reset partial download" in text -> "Cannot reset partial download"
             listOf("không có nguồn video tải được", "nguồn chưa cung cấp định dạng tải", "no video formats", "no formats found", "only images are available").any(text::contains) ->
                 "Nguồn chưa trả về luồng video tải được sau khi thử lại. Hãy thử lại sau; nếu vẫn lỗi, gửi link video và chi tiết bên dưới."
             else -> "Không thể hoàn tất tải. Chi tiết từ nguồn tải ở bên dưới."

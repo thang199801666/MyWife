@@ -4,7 +4,7 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:orientation="vertical"
-    android:background="#0B0C0F">
+    android:background="?attr/appBackground">
 
     <LinearLayout
         android:id="@+id/libraryTopBar"
@@ -13,10 +13,10 @@
         android:orientation="horizontal"
         android:gravity="center_vertical"
         android:paddingHorizontal="12dp"
-        android:background="#15171C">
+        android:background="?attr/appSurface">
         <com.example.videoshield.IconButton android:id="@+id/closeLibraryButton" style="@style/ToolbarButton" android:contentDescription="@string/ui_back" android:drawableTop="@drawable/ic_ui_back"/>
-        <TextView android:id="@+id/libraryTitle" android:visibility="gone" android:layout_width="0dp" android:layout_height="match_parent" android:gravity="center_vertical" android:text="@string/library" android:textColor="#F4F6FA" android:textSize="20sp" android:textStyle="bold"/>
-        <TextView android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1" android:gravity="center_vertical" android:text="@string/ui_you" android:textColor="#FFFFFF" android:textSize="22sp" android:textStyle="bold"/>
+        <TextView android:id="@+id/libraryTitle" android:visibility="gone" android:layout_width="0dp" android:layout_height="match_parent" android:gravity="center_vertical" android:text="@string/library" android:textColor="?attr/appTextPrimary" android:textSize="20sp" android:textStyle="bold"/>
+        <TextView android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1" android:gravity="center_vertical" android:text="@string/ui_you" android:textColor="?attr/appTextPrimary" android:textSize="22sp" android:textStyle="bold"/>
         <com.example.videoshield.IconButton android:id="@+id/librarySearchToggle" style="@style/ToolbarButton" android:contentDescription="@string/ui_search_library" android:drawableTop="@drawable/ic_search"/>
         <com.example.videoshield.IconButton android:id="@+id/recommendationControlsButton" style="@style/ToolbarButton" android:contentDescription="@string/ui_library_options" android:drawableTop="@drawable/ic_ui_more"/>
         <Button android:id="@+id/clearLibraryButton" style="@style/BottomActionButton" android:layout_width="64dp" android:text="@string/ui_clear"/>
@@ -25,8 +25,8 @@
     <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:paddingHorizontal="20dp" android:paddingVertical="12dp" android:gravity="center_vertical" android:orientation="horizontal">
         <ImageView android:layout_width="56dp" android:layout_height="56dp" android:src="@mipmap/ic_launcher" android:contentDescription="@string/app_name"/>
         <LinearLayout android:layout_width="0dp" android:layout_weight="1" android:layout_height="wrap_content" android:paddingStart="16dp" android:orientation="vertical">
-            <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:text="@string/app_name" android:textColor="#FFFFFF" android:textSize="26sp" android:textStyle="bold"/>
-            <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="4dp" android:text="@string/library_subtitle" android:textColor="#AAAAAA" android:textSize="12sp"/>
+            <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:text="@string/app_name" android:textColor="?attr/appTextPrimary" android:textSize="26sp" android:textStyle="bold"/>
+            <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="4dp" android:text="@string/library_subtitle" android:textColor="?attr/appTextTertiary" android:textSize="12sp"/>
         </LinearLayout>
     </LinearLayout>
     <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:paddingHorizontal="12dp" android:paddingBottom="8dp" android:orientation="horizontal">
@@ -47,11 +47,11 @@
     </LinearLayout>
     </HorizontalScrollView>
 
-    <EditText android:id="@+id/librarySearch" android:visibility="gone" android:layout_width="match_parent" android:layout_height="48dp" android:layout_marginHorizontal="12dp" android:paddingHorizontal="16dp" android:background="@drawable/bg_address" android:hint="@string/search_titles" android:inputType="text" android:singleLine="true" android:imeOptions="actionSearch" android:textColor="#F4F6FA" android:textColorHint="#8B919D" android:textSize="14sp" android:maxLength="120"/>
+    <EditText android:id="@+id/librarySearch" android:visibility="gone" android:layout_width="match_parent" android:layout_height="48dp" android:layout_marginHorizontal="12dp" android:paddingHorizontal="16dp" android:background="@drawable/bg_address" android:hint="@string/search_titles" android:inputType="text" android:singleLine="true" android:imeOptions="actionSearch" android:textColor="?attr/appTextPrimary" android:textColorHint="?attr/appTextTertiary" android:textSize="14sp" android:maxLength="120"/>
 
     <FrameLayout android:layout_width="match_parent" android:layout_height="0dp" android:layout_weight="1">
         <ListView android:id="@+id/libraryList" android:layout_width="match_parent" android:layout_height="match_parent" android:dividerHeight="0dp" android:divider="@android:color/transparent"/>
-        <TextView android:id="@+id/libraryEmpty" android:layout_width="match_parent" android:layout_height="match_parent" android:gravity="center" android:text="@string/ui_nothing_here_yet" android:textColor="#8B919D" android:textSize="15sp"/>
+        <TextView android:id="@+id/libraryEmpty" android:layout_width="match_parent" android:layout_height="match_parent" android:gravity="center" android:text="@string/ui_nothing_here_yet" android:textColor="?attr/appTextTertiary" android:textSize="15sp"/>
     </FrameLayout>
 
     <com.example.videoshield.SwipeDismissLayout
@@ -59,7 +59,7 @@
         android:layout_width="match_parent"
         android:layout_height="63dp"
         android:orientation="vertical"
-        android:background="#15171C">
+        android:background="?attr/appSurface">
 
         <LinearLayout
             android:layout_width="match_parent"
@@ -67,7 +67,7 @@
             android:orientation="horizontal"
             android:gravity="center_vertical"
             android:paddingHorizontal="10dp">
-            <TextView android:id="@+id/nowPlayingText" android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1" android:gravity="center_vertical" android:maxLines="2" android:ellipsize="end" android:text="@string/nothing_playing" android:textColor="#E6E9EF" android:textSize="12sp"/>
+            <TextView android:id="@+id/nowPlayingText" android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1" android:gravity="center_vertical" android:maxLines="2" android:ellipsize="end" android:text="@string/nothing_playing" android:textColor="?attr/appTextPrimary" android:textSize="12sp"/>
             <com.example.videoshield.IconButton android:id="@+id/seekBackButton" android:contentDescription="@string/seek_back" style="@style/BottomActionButton" android:drawableTop="@drawable/ic_ui_seek_back"/>
             <com.example.videoshield.IconButton android:id="@+id/playPauseButton" android:contentDescription="@string/play_pause" style="@style/BottomActionButton" android:drawableTop="@drawable/ic_ui_play"/>
             <com.example.videoshield.IconButton android:id="@+id/seekForwardButton" android:contentDescription="@string/seek_forward" style="@style/BottomActionButton" android:drawableTop="@drawable/ic_ui_seek_forward"/>
@@ -88,6 +88,6 @@
         <Button android:id="@+id/navShieldButton" style="@style/BottomNavButton" android:drawableTop="@drawable/ic_nav_shorts" android:text="@string/shorts"/>
         <com.example.videoshield.IconButton android:id="@+id/navCreateButton" style="@style/BottomNavButton" android:contentDescription="@string/ui_quick_actions" android:drawableTop="@drawable/ic_ui_create"/>
         <Button android:id="@+id/navSubscriptionsButton" style="@style/BottomNavButton" android:drawableTop="@drawable/ic_nav_subscriptions" android:text="@string/ui_subscriptions"/>
-        <Button android:id="@+id/navLibraryButton" style="@style/BottomNavButton" android:drawableTop="@drawable/ic_nav_you" android:text="@string/ui_you" android:textColor="#FFFFFF"/>
+        <Button android:id="@+id/navLibraryButton" style="@style/BottomNavButton" android:drawableTop="@drawable/ic_nav_you" android:text="@string/ui_you" android:textColor="?attr/appTextPrimary"/>
     </LinearLayout>
 </LinearLayout>

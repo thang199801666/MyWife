@@ -61,7 +61,7 @@ class PlayerSurfaceController(
             marginEnd = dp(12); bottomMargin = dp(12)
         }
         surface.background = android.graphics.drawable.GradientDrawable().apply {
-            setColor(android.graphics.Color.rgb(24,24,24)); cornerRadius = dp(12).toFloat()
+            setColor(AppTheme.elevated(context)); cornerRadius = dp(12).toFloat()
         }
         surface.clipToOutline = true
         surface.elevation = dp(12).toFloat()

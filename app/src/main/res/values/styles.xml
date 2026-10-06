@@ -10,20 +10,65 @@
         <item name="android:layout_marginHorizontal">4dp</item>
         <item name="android:minWidth">0dp</item>
         <item name="android:minHeight">0dp</item>
-        <item name="android:textColor">#FFFFFF</item>
+        <item name="android:textColor">?attr/appTextPrimary</item>
         <item name="android:textSize">12sp</item>
         <item name="android:textAllCaps">false</item>
         <item name="android:drawablePadding">6dp</item>
         <item name="android:padding">6dp</item>
         <item name="android:background">@drawable/bg_action</item>
+            <item name="android:drawableTint">?attr/appIconColor</item>
     </style>
-    <style name="AppTheme" parent="android:style/Theme.Material.NoActionBar">
+    <style name="AppTheme" parent="AppThemeBlack" />
+
+    <style name="AppThemeBlack" parent="AppThemeBlackBase" />
+    <style name="AppThemeLight" parent="AppThemeLightBase" />
+
+    <style name="AppThemeBlackBase" parent="android:style/Theme.Material.NoActionBar">
         <item name="android:fontFamily">sans</item>
         <item name="android:windowLightStatusBar">false</item>
-        <item name="android:statusBarColor">#0B0C0F</item>
-        <item name="android:navigationBarColor">#0B0C0F</item>
+        <item name="android:statusBarColor">#000000</item>
+        <item name="android:navigationBarColor">#000000</item>
         <item name="android:colorAccent">#FF3358</item>
-        <item name="android:windowBackground">#0B0C0F</item>
+        <item name="android:windowBackground">#000000</item>
+        <item name="appBackground">#000000</item>
+        <item name="appSurface">#0E0E0E</item>
+        <item name="appSurfaceElevated">#171717</item>
+        <item name="appControlSurface">#272727</item>
+        <item name="appInputSurface">#24272E</item>
+        <item name="appDivider">#242424</item>
+        <item name="appTextPrimary">#FFFFFF</item>
+        <item name="appTextSecondary">#C7CBD4</item>
+        <item name="appTextTertiary">#8B919D</item>
+        <item name="appBorder">#343842</item>
+        <item name="appIconColor">#FFFFFF</item>
+        <item name="appRipple">#40FFFFFF</item>
+        <item name="appSectionAccent">#64B5F6</item>
+        <item name="appSelectedSurface">#FFFFFF</item>
+        <item name="appSelectedText">#111318</item>
+    </style>
+
+    <style name="AppThemeLightBase" parent="android:style/Theme.Material.Light.NoActionBar">
+        <item name="android:fontFamily">sans</item>
+        <item name="android:windowLightStatusBar">true</item>
+        <item name="android:statusBarColor">#FAFAFA</item>
+        <item name="android:navigationBarColor">#FAFAFA</item>
+        <item name="android:colorAccent">#FF3358</item>
+        <item name="android:windowBackground">#FAFAFA</item>
+        <item name="appBackground">#FAFAFA</item>
+        <item name="appSurface">#FFFFFF</item>
+        <item name="appSurfaceElevated">#F3F4F6</item>
+        <item name="appControlSurface">#ECEFF3</item>
+        <item name="appInputSurface">#F1F3F6</item>
+        <item name="appDivider">#D9DDE3</item>
+        <item name="appTextPrimary">#111318</item>
+        <item name="appTextSecondary">#4F5662</item>
+        <item name="appTextTertiary">#747B86</item>
+        <item name="appBorder">#D8DDE5</item>
+        <item name="appIconColor">#20242B</item>
+        <item name="appRipple">#1F000000</item>
+        <item name="appSectionAccent">#1565C0</item>
+        <item name="appSelectedSurface">#111318</item>
+        <item name="appSelectedText">#FFFFFF</item>
     </style>
 
     <style name="ToolbarButton" parent="android:style/Widget.Material.Button.Borderless">
@@ -31,7 +76,7 @@
         <item name="android:layout_height">48dp</item>
         <item name="android:minWidth">0dp</item>
         <item name="android:minHeight">0dp</item>
-        <item name="android:textColor">#EEF1F6</item>
+        <item name="android:textColor">?attr/appTextPrimary</item>
         <item name="android:textSize">22sp</item>
         <item name="android:padding">0dp</item>
     </style>
@@ -41,14 +86,14 @@
         <item name="android:layout_height">40dp</item>
         <item name="android:minWidth">0dp</item>
         <item name="android:minHeight">0dp</item>
-        <item name="android:textColor">#EEF1F6</item>
+        <item name="android:textColor">?attr/appTextPrimary</item>
         <item name="android:textSize">12sp</item>
     </style>
 
     <style name="SettingsTitle" parent="android:style/TextAppearance.Material.Headline">
         <item name="android:layout_width">match_parent</item>
         <item name="android:layout_height">wrap_content</item>
-        <item name="android:textColor">#F4F6FA</item>
+        <item name="android:textColor">?attr/appTextPrimary</item>
         <item name="android:textSize">26sp</item>
         <item name="android:layout_marginBottom">18dp</item>
     </style>
@@ -56,7 +101,7 @@
     <style name="SettingsSection" parent="android:style/TextAppearance.Material.Caption">
         <item name="android:layout_width">match_parent</item>
         <item name="android:layout_height">wrap_content</item>
-        <item name="android:textColor">#64B5F6</item>
+        <item name="android:textColor">?attr/appSectionAccent</item>
         <item name="android:textStyle">bold</item>
         <item name="android:layout_marginTop">16dp</item>
         <item name="android:layout_marginBottom">4dp</item>
@@ -65,7 +110,7 @@
     <style name="SettingsSwitch" parent="android:style/Widget.Material.CompoundButton.Switch">
         <item name="android:layout_width">match_parent</item>
         <item name="android:layout_height">56dp</item>
-        <item name="android:textColor">#E6E9EF</item>
+        <item name="android:textColor">?attr/appTextPrimary</item>
         <item name="android:textSize">14sp</item>
         <item name="android:gravity">center_vertical</item>
     </style>
@@ -75,7 +120,7 @@
         <item name="android:layout_height">38dp</item>
         <item name="android:minWidth">0dp</item>
         <item name="android:minHeight">0dp</item>
-        <item name="android:textColor">#EEF1F6</item>
+        <item name="android:textColor">?attr/appTextPrimary</item>
         <item name="android:textSize">9sp</item>
         <item name="android:padding">2dp</item>
     </style>
@@ -86,11 +131,12 @@
         <item name="android:layout_height">match_parent</item>
         <item name="android:minWidth">0dp</item>
         <item name="android:minHeight">0dp</item>
-        <item name="android:textColor">#D8DCE5</item>
+        <item name="android:textColor">?attr/appTextSecondary</item>
         <item name="android:textSize">10sp</item>
         <item name="android:drawablePadding">4dp</item>
         <item name="android:padding">4dp</item>
         <item name="android:textAllCaps">false</item>
+            <item name="android:drawableTint">?attr/appIconColor</item>
     </style>
 
     <style name="LibraryTabButton" parent="android:style/Widget.Material.Button.Borderless">
@@ -99,7 +145,7 @@
         <item name="android:layout_width">0dp</item>
         <item name="android:layout_weight">1</item>
         <item name="android:layout_height">44dp</item>
-        <item name="android:textColor">#D8DCE5</item>
+        <item name="android:textColor">?attr/appTextSecondary</item>
         <item name="android:textSize">12sp</item>
         <item name="android:textAllCaps">false</item>
     </style>
@@ -109,7 +155,7 @@
         <item name="android:layout_weight">1</item>
         <item name="android:layout_height">56dp</item>
         <item name="android:gravity">center_vertical</item>
-        <item name="android:textColor">#C7CBD4</item>
+        <item name="android:textColor">?attr/appTextSecondary</item>
         <item name="android:textSize">14sp</item>
     </style>
 
@@ -117,7 +163,7 @@
         <item name="android:layout_width">120dp</item>
         <item name="android:layout_height">56dp</item>
         <item name="android:gravity">center_vertical|end</item>
-        <item name="android:textColor">#F4F6FA</item>
+        <item name="android:textColor">?attr/appTextPrimary</item>
         <item name="android:textSize">24sp</item>
         <item name="android:textStyle">bold</item>
     </style>
@@ -127,7 +173,7 @@
         <item name="android:layout_height">36dp</item>
         <item name="android:minWidth">0dp</item>
         <item name="android:minHeight">0dp</item>
-        <item name="android:textColor">#F2F2F2</item>
+        <item name="android:textColor">?attr/appTextPrimary</item>
         <item name="android:textSize">12sp</item>
         <item name="android:textAllCaps">false</item>
         <item name="android:paddingHorizontal">12dp</item>
@@ -140,7 +186,7 @@
         <item name="android:layout_height">44dp</item>
         <item name="android:minWidth">0dp</item>
         <item name="android:minHeight">0dp</item>
-        <item name="android:textColor">#FFFFFF</item>
+        <item name="android:textColor">?attr/appTextPrimary</item>
         <item name="android:textSize">19sp</item>
         <item name="android:textAllCaps">false</item>
         <item name="android:padding">0dp</item>

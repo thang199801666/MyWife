@@ -56,13 +56,24 @@ class VotuiApplication : Application() {
 
 open class LocalizedActivity : Activity() {
     private var language = "vi"
+    private var themeMode = AppTheme.Mode.BLACK
     protected val uiLanguageTag: String get() = language
     override fun attachBaseContext(base: Context) {
         language = AppLanguage.tag(base)
         super.attachBaseContext(AppLanguage.wrap(base))
     }
+    override fun onCreate(savedInstanceState: android.os.Bundle?) {
+        AppTheme.apply(this)
+        themeMode = AppTheme.mode(this)
+        super.onCreate(savedInstanceState)
+        AppTheme.applySystemBars(this)
+    }
     override fun onResume() {
         super.onResume()
-        if (language != AppLanguage.tag(this)) recreate()
+        if (language != AppLanguage.tag(this) || themeMode != AppTheme.mode(this)) {
+            recreate()
+            return
+        }
+        AppTheme.applySystemBars(this)
     }
 }

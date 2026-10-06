@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <attr name="appBackground" format="color" />
+    <attr name="appSurface" format="color" />
+    <attr name="appSurfaceElevated" format="color" />
+    <attr name="appControlSurface" format="color" />
+    <attr name="appInputSurface" format="color" />
+    <attr name="appDivider" format="color" />
+    <attr name="appTextPrimary" format="color" />
+    <attr name="appTextSecondary" format="color" />
+    <attr name="appTextTertiary" format="color" />
+    <attr name="appBorder" format="color" />
+    <attr name="appIconColor" format="color" />
+    <attr name="appRipple" format="color" />
+    <attr name="appSectionAccent" format="color" />
+    <attr name="appSelectedSurface" format="color" />
+    <attr name="appSelectedText" format="color" />
+</resources>

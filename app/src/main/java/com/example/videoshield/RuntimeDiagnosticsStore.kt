@@ -7,7 +7,8 @@ import java.util.Date
 
 /** Local-only runtime/device diagnostics. No browsing history is stored here. */
 class RuntimeDiagnosticsStore(context: Context) {
-    private val prefs = context.applicationContext.getSharedPreferences("videoshield_runtime_diagnostics", Context.MODE_PRIVATE)
+    private val appContext = context.applicationContext
+    private val prefs = appContext.getSharedPreferences("videoshield_runtime_diagnostics", Context.MODE_PRIVATE)
 
     fun recordTrimMemory(level: Int) {
         editEvent("Trim memory level $level")
@@ -141,42 +142,43 @@ class RuntimeDiagnosticsStore(context: Context) {
     fun blockedNavigations(): Long = prefs.getLong(KEY_BLOCKED_NAVIGATIONS, 0L)
 
     fun summary(): String = buildString {
-        append("Lifecycle: foreground ${foregroundTransitions()} • background ${backgroundTransitions()}")
-        append("\nMemory trims: ${trims()} • low-memory ${lowMemoryCallbacks()}")
+        append(appContext.getString(R.string.diag_lifecycle, foregroundTransitions(), backgroundTransitions()))
+        append("\n").append(appContext.getString(R.string.diag_memory, trims(), lowMemoryCallbacks()))
         val lastTrim = prefs.getInt(KEY_LAST_TRIM_LEVEL, -1)
-        if (lastTrim >= 0) append(" • last level $lastTrim")
-        append("\nScreen: off ${screenOffEvents()} • on ${screenOnEvents()}")
-        append(" • saver ${yesNo(prefs.getBoolean(KEY_LAST_POWER_SAVE, false))}")
-        append(" • idle ${yesNo(prefs.getBoolean(KEY_LAST_IDLE, false))}")
-        append("\nWebView lifecycle: pause ${webViewPauses()} • resume ${webViewResumes()}")
-        append("\nWake lock: acquire ${wakeAcquires()} • release ${wakeReleases()}")
-        append("\nRestore: ${restoreSuccesses()}/${restoreAttempts()} successful")
-        append(" • task removed ${taskRemovedEvents()} • stale service ${staleServiceStops()}")
-        append("\nNavigation safety: blocked ${blockedNavigations()}")
+        if (lastTrim >= 0) append(appContext.getString(R.string.diag_last_level, lastTrim))
+        append("\n").append(appContext.getString(R.string.diag_screen, screenOffEvents(), screenOnEvents(),
+            yesNo(prefs.getBoolean(KEY_LAST_POWER_SAVE, false)), yesNo(prefs.getBoolean(KEY_LAST_IDLE, false))))
+        append("\n").append(appContext.getString(R.string.diag_webview_lifecycle, webViewPauses(), webViewResumes()))
+        append("\n").append(appContext.getString(R.string.diag_wake_lock, wakeAcquires(), wakeReleases()))
+        append("\n").append(appContext.getString(R.string.diag_restore, restoreSuccesses(), restoreAttempts(), taskRemovedEvents(), staleServiceStops()))
+        append("\n").append(appContext.getString(R.string.diag_navigation_safety, blockedNavigations()))
         val device = prefs.getString(KEY_DEVICE_PROFILE, "").orEmpty()
-        if (device.isNotBlank()) append("\nDevice policy: $device")
+        if (device.isNotBlank()) append("\n").append(appContext.getString(R.string.diag_device_policy, LocalizedPresentation.diagnosticDetail(appContext, device)))
         val libraryCheck = prefs.getString(KEY_LIBRARY_CHECK, "").orEmpty()
         if (libraryCheck.isNotBlank()) {
-            append("\nLibrary ${if (prefs.getBoolean(KEY_LIBRARY_HEALTHY, false)) "OK" else "FAIL"}: $libraryCheck")
+            val status = appContext.getString(if (prefs.getBoolean(KEY_LIBRARY_HEALTHY, false)) R.string.diag_pass else R.string.diag_fail)
+            append("\n").append(appContext.getString(R.string.diag_library, status, LocalizedPresentation.diagnosticDetail(appContext, libraryCheck)))
             val at = prefs.getLong(KEY_LIBRARY_CHECK_AT, 0L)
             if (at > 0L) append(" • ${formatAt(at)}")
         }
         val selfTest = prefs.getString(KEY_SELF_TEST, "").orEmpty()
         if (selfTest.isNotBlank()) {
-            append("\nSelf-test ${if (prefs.getBoolean(KEY_SELF_TEST_PASSED, false)) "PASS" else "FAIL"}: $selfTest")
+            val status = appContext.getString(if (prefs.getBoolean(KEY_SELF_TEST_PASSED, false)) R.string.diag_pass else R.string.diag_fail)
+            append("\n").append(appContext.getString(R.string.diag_self_test, status)).append(": ").append(LocalizedPresentation.diagnosticDetail(appContext, selfTest))
             val selfAt = prefs.getLong(KEY_SELF_TEST_AT, 0L)
             if (selfAt > 0L) append(" • ${formatAt(selfAt)}")
         }
         val stress = prefs.getString(KEY_STRESS_TEST, "").orEmpty()
         if (stress.isNotBlank()) {
-            append("\nRelease stress ${if (prefs.getBoolean(KEY_STRESS_TEST_PASSED, false)) "PASS" else "FAIL"}: $stress")
+            val status = appContext.getString(if (prefs.getBoolean(KEY_STRESS_TEST_PASSED, false)) R.string.diag_pass else R.string.diag_fail)
+            append("\n").append(appContext.getString(R.string.diag_release_stress, status, LocalizedPresentation.diagnosticDetail(appContext, stress)))
             val stressAt = prefs.getLong(KEY_STRESS_TEST_AT, 0L)
             if (stressAt > 0L) append(" • ${formatAt(stressAt)}")
         }
         val event = prefs.getString(KEY_LAST_EVENT, "").orEmpty()
         val at = prefs.getLong(KEY_LAST_EVENT_AT, 0L)
         if (event.isNotBlank()) {
-            append("\nLast event: $event")
+            append("\n").append(appContext.getString(R.string.diag_last_event, LocalizedPresentation.diagnosticDetail(appContext, event)))
             if (at > 0L) append(" • ${formatAt(at)}")
         }
     }
@@ -196,7 +198,7 @@ class RuntimeDiagnosticsStore(context: Context) {
         "malformed"
     }
 
-    private fun yesNo(value: Boolean) = if (value) "yes" else "no"
+    private fun yesNo(value: Boolean) = appContext.getString(if (value) R.string.diag_yes else R.string.diag_no)
     private fun formatAt(value: Long): String = DateFormat.getDateTimeInstance(DateFormat.SHORT, DateFormat.SHORT).format(Date(value))
 
     companion object {

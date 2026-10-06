@@ -6,7 +6,8 @@ import java.util.Date
 
 /** Persistent, privacy-preserving local diagnostics for playback recovery. */
 class RecoveryDiagnosticsStore(context: Context) {
-    private val prefs = context.applicationContext.getSharedPreferences("videoshield_recovery_diagnostics", Context.MODE_PRIVATE)
+    private val appContext = context.applicationContext
+    private val prefs = appContext.getSharedPreferences("videoshield_recovery_diagnostics", Context.MODE_PRIVATE)
 
     fun recordRecovery(reason: String, attempt: Int = 0) {
         prefs.edit()
@@ -54,13 +55,12 @@ class RecoveryDiagnosticsStore(context: Context) {
     fun lastSuccessAt(): Long = prefs.getLong(KEY_LAST_SUCCESS_AT, 0L)
 
     fun summary(): String = buildString {
-        append("Recovery attempts: ${recoveries()}")
-        append(" • exhausted: ${exhaustedRecoveries()}")
-        append("\nManual retries: ${manualRetries()} • renderer exits: ${rendererExits()}")
-        append("\nOffline interruptions: ${offlineInterruptions()}")
-        if (lastReason().isNotBlank()) append("\nLast recovery: ${lastReason()}")
+        append(appContext.getString(R.string.diag_recovery_attempts, recoveries(), exhaustedRecoveries()))
+        append("\n").append(appContext.getString(R.string.diag_manual_retries, manualRetries(), rendererExits()))
+        append("\n").append(appContext.getString(R.string.diag_offline_interruptions, offlineInterruptions()))
+        if (lastReason().isNotBlank()) append("\n").append(appContext.getString(R.string.diag_last_recovery, lastReason()))
         if (lastAt() > 0L) append("\n${formatAt(lastAt())}")
-        if (lastSuccessAt() > 0L) append("\nLast healthy heartbeat: ${formatAt(lastSuccessAt())}")
+        if (lastSuccessAt() > 0L) append("\n").append(appContext.getString(R.string.diag_last_healthy_heartbeat, formatAt(lastSuccessAt())))
     }
 
     fun reset() = prefs.edit().clear().apply()

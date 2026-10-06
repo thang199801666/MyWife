@@ -196,8 +196,9 @@ class MainActivity : LocalizedActivity() {
         }
         compatibilityMonitor = CompatibilityMonitor(preferences, rulePackManager) { reason, rolledBack ->
             runOnUiThread {
-                val suffix = if (rolledBack) " Previous rules restored." else ""
-                Toast.makeText(this, "$reason.$suffix", Toast.LENGTH_LONG).show()
+                val localizedReason = LocalizedPresentation.safeModeReason(this, reason)
+                val suffix = if (rolledBack) " ${getString(R.string.previous_rules_restored)}" else ""
+                Toast.makeText(this, localizedReason.trimEnd('.') + "." + suffix, Toast.LENGTH_LONG).show()
                 val channel = playbackSession.state.channel
                 filterEngine.pageWhitelisted = channel.isNotBlank() && preferences.isChannelWhitelisted(channel)
                 lastPolicyFingerprint = policyFingerprint()
@@ -352,6 +353,7 @@ class MainActivity : LocalizedActivity() {
         if (incoming != null && restoredPlayer) navigateClient(incoming, expandPlayback = true)
         refreshUi()
         checkRuleUpdatesIfDue()
+        AppStartupUpdateChecker.check(this)
     }
 
     override fun onNewIntent(intent: Intent?) {
@@ -478,7 +480,7 @@ class MainActivity : LocalizedActivity() {
                     rulePackManager.active(),
                     filterEngine.pageWhitelisted,
                     preferredQualityOverride = effectivePreferredQuality()
-                ) + "\n" + EarlyAdScript.build(preferences) + "\n" + DiscoveryScript.build(preferences.personalizedSuggestions && preferences.rememberHistory) + "\n" + ClientSurfaceScript.player(getString(R.string.ui_download)) +
+                ) + "\n" + EarlyAdScript.build(preferences) + "\n" + DiscoveryScript.build(preferences.personalizedSuggestions && preferences.rememberHistory) + "\n" + ClientSurfaceScript.player(getString(R.string.ui_download), preferences.lightTheme) +
                     (if (isInPictureInPictureMode) "\n" + ClientSurfaceScript.pip(true, pipPlaybackWanted) else "") +
                     (if (playerSurfaceController.minimized) "\n" + ClientSurfaceScript.mini(true, playbackSession.state.playing) else "")
             },
@@ -567,7 +569,7 @@ class MainActivity : LocalizedActivity() {
 
     @SuppressLint("SetJavaScriptEnabled")
     private fun configureBrowseWebView() {
-        browseWebView.setBackgroundColor(Color.BLACK)
+        browseWebView.setBackgroundColor(AppTheme.background(this))
         browseWebView.settings.apply {
             javaScriptEnabled = true
             domStorageEnabled = true
@@ -602,7 +604,7 @@ class MainActivity : LocalizedActivity() {
                     rulePackManager.active(),
                     pageWhitelisted = false,
                     preferredQualityOverride = effectivePreferredQuality()
-                ) + "\n" + EarlyAdScript.build(preferences) + "\n" + DiscoveryScript.build(preferences.personalizedSuggestions && preferences.rememberHistory) + "\n" + ClientSurfaceScript.browse() + "\n" + BrowseNavigationScript.build() + "\n" + SearchPreviewScript.build()
+                ) + "\n" + EarlyAdScript.build(preferences) + "\n" + DiscoveryScript.build(preferences.personalizedSuggestions && preferences.rememberHistory) + "\n" + ClientSurfaceScript.browse(preferences.lightTheme) + "\n" + BrowseNavigationScript.build() + "\n" + SearchPreviewScript.build()
             },
             onBlocked = {
                 stats.networkBlocked()
@@ -697,6 +699,7 @@ class MainActivity : LocalizedActivity() {
         findViewById<Button>(R.id.qualityButton).setOnClickListener { showQualityDialog() }
         findViewById<Button>(R.id.repeatButton).setOnClickListener {
             preferences.autoRepeat = !preferences.autoRepeat
+            playbackBackend.setRepeatEnabled(preferences.autoRepeat)
             applyPolicyAndRefresh()
             Toast.makeText(this, if (preferences.autoRepeat) getString(R.string.ui_repeat_enabled) else getString(R.string.ui_repeat_disabled), Toast.LENGTH_SHORT).show()
         }
@@ -851,7 +854,7 @@ class MainActivity : LocalizedActivity() {
                     rulePackManager.active(),
                     filterEngine.pageWhitelisted,
                     preferredQualityOverride = effectivePreferredQuality()
-                ) + "\n" + EarlyAdScript.build(preferences) + "\n" + DiscoveryScript.build(preferences.personalizedSuggestions && preferences.rememberHistory) + "\n" + ClientSurfaceScript.player(getString(R.string.ui_download)),
+                ) + "\n" + EarlyAdScript.build(preferences) + "\n" + DiscoveryScript.build(preferences.personalizedSuggestions && preferences.rememberHistory) + "\n" + ClientSurfaceScript.player(getString(R.string.ui_download), preferences.lightTheme),
                 null
             )
         }
@@ -861,7 +864,7 @@ class MainActivity : LocalizedActivity() {
                 rulePackManager.active(),
                 pageWhitelisted = false,
                 preferredQualityOverride = effectivePreferredQuality()
-            ) + "\n" + EarlyAdScript.build(preferences) + "\n" + DiscoveryScript.build(preferences.personalizedSuggestions && preferences.rememberHistory) + "\n" + ClientSurfaceScript.browse() + "\n" + BrowseNavigationScript.build(),
+            ) + "\n" + EarlyAdScript.build(preferences) + "\n" + DiscoveryScript.build(preferences.personalizedSuggestions && preferences.rememberHistory) + "\n" + ClientSurfaceScript.browse(preferences.lightTheme) + "\n" + BrowseNavigationScript.build(),
             null
         )
         refreshUi()
@@ -1238,7 +1241,15 @@ class MainActivity : LocalizedActivity() {
         val index = speeds.indices.minByOrNull { kotlin.math.abs(speeds[it] - current) } ?: 1
         val next = speeds[(index + 1) % speeds.size]
         preferences.playbackSpeed = next
+        speedAppliedVideoId = playbackSession.state.videoId
         playbackBackend.setPlaybackRate(next)
+        // YouTube can replace/reset the media element immediately after a renderer/player
+        // transition. Re-issue once after that short window; the JS policy keeps it sticky.
+        webView.postDelayed({
+            if (!isDestroyed && !isFinishing && preferences.playbackSpeed == next) {
+                playbackBackend.setPlaybackRate(next)
+            }
+        }, 350L)
         Toast.makeText(this, getString(R.string.playback_speed,formatSpeed(next)), Toast.LENGTH_SHORT).show()
         refreshUi()
     }
@@ -1254,6 +1265,9 @@ class MainActivity : LocalizedActivity() {
         val metered = currentNetworkMetered()
         val checked = values.indexOf(effectivePreferredQuality()).coerceAtLeast(0)
         val profileName = if (metered) getString(R.string.ui_mobile_metered) else getString(R.string.ui_wi_fi_unmetered)
+        // Capture in the renderer before the dialog can take window focus.
+        webView.evaluateJavascript("window.__videoShieldPrepareQualityChange?.();") {
+        if (isDestroyed || isFinishing) return@evaluateJavascript
         AlertDialog.Builder(this)
             .setTitle(getString(R.string.quality_profile,profileName))
             .setSingleChoiceItems(labels, checked) { dialog, which ->
@@ -1261,10 +1275,30 @@ class MainActivity : LocalizedActivity() {
                 applyPolicyAndRefresh()
                 dialog.dismiss()
                 Toast.makeText(this, getString(R.string.quality_selected,profileName,labels[which]), Toast.LENGTH_SHORT).show()
-                webView.evaluateJavascript("if(window.__videoShieldResetQuality) window.__videoShieldResetQuality();",null)
+                // A changed preference already applies once in AdBlockScript.build().
+                // Only reselecting the same mode needs an explicit reset (e.g. Auto).
+                if (which == checked)
+                    webView.evaluateJavascript("window.__videoShieldResetQuality?.();", null)
+
+                // Keep the playback intent captured before opening the dialog alive while
+                // YouTube swaps renditions. Some player versions pause a second time after
+                // setPlaybackQuality() has already returned and the first play() succeeded.
+                for (delayMs in longArrayOf(80L, 350L, 900L)) {
+                    webView.postDelayed({
+                        if (!isDestroyed && !isFinishing) {
+                            webView.evaluateJavascript("window.__videoShieldCommitQualityChange?.();", null)
+                        }
+                    }, delayMs)
+                }
             }
-            .setNegativeButton(getString(R.string.ui_cancel), null)
+            .setNegativeButton(getString(R.string.ui_cancel)) { _, _ ->
+                webView.evaluateJavascript("window.__videoShieldCancelQualityChange?.();", null)
+            }
+            .setOnCancelListener {
+                webView.evaluateJavascript("window.__videoShieldCancelQualityChange?.();", null)
+            }
             .show()
+        }
     }
 
     private fun currentNetworkMetered(): Boolean =
@@ -1328,14 +1362,14 @@ class MainActivity : LocalizedActivity() {
 
     private fun applyNativeTheme() {
         if (!::preferences.isInitialized) return
-        val shell = if (preferences.amoledTheme) Color.BLACK else Color.rgb(21, 23, 28)
-        val system = if (preferences.amoledTheme) Color.BLACK else Color.rgb(11, 12, 15)
-        window.statusBarColor = system
-        window.navigationBarColor = system
+        AppTheme.applySystemBars(this)
+        val shell = AppTheme.surface(this)
+        val background = AppTheme.background(this)
         if (::topBar.isInitialized) topBar.setBackgroundColor(shell)
         if (::bottomBar.isInitialized) bottomBar.setBackgroundColor(shell)
-        if (::webView.isInitialized) webView.setBackgroundColor(system)
-        if (::browseWebView.isInitialized) browseWebView.setBackgroundColor(system)
+        // Playback stays black to avoid a light flash around video frames.
+        if (::webView.isInitialized) webView.setBackgroundColor(Color.BLACK)
+        if (::browseWebView.isInitialized) browseWebView.setBackgroundColor(background)
     }
 
     private fun updateBrowserChromeVisibility(url: String?) {
@@ -1530,7 +1564,7 @@ class MainActivity : LocalizedActivity() {
             webView.evaluateJavascript(ClientSurfaceScript.mini(miniSurfaceApplied, playbackSession.state.playing), null)
         }
         val session = playbackSession.state
-        val network = if (networkOnline) "" else " • Offline"
+        val network = if (networkOnline) "" else getString(R.string.ui_offline_suffix)
         val health = if (::playbackHealth.isInitialized && playbackHealth.snapshot.state !in setOf(PlaybackHealthState.IDLE, PlaybackHealthState.HEALTHY)) {
             " • ${LocalizedPresentation.health(this,playbackHealth.snapshot.state)}"
         } else ""
@@ -1574,11 +1608,11 @@ class MainActivity : LocalizedActivity() {
         findViewById<Button>(R.id.qualityButton).setTextIfChanged(qualityLabel(effectivePreferredQuality()))
         findViewById<Button>(R.id.autoNextButton).apply {
             setTextIfChanged(getString(if(preferences.autoAdvanceQueue) R.string.auto_next_on else R.string.auto_next_off))
-            setLeadingIcon(R.drawable.ic_ui_queue, if(preferences.autoAdvanceQueue) Color.rgb(62,166,255) else Color.WHITE)
+            setLeadingIcon(R.drawable.ic_ui_queue, if(preferences.autoAdvanceQueue) Color.rgb(62,166,255) else AppTheme.icon(this@MainActivity))
         }
         findViewById<Button>(R.id.repeatButton).apply {
             setTextIfChanged(if (preferences.autoRepeat) getString(R.string.repeat_on) else getString(R.string.ui_repeat))
-            setLeadingIcon(R.drawable.ic_ui_repeat, if (preferences.autoRepeat) Color.rgb(62,166,255) else Color.WHITE)
+            setLeadingIcon(R.drawable.ic_ui_repeat, if (preferences.autoRepeat) Color.rgb(62,166,255) else AppTheme.icon(this@MainActivity))
         }
         findViewById<TextView>(R.id.miniPlayerTitle).setTextIfChanged(session.title.ifBlank { getString(R.string.playing_video) })
         findViewById<TextView>(R.id.miniPlayerChannel).setTextIfChanged(session.channel)
@@ -1605,8 +1639,10 @@ class MainActivity : LocalizedActivity() {
             Triple(R.id.navLibraryButton, R.drawable.ic_nav_you, YouTubeDestination.OTHER)).forEach { (id, icon, route) ->
             findViewById<Button>(id).apply {
                 setCompoundDrawablesWithIntrinsicBounds(0, icon, 0, 0)
-                compoundDrawableTintList = android.content.res.ColorStateList.valueOf(if (destination == route) Color.WHITE else Color.rgb(170,170,170))
-                setTextColor(if (destination == route) Color.WHITE else Color.rgb(170,170,170))
+                val selected = destination == route
+                val color = if (selected) AppTheme.primary(this@MainActivity) else AppTheme.tertiary(this@MainActivity)
+                compoundDrawableTintList = android.content.res.ColorStateList.valueOf(color)
+                setTextColor(color)
                 isSelected = destination == route
             }
         }
@@ -1676,7 +1712,7 @@ class MainActivity : LocalizedActivity() {
             }
             PlaybackHealthState.FAILED -> {
                 errorTitle.text = getString(R.string.ui_playback_needs_attention)
-                errorMessage.text = snapshot.reason.ifBlank { getString(R.string.ui_automatic_recovery_could_not_restore_this_page) }
+                errorMessage.text = snapshot.reason.takeIf { it.isNotBlank() }?.let { LocalizedPresentation.diagnosticDetail(this, it) } ?: getString(R.string.ui_automatic_recovery_could_not_restore_this_page)
                 errorOverlay.visibility = View.VISIBLE
                 findViewById<Button>(R.id.errorRetryButton).isEnabled = networkOnline
             }
@@ -1699,6 +1735,7 @@ class MainActivity : LocalizedActivity() {
         preferences.autoPiP,
         preferences.backgroundControls,
         preferences.amoledTheme,
+        preferences.lightTheme,
         preferences.autoRepeat,
         preferences.preferredQuality,
         preferences.preferredQualityMobile,

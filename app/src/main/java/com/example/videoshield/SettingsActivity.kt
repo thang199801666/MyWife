@@ -2,7 +2,6 @@ package com.example.videoshield
 
 import android.app.Activity
 import android.os.Bundle
-import android.graphics.Color
 import android.widget.Button
 import android.widget.CompoundButton
 import android.widget.EditText
@@ -59,9 +58,11 @@ class SettingsActivity : LocalizedActivity() {
         bind(R.id.settingAutoPip, p.autoPiP) { p.autoPiP = it }
         bind(R.id.settingBackgroundControls, p.backgroundControls) { p.backgroundControls = it }
         bind(R.id.settingFullscreenGestures, p.fullscreenGestures) { p.fullscreenGestures = it }
-        bind(R.id.settingAmoledTheme, p.amoledTheme) {
-            p.amoledTheme = it
-            applyThemeSurface()
+        bind(R.id.settingLightTheme, p.lightTheme) {
+            if (p.lightTheme != it) {
+                p.lightTheme = it
+                recreate()
+            }
         }
         bind(R.id.settingCompactChrome, p.compactYouTubeChrome) { p.compactYouTubeChrome = it }
         bind(R.id.settingAutoRepeat, p.autoRepeat) { p.autoRepeat = it }
@@ -175,10 +176,8 @@ class SettingsActivity : LocalizedActivity() {
     }
 
     private fun applyThemeSurface() {
-        val color = if (p.amoledTheme) Color.BLACK else Color.rgb(11, 12, 15)
-        window.statusBarColor = color
-        window.navigationBarColor = color
-        findViewById<android.view.View>(R.id.settingsRoot)?.setBackgroundColor(color)
+        AppTheme.applySystemBars(this)
+        findViewById<android.view.View>(R.id.settingsRoot)?.setBackgroundColor(AppTheme.background(this))
     }
 
     private fun formatSensitivity(value: Float): String {
@@ -211,8 +210,8 @@ class SettingsActivity : LocalizedActivity() {
     private fun refreshStatus() {
         val active = rules.active()
         val source = if (rules.isUsingBundled()) getString(R.string.ui_bundled) else getString(R.string.ui_downloaded)
-        val safe = if (p.safeMode) " • SAFE MODE" else ""
-        val reason = if (p.safeModeReason.isNotBlank()) "\n${p.safeModeReason}" else ""
+        val safe = if (p.safeMode) " • ${getString(R.string.ui_safe_mode_badge)}" else ""
+        val reason = if (p.safeModeReason.isNotBlank()) "\n${LocalizedPresentation.safeModeReason(this, p.safeModeReason)}" else ""
         ruleStatus.text = "${active.name} • v${active.ruleVersion} • $source$safe$reason"
         allowlistStatus.text = getString(R.string.allowed_channels, p.whitelistedChannels.size)
     }

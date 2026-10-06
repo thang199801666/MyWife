@@ -21,7 +21,7 @@ object EqDialog {
             setPadding(padding, padding / 2, padding, padding)
         }
         fun label(value: String) = TextView(activity).apply {
-            text = value; setTextColor(Color.WHITE); textSize = 14f; setPadding(0, 8, 0, 8)
+            text = value; setTextColor(AppTheme.primary(activity)); textSize = 14f; setPadding(0, 8, 0, 8)
         }
         body.addView(label(activity.getString(R.string.ui_eq_applies_to_offline_video_mp3_in_downloads_it_does_not_yet_appl)))
         val toggle = Switch(activity).apply { text = activity.getString(R.string.ui_enable_eq); isChecked = settings.enabled }

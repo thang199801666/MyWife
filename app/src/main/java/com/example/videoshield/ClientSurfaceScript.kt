@@ -84,7 +84,12 @@ object ClientSurfaceScript {
         })();
     """.trimIndent()
 
-    fun player(downloadLabel: String = "Download"): String = """
+    fun player(downloadLabel: String = "Download", lightTheme: Boolean = false): String {
+        val pageBackground = if (lightTheme) "#ffffff" else "#000000"
+        val actionBackground = if (lightTheme) "#f1f3f6" else "#272727"
+        val actionColor = if (lightTheme) "#111318" else "#ffffff"
+        val colorScheme = if (lightTheme) "light" else "dark"
+        return """
         (() => {
           try {
             if (!document.documentElement.hasAttribute('data-votuibe-surface'))
@@ -104,7 +109,7 @@ object ClientSurfaceScript {
               const button = document.createElement('button');
               button.type = 'button';
               button.setAttribute('aria-label',${org.json.JSONObject.quote(downloadLabel)});
-              button.style.cssText = 'display:inline-flex;gap:6px;align-items:center;justify-content:center;min-height:40px;padding:0 12px;border:0;border-radius:24px;background:#272727;color:#fff;font:500 14px Roboto,Arial,sans-serif;cursor:pointer';
+              button.style.cssText = 'display:inline-flex;gap:6px;align-items:center;justify-content:center;min-height:40px;padding:0 12px;border:0;border-radius:24px;background:${actionBackground};color:${actionColor};font:500 14px Roboto,Arial,sans-serif;cursor:pointer';
               const icon = document.createElementNS('http://www.w3.org/2000/svg','svg');
               for (const [name,value] of Object.entries({viewBox:'0 0 24 24',width:'24',height:'24',fill:'currentColor','aria-hidden':'true'})) icon.setAttribute(name,value);
               const path = document.createElementNS('http://www.w3.org/2000/svg','path');
@@ -152,14 +157,19 @@ object ClientSurfaceScript {
               ytm-survey-trigger-renderer {
                 display: none !important;
               }
-              html, body, ytm-app { background: #000 !important; }
+              html { color-scheme: ${colorScheme}; }
+              html, body, ytm-app { background: ${pageBackground} !important; }
               ytm-app { padding-top: 0 !important; }
             `;
           } catch (_) {}
         })();
     """.trimIndent()
+    }
 
-    fun browse(): String = """
+    fun browse(lightTheme: Boolean = false): String {
+        val pageBackground = if (lightTheme) "#ffffff" else "#000000"
+        val colorScheme = if (lightTheme) "light" else "dark"
+        return """
         (() => {
           try {
             const id = 'youtoobee-browse-surface-style';
@@ -175,10 +185,12 @@ object ClientSurfaceScript {
               ytm-app-promo-renderer,
               ytm-mealbar-promo-renderer,
               ytm-survey-trigger-renderer { display: none !important; }
-              html, body, ytm-app { background: #000 !important; }
+              html { color-scheme: ${colorScheme}; }
+              html, body, ytm-app { background: ${pageBackground} !important; }
               ytm-app { padding-top: 0 !important; padding-bottom: 0 !important; }
             `;
           } catch (_) {}
         })();
     """.trimIndent()
+    }
 }

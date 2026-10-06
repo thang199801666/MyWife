@@ -1,17 +1,17 @@
 <resources>
     <string name="quality_adaptive">Tự động</string>
-    <string name="auto_next_on">Tự chuyển: Bật</string>
-    <string name="auto_next_off">Tự chuyển: Tắt</string>
-    <string name="download_error_source">Nguồn chưa trả về luồng video tải được sau khi thử lại. Hãy thử lại sau; nếu vẫn lỗi, gửi link video và chi tiết bên dưới.</string>
+    <string name="auto_next_on">Tự phát tiếp: Bật</string>
+    <string name="auto_next_off">Tự phát tiếp: Tắt</string>
+    <string name="download_error_source">Nguồn không trả về luồng video có thể tải sau khi thử lại. Hãy thử lại sau; nếu vẫn lỗi, gửi liên kết video và chi tiết bên dưới.</string>
     <string name="download_error_live">Chưa hỗ trợ lưu livestream đang phát.</string>
     <string name="download_highest_unknown">Chất lượng cao nhất của nguồn</string>
     <string name="download_error_dns">Không phân giải được địa chỉ máy chủ. Kiểm tra kết nối mạng/DNS rồi thử lại.</string>
-    <string name="download_error_space">Thiết bị không đủ dung lượng để tải và xử lý file.</string>
+    <string name="download_error_space">Thiết bị không đủ dung lượng để tải và xử lý tệp.</string>
     <string name="download_error_timeout">Kết nối tới nguồn tải quá chậm. Thử lại khi mạng ổn định hơn.</string>
-    <string name="download_error_format">Chất lượng đã chọn không còn có sẵn. Mở Tải xuống và chọn lại chất lượng nguồn.</string>
-    <string name="download_error_access">Nguồn yêu cầu đăng nhập hoặc có giới hạn truy cập; bộ tải hiện chưa dùng phiên đăng nhập trong app.</string>
+    <string name="download_error_format">Chất lượng đã chọn không còn khả dụng. Mở mục Tải xuống và chọn lại chất lượng nguồn.</string>
+    <string name="download_error_access">Nguồn yêu cầu đăng nhập hoặc bị giới hạn truy cập; trình tải hiện chưa dùng phiên đăng nhập của ứng dụng.</string>
     <string name="download_error_server">Máy chủ từ chối hoặc giới hạn lượt tải. Thử lại sau hoặc đổi kết nối mạng.</string>
-    <string name="download_error_generic">Không thể hoàn tất tải. Chi tiết từ nguồn tải ở bên dưới.</string>
+    <string name="download_error_generic">Không thể hoàn tất tải xuống. Chi tiết từ nguồn được hiển thị bên dưới.</string>
     <string name="subscribed_local">Đã đăng ký %1$s trên thiết bị</string>
     <string name="unsubscribed_local">Đã bỏ đăng ký trên thiết bị</string>
     <string name="health_idle">Đang chờ</string>
@@ -32,12 +32,12 @@
     <string name="recommend_new">Khám phá mới từ các trang bạn đã xem</string>
     <string name="gesture_sensitivity">Độ nhạy thao tác %1$s</string>
     <string name="double_tap_seek">Chạm hai lần để tua %1$d giây</string>
-    <string name="wifi_quality">Chất lượng Wi-Fi %1$s</string>
-    <string name="mobile_quality">Chất lượng dữ liệu di động %1$s</string>
+    <string name="wifi_quality">Chất lượng Wi-Fi: %1$s</string>
+    <string name="mobile_quality">Chất lượng dữ liệu di động: %1$s</string>
     <string name="allowed_channels">Kênh ngoại lệ: %1$d</string>
     <string name="rules_rolled_back">Đã khôi phục quy tắc v%1$d</string>
     <string name="rules_updated">Đã cập nhật quy tắc v%1$d</string>
-    <string name="downloads_summary">%1$d mục • Xem offline trên thiết bị</string>
+    <string name="downloads_summary">%1$d mục • Xem ngoại tuyến trên thiết bị</string>
     <string name="downloads_active">%1$d mục • %2$d đang tải</string>
     <string name="download_progress">Đang tải • %1$d%%</string>
     <string name="options_for">Tùy chọn cho %1$s</string>
@@ -66,8 +66,8 @@
     <string name="history_suggestions">Gợi ý theo lịch sử xem</string>
     <string name="next_videos">Video phát tiếp theo</string>
     <string name="favorite_videos">Các video yêu thích</string>
-    <string name="offline_videos">Video và MP3 để xem offline</string>
-    <string name="offline_eq">Điều chỉnh âm thanh phát offline</string>
+    <string name="offline_videos">Video và MP3 để phát ngoại tuyến</string>
+    <string name="offline_eq">Điều chỉnh âm thanh khi phát ngoại tuyến</string>
     <string name="customize_experience">Tùy chỉnh trải nghiệm</string>
     <string name="your_library">Thư viện của bạn</string>
     <string name="tune_recommendations">Điều chỉnh gợi ý</string>
@@ -101,8 +101,8 @@
     <string name="eq_off">EQ đang tắt</string>
     <string name="eq_no_control">EQ chưa được cấp quyền điều khiển phiên phát này</string>
     <string name="eq_unsupported">Thiết bị chưa hỗ trợ EQ cho phiên phát này</string>
-    <string name="eq_open">Mở video/MP3 trong Nội dung tải xuống để nghe EQ</string>
-    <string name="eq_active">EQ đang áp dụng cho file offline • %1$d dải của thiết bị</string>
+    <string name="eq_open">Mở video/MP3 trong mục Tải xuống để sử dụng EQ</string>
+    <string name="eq_active">EQ đang áp dụng cho tệp ngoại tuyến • %1$d dải của thiết bị</string>
     <string name="custom_eq">Tùy chỉnh</string>
     <string name="preset_flat">Trung tính</string>
     <string name="preset_bass_boost">Tăng âm trầm</string>
@@ -119,7 +119,7 @@
     <string name="close_player">Đóng trình phát</string>
     <string name="expand_player">Mở rộng trình phát</string>
     <string name="playback_unavailable">Không thể phát video</string>
-    <string name="playback_notification">Phát video</string>
+    <string name="playback_notification">Đang phát video</string>
     <string name="shorts">Shorts</string>
     <string name="pip">PiP</string>
     <string name="eq">EQ</string>
@@ -136,4 +136,9 @@
     <string name="browse_error">Lỗi duyệt nội dung • %1$s</string>
     <string name="recovery_restore">%1$s • Đang khôi phục phát</string>
     <string name="download_interrupted">Tải bị gián đoạn. Chọn Thử lại để tải lại.</string>
+    <string name="download_error_no_completed_file" formatted="false">Không tìm thấy tệp tải xuống đã hoàn tất.</string>
+    <string name="download_error_destination_create" formatted="false">Không thể tạo tệp trong thư mục Tải xuống.</string>
+    <string name="download_error_destination_select" formatted="false">Hãy chọn vị trí lưu tệp trên thiết bị.</string>
+    <string name="download_error_already_running" formatted="false">Tác vụ tải xuống này đang chạy.</string>
+    <string name="download_error_reset_partial" formatted="false">Không thể đặt lại dữ liệu tải xuống dở dang.</string>
 </resources>

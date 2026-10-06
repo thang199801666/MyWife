@@ -23,7 +23,7 @@ object ActionSheet {
         if (activity.isFinishing || activity.isDestroyed) return null
         fun dp(value: Int) = (value * activity.resources.displayMetrics.density).toInt()
         val dialog = Dialog(activity)
-        val surface = Color.rgb(33, 33, 33)
+        val surface = AppTheme.elevated(activity)
         val root = LinearLayout(activity).apply {
             orientation = LinearLayout.VERTICAL
             setPadding(0, dp(10), 0, dp(12))
@@ -33,7 +33,7 @@ object ActionSheet {
             }
         }
         root.addView(View(activity).apply {
-            background = GradientDrawable().apply { setColor(Color.rgb(110,110,110)); cornerRadius = dp(2).toFloat() }
+            background = GradientDrawable().apply { setColor(AppTheme.tertiary(activity)); cornerRadius = dp(2).toFloat() }
         }, LinearLayout.LayoutParams(dp(36), dp(4)).apply { gravity = Gravity.CENTER_HORIZONTAL; bottomMargin = dp(12) })
         val scroll = object : ScrollView(activity) {
             override fun onMeasure(widthMeasureSpec: Int, heightMeasureSpec: Int) {
@@ -44,7 +44,7 @@ object ActionSheet {
         val content = LinearLayout(activity).apply { orientation = LinearLayout.VERTICAL }
         val header = LinearLayout(activity).apply { gravity = Gravity.CENTER_VERTICAL; setPadding(dp(20), 0, dp(8), dp(8)) }
         header.addView(TextView(activity).apply {
-            text = title; textSize = 20f; setTextColor(Color.WHITE); setTypeface(null, Typeface.BOLD)
+            text = title; textSize = 20f; setTextColor(AppTheme.primary(activity)); setTypeface(null, Typeface.BOLD)
             maxLines = 2; ellipsize = android.text.TextUtils.TruncateAt.END
             if (android.os.Build.VERSION.SDK_INT >= 28) isAccessibilityHeading = true
         }, LinearLayout.LayoutParams(0, -2, 1f))
@@ -54,14 +54,14 @@ object ActionSheet {
         }, LinearLayout.LayoutParams(dp(48), dp(48)))
         content.addView(header)
         if (subtitle.isNotBlank()) content.addView(TextView(activity).apply {
-            text = subtitle; textSize = 13f; setTextColor(Color.LTGRAY); setPadding(dp(20), 0, dp(20), dp(16))
+            text = subtitle; textSize = 13f; setTextColor(AppTheme.secondary(activity)); setPadding(dp(20), 0, dp(20), dp(16))
         })
         actions.forEachIndexed { index, action ->
-            val color = if (action.danger) Color.rgb(255, 125, 142) else Color.WHITE
+            val color = if (action.danger) Color.rgb(220, 55, 75) else AppTheme.primary(activity)
             val row = LinearLayout(activity).apply {
                 gravity = Gravity.CENTER_VERTICAL; minimumHeight = dp(64)
                 setPadding(dp(20), dp(12), dp(20), dp(12))
-                background = RippleDrawable(ColorStateList.valueOf(0x22ffffff), ColorDrawable(surface), null)
+                background = RippleDrawable(ColorStateList.valueOf(AppTheme.color(activity, R.attr.appRipple)), ColorDrawable(surface), null)
                 isFocusable = true; isClickable = true
                 contentDescription = listOf(action.label, action.description).filter(String::isNotBlank).joinToString(". ")
                 setOnClickListener { dialog.dismiss(); if (!activity.isDestroyed && !activity.isFinishing) selected(index) }
@@ -73,7 +73,7 @@ object ActionSheet {
             val labels = LinearLayout(activity).apply { orientation = LinearLayout.VERTICAL; importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO_HIDE_DESCENDANTS }
             labels.addView(TextView(activity).apply { text = action.label; textSize = 16f; setTextColor(color) })
             if (action.description.isNotBlank()) labels.addView(TextView(activity).apply {
-                text = action.description; textSize = 12f; setTextColor(Color.LTGRAY); setPadding(0, dp(4), 0, 0)
+                text = action.description; textSize = 12f; setTextColor(AppTheme.secondary(activity)); setPadding(0, dp(4), 0, 0)
             })
             row.addView(labels, LinearLayout.LayoutParams(0, -2, 1f))
             content.addView(row)

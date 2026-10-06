@@ -7,9 +7,9 @@ const assert = require('node:assert/strict');
 const source = fs.readFileSync(path.join(__dirname, '../app/src/main/java/com/example/videoshield/AdBlockScript.kt'), 'utf8');
 const template = source.split('return """')[1].split('""".trimIndent()')[0];
 let checks = 0;
-function fixture({ ad = false, skip = true, instantSkip = false, safeMode = false, ended = false, readyState = 4, duration = 120, adContainer = false, playbackSpeed, mobileLabel = '', mobileOutside = false } = {}) {
+function fixture({ ad = false, skip = true, instantSkip = false, safeMode = false, ended = false, readyState = 4, duration = 120, adContainer = false, playbackSpeed = 1.5, mobileLabel = '', mobileOutside = false } = {}) {
   let now = 10000;
-  const state = { ad, mobileActive: !!mobileLabel, clicks: 0, reports: [], ended: 0, skipped: 0, segments: 0, qualities: [], qualityChoices:[], scans: 0, buttonScans: 0, timers: new Map() };
+  const state = { ad, mobileActive: !!mobileLabel, clicks: 0, reports: [], ended: 0, skipped: 0, segments: 0, qualities: [], qualityChoices:[], scans: 0, buttonScans: 0, timers: new Map(), listeners:new Map() };
   let timerId = 0;
   class Media { pause() { this.paused = true; } }
   const video = { muted: false, playbackRate: 1.5, defaultPlaybackRate: 1.5, currentTime: 12,
@@ -18,6 +18,7 @@ function fixture({ ad = false, skip = true, instantSkip = false, safeMode = fals
     getBoundingClientRect: () => ({left:0,top:0,right:400,bottom:225,width:400,height:225}) };
   Object.setPrototypeOf(video, Media.prototype);
   const player = { classList: { contains: name => state.ad && name === 'ad-showing' }, querySelector: () => state.video,
+    querySelectorAll: selector => selector === 'video' && state.video ? [state.video] : [],
     setPlaybackQualityRange: (min, max) => state.qualities.push([min, max]) };
   const moduleStyle = new Map();
   const moduleAttributes = new Map();
@@ -39,7 +40,8 @@ function fixture({ ad = false, skip = true, instantSkip = false, safeMode = fals
   const sandbox = { URL, Date: { now: () => now }, location: { href: 'https://m.youtube.com/watch?v=testvideo01' },
     document: { title: 'Fixture - YouTube', documentElement: {},
       querySelector: selector => selector === '.html5-video-player' ? player : selector === 'video' ? state.video : selector === '.skip' && skip ? button : null,
-      querySelectorAll: selector => { state.scans++; if(selector==='button,[role="button"]') state.buttonScans++; return selector==='button,[role="button"]' && mobileLabel ? [mobileButton] : selector === '.video-ads' && adContainer ? [module] : []; }, getElementById: id => (id === 'youtoobee-pip-style' && state.pip) || (id === 'youtoobee-mini-style' && state.mini) ? {} : null, addEventListener() {} },
+      querySelectorAll: selector => { state.scans++; if(selector==='button,[role="button"]') state.buttonScans++; return selector==='button,[role="button"]' && mobileLabel ? [mobileButton] : selector === '.video-ads' && adContainer ? [module] : []; }, getElementById: id => (id === 'youtoobee-pip-style' && state.pip) || (id === 'youtoobee-mini-style' && state.mini) ? {} : null,
+      addEventListener(name,listener) {if(!state.listeners.has(name))state.listeners.set(name,[]);state.listeners.get(name).push(listener);} },
     VideoShieldBridge: { onPlaybackState: (...args) => state.reports.push(args), onAdSkipped: () => state.skipped++,
       onPlaybackEnded: () => state.ended++, onQualitySelected: q=>state.qualityChoices.push(q), onSegmentSkipped: () => state.segments++, onCompatibilityReport() {} },
     HTMLMediaElement: Media,
@@ -157,7 +159,7 @@ test('replacement video does not inherit the old media mute state', () => {
   f.state.ad = false;
   f.sweep();
   assert.equal(replacement.muted, false, 'replacement content uses system audio');
-  assert.equal(replacement.playbackRate, 0.75);
+  assert.equal(replacement.playbackRate, 1.5, 'replacement content uses the configured speed');
 });
 test('safe mode leaves ad media untouched', () => {
   const f = fixture({ ad: true, safeMode: true, ended: true });
@@ -304,7 +306,7 @@ test('configured speed survives media reload and video element replacement', () 
   f.video.playbackRate = 1;
   f.video.defaultPlaybackRate = 1;
   f.sweep();
-  assert.equal(f.video.playbackRate, 1, 'wait until replacement media is ready');
+  assert.equal(f.video.playbackRate, 1.25, 'apply configured speed even before replacement media is ready');
   f.video.readyState = 4;
   f.sweep();
   assert.equal(f.video.playbackRate, 1.25);
@@ -489,5 +491,65 @@ test('native next-video handling disables the independent website countdown',()=
   p.setAutonavState=s=>states.push(s);f.sweep();f.sweep();
   assert.deepEqual(states,[1]);
   for(let i=0;i<4;i++)f.sweep();assert.deepEqual(states,[1,1]);
+});
+function restoreQuality(f) {
+  const timer=[...f.state.timers].find(([,t])=>t.delay===120 || t.delay===250);
+  assert(timer,'quality restore scheduled');
+  f.state.timers.delete(timer[0]);timer[1].callback();
+}
+function changeWithPause(f) {
+  const p=f.sandbox.document.querySelector('.html5-video-player'),original=p.setPlaybackQuality;
+  p.setPlaybackQuality=q=>{original(q);f.video.pause();};
+  f.sandbox.__videoShieldCfg.preferredQuality='hd720';
+  f.sandbox.__videoShieldPreferencesChanged();f.sweep();
+}
+test('quality setter pauses content but playback resumes without a seek',()=>{
+  const f=adaptiveFixture(),position=f.video.currentTime;
+  changeWithPause(f);assert.equal(f.video.paused,true);restoreQuality(f);
+  assert.equal(f.video.paused,false);assert.equal(f.video.currentTime,position);
+  f.video.pause();restoreQuality(f);assert.equal(f.video.paused,false,'later stream reload pause also resumes');
+});
+test('quality selection remembers playback before a native menu pauses the renderer',()=>{
+  const f=adaptiveFixture();f.sandbox.__videoShieldPrepareQualityChange();f.video.pause();
+  changeWithPause(f);restoreQuality(f);assert.equal(f.video.paused,false);
+});
+test('quality changes retain an explicit paused state even if the setter autoplays',()=>{
+  const f=adaptiveFixture();f.sandbox.__videoShieldControl('pause');
+  const p=f.sandbox.document.querySelector('.html5-video-player'),original=p.setPlaybackQuality;
+  p.setPlaybackQuality=q=>{original(q);f.video.play();};
+  f.sandbox.__videoShieldCfg.preferredQuality='hd720';f.sandbox.__videoShieldPreferencesChanged();f.sweep();
+  restoreQuality(f);assert.equal(f.video.paused,true);
+});
+test('native Pause and website interaction cancel a pending quality resume',()=>{
+  for(const via of ['native','website']) {
+    const f=adaptiveFixture();changeWithPause(f);
+    if(via==='native')f.sandbox.__videoShieldControl('pause');
+    else for(const listener of f.state.listeners.get('pointerdown'))listener({target:{closest:()=>null}});
+    assert.equal([...f.state.timers.values()].filter(t=>t.delay===120 || t.delay===250).length,0);
+    assert.equal(f.video.paused,true);
+  }
+});
+test('quality resume never starts another video or an ad and expires',()=>{
+  for(const cause of ['navigate','ad','timeout','ended']) {
+    const f=adaptiveFixture();changeWithPause(f);
+    if(cause==='navigate')f.sandbox.location.href='https://m.youtube.com/watch?v=testvideo02';
+    if(cause==='ad')f.state.ad=true;
+    if(cause==='timeout')f.sweep(9000);
+    if(cause==='ended')f.video.ended=true;
+    restoreQuality(f);assert.equal(f.video.paused,true,cause);
+  }
+});
+test('website quality menu preserves the intent before the site pauses playback',()=>{
+  const f=adaptiveFixture();
+  for(const listener of f.state.listeners.get('pointerdown'))listener({target:{closest:()=>({})}});
+  f.prefer('hd720');f.video.pause();f.sweep(3000);f.sweep();restoreQuality(f);
+  assert.equal(f.video.paused,false);assert.equal(f.sandbox.__videoShieldQualityState().target,'hd720');
+});
+test('initial quality metadata does not force a new autoplay video to stay paused',()=>{
+  const f=adaptiveFixture();f.sandbox.__videoShieldCancelQualityChange();
+  f.sandbox.location.href='https://m.youtube.com/watch?v=testvideo02';f.video.paused=true;
+  f.sweep();f.video.play();
+  assert.equal([...f.state.timers.values()].filter(t=>t.delay===120 || t.delay===250).length,0);
+  assert.equal(f.video.paused,false);
 });
 process.stdout.write(`${checks} player regression fixtures passed\n`);

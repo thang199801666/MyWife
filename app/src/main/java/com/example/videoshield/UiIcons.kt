@@ -8,7 +8,9 @@ fun TextView.setTextIfChanged(value: CharSequence) {
 }
 
 /** Sized inline vector for a labeled action, with the same baseline in every screen. */
-fun Button.setLeadingIcon(resource: Int, tint: Int = android.graphics.Color.WHITE) {
+fun Button.setLeadingIcon(resource: Int) = setLeadingIcon(resource, AppTheme.icon(context))
+
+fun Button.setLeadingIcon(resource: Int, tint: Int) {
     val key = "$resource:$tint"
     if (tag == key) return
     tag = key

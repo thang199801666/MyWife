@@ -164,13 +164,10 @@ class LibraryActivity : LocalizedActivity() {
     }
 
     private fun applyThemeSurface() {
-        val system = if (preferences.amoledTheme) Color.BLACK else Color.rgb(11, 12, 15)
-        val shell = if (preferences.amoledTheme) Color.BLACK else Color.rgb(21, 23, 28)
-        window.statusBarColor = system
-        window.navigationBarColor = system
-        findViewById<View>(R.id.libraryRoot).setBackgroundColor(system)
-        findViewById<View>(R.id.libraryTopBar).setBackgroundColor(system)
-        miniPlayerBar.setBackgroundColor(shell)
+        AppTheme.applySystemBars(this)
+        findViewById<View>(R.id.libraryRoot).setBackgroundColor(AppTheme.background(this))
+        findViewById<View>(R.id.libraryTopBar).setBackgroundColor(AppTheme.surface(this))
+        miniPlayerBar.setBackgroundColor(AppTheme.surface(this))
     }
 
     private fun dismissPlayback() {
@@ -228,8 +225,8 @@ class LibraryActivity : LocalizedActivity() {
             R.id.historyTab to MODE_HISTORY, R.id.favoritesTab to MODE_FAVORITES,
             R.id.queueTab to MODE_QUEUE, R.id.subscriptionsTab to MODE_SUBSCRIPTIONS)
         tabs.forEach { (id, value) -> findViewById<Button>(id).apply {
-            setTextColor(if (selected == value) Color.BLACK else Color.WHITE)
-            backgroundTintList = android.content.res.ColorStateList.valueOf(if (selected == value) Color.WHITE else Color.rgb(39,39,39))
+            setTextColor(if (selected == value) AppTheme.selectedText(this@LibraryActivity) else AppTheme.primary(this@LibraryActivity))
+            backgroundTintList = android.content.res.ColorStateList.valueOf(if (selected == value) AppTheme.selectedSurface(this@LibraryActivity) else AppTheme.control(this@LibraryActivity))
         } }
         if (selected in setOf(MODE_FOR_YOU, MODE_RELATED) && (!preferences.personalizedSuggestions || !preferences.rememberHistory)) {
             empty.text = getString(R.string.ui_enable_local_suggestions_and_watch_history_in_settings)
@@ -294,7 +291,7 @@ class LibraryActivity : LocalizedActivity() {
         val playlist = mode in setOf(MODE_QUEUE, MODE_FAVORITES)
         collectionImage.visibility = if (first.isBlank() || !playlist) View.GONE else View.VISIBLE
         collectionHeader.background = if(playlist) GradientDrawable(GradientDrawable.Orientation.TL_BR,
-            intArrayOf(Color.rgb(65,39,70),Color.rgb(26,37,51))).apply { cornerRadius=dp(16).toFloat() }
+            if (AppTheme.isLight(this)) intArrayOf(Color.rgb(236,228,247),Color.rgb(224,234,247)) else intArrayOf(Color.rgb(65,39,70),Color.rgb(26,37,51))).apply { cornerRadius=dp(16).toFloat() }
             else android.graphics.drawable.ColorDrawable(Color.TRANSPARENT)
         collectionActions.visibility = if (mode == MODE_SUBSCRIPTIONS) View.GONE else View.VISIBLE
         thumbnails.bind(collectionImage, if(playlist) first else "")
@@ -415,20 +412,20 @@ class LibraryActivity : LocalizedActivity() {
         collectionHeader=this
         orientation = LinearLayout.VERTICAL
         setPadding(dp(16), dp(16), dp(16), dp(18))
-        background = GradientDrawable(GradientDrawable.Orientation.TL_BR, intArrayOf(Color.rgb(65, 39, 70), Color.rgb(26, 37, 51))).apply { cornerRadius = dp(16).toFloat() }
+        background = GradientDrawable(GradientDrawable.Orientation.TL_BR, if (AppTheme.isLight(this@LibraryActivity)) intArrayOf(Color.rgb(236, 228, 247), Color.rgb(224, 234, 247)) else intArrayOf(Color.rgb(65, 39, 70), Color.rgb(26, 37, 51))).apply { cornerRadius = dp(16).toFloat() }
         collectionImage = ImageView(this@LibraryActivity).apply {
             layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, (resources.displayMetrics.widthPixels - dp(32)) * 9 / 16)
             scaleType = ImageView.ScaleType.CENTER_CROP
-            background = GradientDrawable().apply { setColor(Color.rgb(39,39,39)); cornerRadius = dp(12).toFloat() }
+            background = GradientDrawable().apply { setColor(AppTheme.control(this@LibraryActivity)); cornerRadius = dp(12).toFloat() }
             clipToOutline = true
             contentDescription = getString(R.string.ui_collection_cover)
         }
         addView(collectionImage)
         collectionTitle = TextView(this@LibraryActivity).apply {
-            textSize = 24f; setTextColor(Color.WHITE); setTypeface(null, android.graphics.Typeface.BOLD)
+            textSize = 24f; setTextColor(AppTheme.primary(this@LibraryActivity)); setTypeface(null, android.graphics.Typeface.BOLD)
             setPadding(0, dp(14), 0, dp(6))
         }
-        collectionCount = TextView(this@LibraryActivity).apply { textSize = 12f; setTextColor(Color.LTGRAY) }
+        collectionCount = TextView(this@LibraryActivity).apply { textSize = 12f; setTextColor(AppTheme.secondary(this@LibraryActivity)) }
         addView(collectionTitle); addView(collectionCount)
         collectionActions = LinearLayout(this@LibraryActivity).apply {
             orientation = LinearLayout.HORIZONTAL
@@ -437,10 +434,10 @@ class LibraryActivity : LocalizedActivity() {
                 addView(Button(this@LibraryActivity).apply {
                     text = label; isAllCaps = false; textSize = 14f
                     layoutParams = LinearLayout.LayoutParams(0, dp(42), 1f).apply { if (shuffle) marginStart = dp(10) }
-                    setTextColor(if (shuffle) Color.WHITE else Color.BLACK)
+                    setTextColor(if (shuffle) Color.WHITE else AppTheme.selectedText(this@LibraryActivity))
                     setPadding(dp(16), 0, dp(16), 0)
-                    setLeadingIcon(if (shuffle) R.drawable.ic_ui_shuffle else R.drawable.ic_ui_play, if (shuffle) Color.WHITE else Color.BLACK)
-                    background = GradientDrawable().apply { setColor(if (shuffle) Color.rgb(68, 74, 88) else Color.WHITE); cornerRadius = dp(24).toFloat() }
+                    setLeadingIcon(if (shuffle) R.drawable.ic_ui_shuffle else R.drawable.ic_ui_play, if (shuffle) Color.WHITE else AppTheme.selectedText(this@LibraryActivity))
+                    background = GradientDrawable().apply { setColor(if (shuffle) Color.rgb(68, 74, 88) else AppTheme.selectedSurface(this@LibraryActivity)); cornerRadius = dp(24).toFloat() }
                     setOnClickListener { playCollection(shuffle) }
                 })
             }
@@ -487,7 +484,7 @@ class LibraryActivity : LocalizedActivity() {
             val thumbnail = ImageView(this@LibraryActivity).apply {
                 layoutParams = LinearLayout.LayoutParams(dp(120), dp(68)).apply { marginEnd = dp(12) }
                 scaleType = ImageView.ScaleType.CENTER_CROP
-                background = GradientDrawable().apply { setColor(Color.rgb(39,39,39)); cornerRadius = dp(8).toFloat() }
+                background = GradientDrawable().apply { setColor(AppTheme.control(this@LibraryActivity)); cornerRadius = dp(8).toFloat() }
                 clipToOutline = true
                 contentDescription = getString(R.string.ui_video_thumbnail)
             }
@@ -498,15 +495,15 @@ class LibraryActivity : LocalizedActivity() {
             }
             val text = TextView(this@LibraryActivity).apply {
                 gravity = Gravity.CENTER_VERTICAL
-                setTextColor(Color.rgb(238, 241, 246)); textSize = 14f; maxLines = 3
+                setTextColor(AppTheme.primary(this@LibraryActivity)); textSize = 14f; maxLines = 3
                 ellipsize = android.text.TextUtils.TruncateAt.END
             }
             val channel = TextView(this@LibraryActivity).apply {
-                textSize = 12f; setTextColor(Color.rgb(150, 157, 169)); maxLines = 1
+                textSize = 12f; setTextColor(AppTheme.secondary(this@LibraryActivity)); maxLines = 1
                 ellipsize = android.text.TextUtils.TruncateAt.END
             }
             val reason = TextView(this@LibraryActivity).apply {
-                textSize = 11f; setTextColor(Color.rgb(170, 170, 170)); maxLines = 2
+                textSize = 11f; setTextColor(AppTheme.tertiary(this@LibraryActivity)); maxLines = 2
             }
             val actions = LinearLayout(this@LibraryActivity).apply {
                 orientation = LinearLayout.HORIZONTAL
@@ -538,10 +535,10 @@ class LibraryActivity : LocalizedActivity() {
             holder.thumbnail.visibility = if (row is LibraryRow.Channel) View.GONE else View.VISIBLE
             val thumbnailId = when (row) { is LibraryRow.Video -> row.item.videoId; is LibraryRow.Suggestion -> row.item.video.videoId; else -> "" }
             thumbnails.bind(holder.thumbnail, thumbnailId)
-            root.setBackgroundColor(if (preferences.amoledTheme) {
-                if (position % 2 == 0) Color.BLACK else Color.rgb(5, 5, 5)
+            root.setBackgroundColor(if (AppTheme.isLight(this@LibraryActivity)) {
+                if (position % 2 == 0) AppTheme.background(this@LibraryActivity) else Color.rgb(246, 247, 249)
             } else {
-                if (position % 2 == 0) Color.rgb(20, 22, 27) else Color.rgb(15, 17, 21)
+                if (position % 2 == 0) AppTheme.background(this@LibraryActivity) else Color.rgb(8, 8, 8)
             })
             when (row) {
                 is LibraryRow.Suggestion -> {
@@ -664,7 +661,7 @@ class LibraryActivity : LocalizedActivity() {
                     true
                 }
                 actions.addView(queueActionButton(getString(R.string.ui_next)) {
-                    mutate("Queued to play next") { store.enqueueNext(row.item) }
+                    mutate(getString(R.string.ui_queued_to_play_next)) { store.enqueueNext(row.item) }
                 })
                 actions.addView(queueActionButton("+Q") {
                     mutate(getString(R.string.saved_queue)) { store.enqueue(row.item) }

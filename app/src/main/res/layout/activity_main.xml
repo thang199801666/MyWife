@@ -2,7 +2,7 @@
 <FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="#000000">
+    android:background="?attr/appBackground">
 
     <LinearLayout
         android:layout_width="match_parent"
@@ -17,7 +17,7 @@
             android:gravity="center_vertical"
             android:paddingStart="12dp"
             android:paddingEnd="8dp"
-            android:background="#0E0E0E">
+            android:background="?attr/appSurface">
 
             <Button android:id="@+id/backButton" style="@style/ToolbarButton" android:visibility="gone" android:text="‹" />
             <Button android:id="@+id/forwardButton" style="@style/ToolbarButton" android:visibility="gone" android:text="›" />
@@ -31,7 +31,7 @@
                 android:gravity="center_vertical"
                 android:paddingEnd="10dp"
                 android:text="@string/app_name"
-                android:textColor="#FFFFFF"
+                android:textColor="?attr/appTextPrimary"
                 android:textSize="21sp"
                 android:textStyle="bold" />
 
@@ -45,8 +45,8 @@
                 android:inputType="text"
                 android:imeOptions="actionSearch"
                 android:hint="@string/search_youtube"
-                android:textColor="#F5F5F5"
-                android:textColorHint="#909090"
+                android:textColor="?attr/appTextPrimary"
+                android:textColorHint="?attr/appTextTertiary"
                 android:textSize="14sp"
                 android:paddingHorizontal="12dp"
                 android:background="@drawable/bg_address" />
@@ -86,7 +86,7 @@
                     android:layout_height="56dp"
                     android:layout_gravity="bottom"
                     android:orientation="vertical"
-                    android:background="#171717"
+                    android:background="?attr/appSurfaceElevated"
                     android:visibility="gone">
 
                     <LinearLayout
@@ -110,7 +110,7 @@
                                 android:maxLines="1"
                                 android:ellipsize="end"
                                 android:text="@string/playing_video"
-                                android:textColor="#FFFFFF"
+                                android:textColor="?attr/appTextPrimary"
                                 android:textSize="13sp"
                                 android:textStyle="bold" />
                             <TextView
@@ -119,7 +119,7 @@
                                 android:layout_height="wrap_content"
                                 android:maxLines="1"
                                 android:ellipsize="end"
-                                android:textColor="#BDBDBD"
+                                android:textColor="?attr/appTextSecondary"
                                 android:textSize="11sp" />
                         </LinearLayout>
 
@@ -167,7 +167,7 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="vertical"
-            android:background="#0E0E0E">
+            android:background="?attr/appSurface">
 
             <LinearLayout
                 android:id="@+id/playbackStatusRow"
@@ -178,7 +178,7 @@
                 android:paddingHorizontal="12dp">
 
                 <ToggleButton android:id="@+id/filterToggle" android:layout_width="1dp" android:layout_height="1dp" android:visibility="gone" android:textOn="ON" android:textOff="OFF" />
-                <TextView android:id="@+id/statusText" android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1" android:gravity="center_vertical" android:ellipsize="end" android:maxLines="2" android:text="@string/ui_ready" android:textColor="#D8D8D8" android:textSize="11sp" />
+                <TextView android:id="@+id/statusText" android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1" android:gravity="center_vertical" android:ellipsize="end" android:maxLines="2" android:text="@string/ui_ready" android:textColor="?attr/appTextSecondary" android:textSize="11sp" />
                 <Button android:id="@+id/channelButton" style="@style/CompactActionButton" android:visibility="gone" android:text="@string/ui_allow" />
             </LinearLayout>
 
@@ -202,7 +202,7 @@
                 </LinearLayout>
             </HorizontalScrollView>
 
-            <View android:layout_width="match_parent" android:layout_height="1dp" android:background="#242424" />
+            <View android:layout_width="match_parent" android:layout_height="1dp" android:background="?attr/appDivider" />
 
             <LinearLayout android:layout_width="match_parent" android:layout_height="55dp" android:orientation="horizontal" android:gravity="center">
                 <Button android:id="@+id/navHomeButton" style="@style/BottomNavButton" android:text="@string/ui_home" />

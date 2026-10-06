@@ -52,6 +52,17 @@ object AdBlockScript {
             let lastPlaybackReportAt = 0;
             let lastReportedPosition = 0;
             let lastEndedVideoId = "";
+            let repeatBoundVideo = null;
+            let repeatEndedHandler = null;
+            let repeatRestartAt = 0;
+            let repeatRestartVideoId = "";
+            let rateBoundVideo = null;
+            let rateChangeHandler = null;
+            let rateRetryTimer = null;
+            let rateRetryGeneration = 0;
+            let ratePlayerApiVideo = null;
+            let ratePlayerApiValue = NaN;
+            let lastRequestedRate = 1;
             let hiddenSeen = new WeakSet();
             let lastBridgeUpdate = 0;
             let internalErrors = 0;
@@ -59,6 +70,10 @@ object AdBlockScript {
             let lastCompatibilityUrl = "";
             let qualityAppliedVideoId = "";
             let qualitySession = null;
+            let qualityPlaybackIntent = null;
+            let qualityTransition = null;
+            let qualityResumeTimer = null;
+            let qualitySource = null;
             let lastNativeAutonavAt = 0;
             let nativeAutonavVideoId = '';
             let segmentVideoId = "";
@@ -69,6 +84,193 @@ object AdBlockScript {
             let mobileSkipCache;
 
             const EMPTY = '__VS_EMPTY__';
+
+            function getPlayerVideo() {
+              try {
+                const player = document.querySelector('.html5-video-player');
+                if (player) {
+                  const videos = Array.from(player.querySelectorAll('video'));
+                  const active = videos.find(video => video && video.readyState >= 1 && !video.hidden);
+                  if (active) return active;
+                  if (videos.length) return videos[0];
+                }
+                const videos = Array.from(document.querySelectorAll('video'));
+                if (videos.length === 1) return videos[0];
+                const visible = videos.find(video => {
+                  try {
+                    const rect = video.getBoundingClientRect();
+                    return rect.width > 1 && rect.height > 1 && video.readyState >= 1;
+                  } catch (_) { return false; }
+                });
+                return visible || videos.find(video => video && video.readyState >= 1) || videos[0] || null;
+              } catch (_) {
+                internalErrors++;
+                return null;
+              }
+            }
+
+            function configuredPlaybackRate() {
+              const raw = Number((window.__videoShieldCfg || {}).playbackSpeed);
+              return Number.isFinite(raw) && raw > 0 ? Math.max(0.25, Math.min(4, raw)) : 1;
+            }
+
+            function playerForVideo(video) {
+              try {
+                return video?.closest?.('.html5-video-player') || document.querySelector('.html5-video-player');
+              } catch (_) {
+                internalErrors++;
+                return document.querySelector('.html5-video-player');
+              }
+            }
+
+            function bindPlaybackRateVideo(video) {
+              if (rateBoundVideo === video) return;
+              try {
+                if (rateBoundVideo && rateChangeHandler) {
+                  rateBoundVideo.removeEventListener('ratechange', rateChangeHandler, true);
+                }
+              } catch (_) { internalErrors++; }
+              rateBoundVideo = video || null;
+              rateChangeHandler = null;
+              if (!video) return;
+              rateChangeHandler = () => {
+                if (video !== getPlayerVideo() || isPlayerAd()) return;
+                const target = configuredPlaybackRate();
+                if (Math.abs((Number(video.playbackRate) || 1) - target) > 0.01) {
+                  ratePlayerApiValue = NaN;
+                  schedulePlaybackRateRestore(video, 40);
+                }
+              };
+              try { video.addEventListener('ratechange', rateChangeHandler, true); } catch (_) { internalErrors++; }
+            }
+
+            function applyPlaybackRatePolicy(video) {
+              if (!video) return false;
+              bindPlaybackRateVideo(video);
+              const target = configuredPlaybackRate();
+              lastRequestedRate = target;
+
+              // Keep ads under the ad skipper's own temporary speed, but update the
+              // content rate that will be restored immediately after the ad.
+              if (isPlayerAd()) {
+                if (adState && adState.video === video) adState.playbackRate = target;
+                return false;
+              }
+
+              let applied = false;
+              try {
+                const player = playerForVideo(video);
+                if (player && typeof player.setPlaybackRate === 'function' &&
+                    (ratePlayerApiVideo !== video || !Number.isFinite(ratePlayerApiValue) || Math.abs(ratePlayerApiValue - target) > 0.01)) {
+                  try {
+                    player.setPlaybackRate(target);
+                    ratePlayerApiVideo = video;
+                    ratePlayerApiValue = target;
+                    applied = true;
+                  } catch (_) {
+                    ratePlayerApiValue = NaN;
+                  }
+                }
+                if (Math.abs((Number(video.defaultPlaybackRate) || 1) - target) > 0.01) {
+                  video.defaultPlaybackRate = target;
+                  applied = true;
+                }
+                if (Math.abs((Number(video.playbackRate) || 1) - target) > 0.01) {
+                  video.playbackRate = target;
+                  applied = true;
+                }
+                return applied || Math.abs((Number(video.playbackRate) || 1) - target) <= 0.01;
+              } catch (_) {
+                internalErrors++;
+                return false;
+              }
+            }
+
+            function cancelPlaybackRateRestore() {
+              rateRetryGeneration++;
+              if (rateRetryTimer) clearTimeout(rateRetryTimer);
+              rateRetryTimer = null;
+            }
+
+            function schedulePlaybackRateRestore(video, firstDelay = 60) {
+              cancelPlaybackRateRestore();
+              const generation = rateRetryGeneration;
+              const delays = [firstDelay, 180, 450, 900, 1600];
+              let attempt = 0;
+              const restore = () => {
+                rateRetryTimer = null;
+                if (generation !== rateRetryGeneration) return;
+                const media = getPlayerVideo();
+                if (!media || media !== video || isPlayerAd()) return;
+                applyPlaybackRatePolicy(media);
+                const target = configuredPlaybackRate();
+                if (Math.abs((Number(media.playbackRate) || 1) - target) <= 0.01) return;
+                attempt++;
+                if (attempt < delays.length) rateRetryTimer = setTimeout(restore, delays[attempt]);
+              };
+              rateRetryTimer = setTimeout(restore, delays[0]);
+            }
+
+            function bindRepeatVideo(video) {
+              if (repeatBoundVideo === video) return;
+              try {
+                if (repeatBoundVideo && repeatEndedHandler) {
+                  repeatBoundVideo.removeEventListener('ended', repeatEndedHandler, true);
+                }
+              } catch (_) { internalErrors++; }
+              repeatBoundVideo = video || null;
+              repeatEndedHandler = null;
+              if (!video) return;
+              repeatEndedHandler = () => restartRepeatedVideo(video);
+              try { video.addEventListener('ended', repeatEndedHandler, true); } catch (_) { internalErrors++; }
+            }
+
+            function restartRepeatedVideo(video) {
+              const c = window.__videoShieldCfg || {};
+              if (!c.autoRepeat || !video || video !== getPlayerVideo() || isPlayerAd()) return false;
+              const videoId = getVideoId();
+              if (!videoId) return false;
+              const now = Date.now();
+              if (repeatRestartVideoId === videoId && now - repeatRestartAt < 350) return true;
+              repeatRestartVideoId = videoId;
+              repeatRestartAt = now;
+              lastEndedVideoId = '';
+              try {
+                const player = video.closest?.('.html5-video-player') || document.querySelector('.html5-video-player');
+                if (player && typeof player.seekTo === 'function') player.seekTo(0, true);
+                else video.currentTime = 0;
+                if (player && typeof player.playVideo === 'function') player.playVideo();
+                else {
+                  const result = video.play();
+                  if (result && typeof result.catch === 'function') result.catch(() => {});
+                }
+                return true;
+              } catch (_) {
+                internalErrors++;
+                try {
+                  video.currentTime = 0;
+                  const result = video.play();
+                  if (result && typeof result.catch === 'function') result.catch(() => {});
+                  return true;
+                } catch (_) { internalErrors++; return false; }
+              }
+            }
+
+            function applyRepeatPolicy(video) {
+              bindRepeatVideo(video);
+              const enabled = !!(window.__videoShieldCfg || {}).autoRepeat;
+              if (!video) return;
+              try {
+                // During an ad, keep the ad itself non-looping while updating the content
+                // state that will be restored after the ad ends.
+                if (adState && adState.video === video) adState.loop = enabled;
+                video.loop = enabled && !isPlayerAd();
+              } catch (_) { internalErrors++; }
+              if (!enabled) {
+                repeatRestartAt = 0;
+                repeatRestartVideoId = '';
+              }
+            }
 
             // Keep the trusted player page active when background playback is enabled.
             // YouTube otherwise unloads its media on visibility changes, not just pause().
@@ -222,18 +424,112 @@ object AdBlockScript {
               }
             }
 
+            function cancelQualityPlaybackRestore() {
+              qualityPlaybackIntent = null;
+              qualityTransition = null;
+              if (qualityResumeTimer !== null) clearTimeout(qualityResumeTimer);
+              qualityResumeTimer = null;
+            }
+
+            window.__videoShieldCancelQualityChange = cancelQualityPlaybackRestore;
+            window.__videoShieldPrepareQualityChange = () => {
+              const video = getPlayerVideo();
+              if (!video || video.ended || isPlayerAd()) return false;
+              const id = getVideoId();
+              const previous = qualityTransition?.id === id ? qualityTransition : null;
+              qualityPlaybackIntent = {
+                id,
+                wanted: previous ? previous.wanted : !video.paused,
+                position: previous ? previous.position : (Number(video.currentTime) || 0),
+                rate: configuredPlaybackRate(),
+                loop: !!(window.__videoShieldCfg || {}).autoRepeat,
+                capturedAt: Date.now()
+              };
+              return true;
+            };
+
+            function restoreQualityPlaybackNow(transition) {
+              if (!transition || qualityTransition !== transition) return false;
+              const media = getPlayerVideo();
+              if (!media || getVideoId() !== transition.id ||
+                  document.querySelector('.html5-video-player') !== transition.player ||
+                  media.ended || isPlayerAd() || Date.now() >= transition.until) {
+                cancelQualityPlaybackRestore();
+                return false;
+              }
+              try {
+                // A rendition switch can replace/reset the media element. Preserve the
+                // user's playback position if the new source unexpectedly jumps backwards.
+                const nowPosition = Number(media.currentTime) || 0;
+                if (!media.seeking && transition.position > 3 && nowPosition < transition.position - 2.5) {
+                  if (typeof transition.player.seekTo === 'function') transition.player.seekTo(transition.position, true);
+                  else media.currentTime = transition.position;
+                }
+
+                // Quality transitions may also recreate/reset media properties.
+                applyPlaybackRatePolicy(media);
+                applyRepeatPolicy(media);
+
+                if (transition.wanted && media.paused) {
+                  if (typeof transition.player.playVideo === 'function') transition.player.playVideo();
+                  else media.play()?.catch?.(()=>{});
+                } else if (!transition.wanted && !media.paused) {
+                  if (typeof transition.player.pauseVideo === 'function') transition.player.pauseVideo();
+                  else media.pause();
+                }
+                return true;
+              } catch (_) {
+                internalErrors++;
+                return false;
+              }
+            }
+
+            function preserveQualityPlayback(player, video) {
+              const id = getVideoId();
+              const intent = qualityPlaybackIntent?.id === id ? qualityPlaybackIntent : null;
+              const previous = qualityTransition?.id === id ? qualityTransition : null;
+              const wanted = intent ? intent.wanted : previous ? previous.wanted : !video.paused;
+              const position = intent ? intent.position : previous ? previous.position : (Number(video.currentTime) || 0);
+              cancelQualityPlaybackRestore();
+              if (video.ended || isPlayerAd()) return;
+              const transition = {
+                id, player, wanted, position,
+                rate: intent ? intent.rate : configuredPlaybackRate(),
+                loop: intent ? intent.loop : !!(window.__videoShieldCfg || {}).autoRepeat,
+                startedAt: Date.now(), until: Date.now()+8000
+              };
+              qualityTransition = transition;
+
+              // Apply once immediately, then keep enforcing the original play/pause
+              // intent throughout the whole source/rendition transition. YouTube can
+              // emit another pause well after its first successful play() callback.
+              restoreQualityPlaybackNow(transition);
+              const restore = () => {
+                qualityResumeTimer = null;
+                if (!restoreQualityPlaybackNow(transition)) return;
+                qualityResumeTimer = setTimeout(restore, 250);
+              };
+              qualityResumeTimer = setTimeout(restore, 120);
+            }
+
+            window.__videoShieldCommitQualityChange = () => {
+              const transition = qualityTransition;
+              if (transition) return restoreQualityPlaybackNow(transition);
+              const video = getPlayerVideo();
+              if (!video || video.ended || isPlayerAd()) return false;
+              const id = getVideoId();
+              if (!qualityPlaybackIntent || qualityPlaybackIntent.id !== id) return false;
+              const player = document.querySelector('.html5-video-player');
+              if (!player) return false;
+              preserveQualityPlayback(player, video);
+              return true;
+            };
+
             function applyPlaybackEnhancements(video) {
               if (!video) return;
               const c = window.__videoShieldCfg || {};
-              try { video.loop = !!c.autoRepeat; } catch (_) { internalErrors++; }
-              const configuredRate = Number(c.playbackSpeed);
-              if (video.readyState > 2 && Number.isFinite(configuredRate) && configuredRate > 0) {
-                const rate = Math.max(0.25, Math.min(4, configuredRate));
-                try {
-                  if (video.defaultPlaybackRate !== rate) video.defaultPlaybackRate = rate;
-                  if (video.playbackRate !== rate) video.playbackRate = rate;
-                } catch (_) { internalErrors++; }
-              }
+              applyRepeatPolicy(video);
+              applyPlaybackRatePolicy(video);
 
               const videoId = getVideoId();
               const quality = String(c.preferredQuality || 'auto');
@@ -253,6 +549,11 @@ object AdBlockScript {
                 const levels = typeof player.getAvailableQualityLevels === 'function' ? player.getAvailableQualityLevels() : [];
                 const available = Array.isArray(levels) ? levels.filter(q => rank(q) > 0).sort((a,b) => rank(b)-rank(a)) : [];
                 const setQuality = (target, adaptive) => {
+                  // Initial metadata may arrive before the site's autoplay starts.
+                  // Preserve a paused state only for an established source or explicit choice.
+                  if (!video.paused || qualityPlaybackIntent?.id === videoId ||
+                      (qualitySource?.id === videoId && qualitySource.player === player))
+                    preserveQualityPlayback(player, video);
                   let applied = false;
                   if (typeof player.setPlaybackQualityRange === 'function') {
                     // Clear the old minimum first; otherwise a highest-quality floor can
@@ -269,6 +570,7 @@ object AdBlockScript {
                   if (typeof player.setPlaybackQualityRange === 'function') {
                     player.setPlaybackQualityRange(adaptive ? (available.at(-1) || 'tiny') : target, target);
                   }
+                  if (applied) qualitySource = {id:videoId, player};
                   return applied;
                 };
                 const now = Date.now();
@@ -420,7 +722,7 @@ object AdBlockScript {
             function findMobileSkipButton() {
               // Mobile experiments use overlay buttons without .ad-showing.
               // Accept only an explicit ad-skip label inside the visible video area.
-              const video = document.querySelector('video');
+              const video = getPlayerVideo();
               if (!video || typeof video.getBoundingClientRect !== 'function') return null;
               const videoRect = video.getBoundingClientRect();
               if (videoRect.width <= 0 || videoRect.height <= 0) return null;
@@ -442,7 +744,7 @@ object AdBlockScript {
 
             function handlePlayerAd() {
               const player = document.querySelector('.html5-video-player');
-              const video = player ? player.querySelector('video') : document.querySelector('video');
+              const video = player ? player.querySelector('video') : getPlayerVideo();
               if (!aggressiveBlockingAllowed()) {
                 restorePlayerState(video);
                 return;
@@ -514,7 +816,7 @@ object AdBlockScript {
               const now = Date.now();
               if (now - lastBridgeUpdate < 450) return;
               lastBridgeUpdate = now;
-              const video = document.querySelector('video');
+              const video = getPlayerVideo();
               // An unloaded placeholder must not replace the saved content position with zero.
               if (!video || video.readyState < 1) return;
               if (!video.ended) lastEndedVideoId = '';
@@ -547,8 +849,7 @@ object AdBlockScript {
               const showingAd = isPlayerAd();
               const c = window.__videoShieldCfg || {};
               if (video.ended && c.autoRepeat && videoId && !showingAd) {
-                try { video.currentTime = 0; video.play(); } catch (_) { internalErrors++; }
-                lastEndedVideoId = "";
+                restartRepeatedVideo(video);
               } else if (video.ended && videoId && !showingAd && lastEndedVideoId !== videoId) {
                 lastEndedVideoId = videoId;
                 try { if (window.VideoShieldBridge) VideoShieldBridge.onPlaybackEnded(videoId); } catch (_) { internalErrors++; }
@@ -561,7 +862,7 @@ object AdBlockScript {
                 if (href === lastCompatibilityUrl) return;
                 lastCompatibilityUrl = href;
                 const playerFound = !!document.querySelector('.html5-video-player');
-                const videoFound = !!document.querySelector('video');
+                const videoFound = !!getPlayerVideo();
                 const version = Number((window.__videoShieldRules || {}).version || 0);
                 if (window.VideoShieldBridge) {
                   VideoShieldBridge.onCompatibilityReport(playerFound, videoFound, internalErrors, version);
@@ -595,7 +896,7 @@ object AdBlockScript {
                 hideAnnoyances();
                 applyAmoledTheme();
                 handlePlayerAd();
-                const video = document.querySelector('video');
+                const video = getPlayerVideo();
                 if (!isPlayerAd()) {
                   useSystemAudio(video);
                   applyPlaybackEnhancements(video);
@@ -609,14 +910,18 @@ object AdBlockScript {
 
             window.__videoShieldSweep = sweep;
             window.__videoShieldDiagnostics = () => ({ errors: internalErrors, playing: lastPlaying,
-              videoId: lastVideoId, ad: isPlayerAd(), bridge: typeof window.VideoShieldBridge });
+              videoId: lastVideoId, ad: isPlayerAd(), bridge: typeof window.VideoShieldBridge,
+              repeat: !!(window.__videoShieldCfg || {}).autoRepeat, mediaLoop: !!getPlayerVideo()?.loop,
+              configuredRate: configuredPlaybackRate(), mediaRate: Number(getPlayerVideo()?.playbackRate || 1),
+              requestedRate: lastRequestedRate });
             window.__videoShieldScheduleCompatibility = scheduleCompatibility;
             window.__videoShieldControl = (cmd) => {
+              if (cmd === 'pause' || cmd === 'toggle' || cmd === 'play') cancelQualityPlaybackRestore();
               if(cmd==='pause' || cmd==='toggle') window.__videoShieldExpandPlaybackWanted=false;
               if (cmd === 'pause' || cmd === 'toggle') window.__videoShieldPipResumePending = false;
               if (cmd === 'pause') window.__videoShieldPipPlaybackWanted = false;
               if (cmd === 'pause') window.__videoShieldMiniPlaybackWanted = false;
-              const video = document.querySelector('video');
+              const video = getPlayerVideo();
               if (!video) return false;
               try {
                 if (cmd === 'toggle') window.__videoShieldPipPlaybackWanted = !!video.paused;
@@ -632,7 +937,7 @@ object AdBlockScript {
               } catch (_) { internalErrors++; return false; }
             };
             window.__videoShieldSetPosition = (seconds) => {
-              const video = document.querySelector('video');
+              const video = getPlayerVideo();
               if (!video) return false;
               try {
                 const target = Math.max(0, Number(seconds) || 0);
@@ -643,14 +948,15 @@ object AdBlockScript {
             };
             window.__videoShieldSetRate = (rate) => {
               const target = Math.min(4, Math.max(0.25, Number(rate) || 1));
-              if (window.__videoShieldCfg) window.__videoShieldCfg.playbackSpeed = target;
-              const video = document.querySelector('video');
-              if (!video) return false;
               try {
-                video.defaultPlaybackRate = target;
-                if (adState && adState.video === video) adState.playbackRate = target;
-                else video.playbackRate = target;
-                return true;
+                if (!window.__videoShieldCfg) window.__videoShieldCfg = {};
+                window.__videoShieldCfg.playbackSpeed = target;
+                lastRequestedRate = target;
+                const video = getPlayerVideo();
+                if (!video) return false;
+                const applied = applyPlaybackRatePolicy(video);
+                schedulePlaybackRateRestore(video);
+                return applied;
               } catch (_) { internalErrors++; return false; }
             };
             window.__videoShieldSetSegments = (videoId, segments) => {
@@ -662,8 +968,21 @@ object AdBlockScript {
                 return true;
               } catch (_) { internalErrors++; return false; }
             };
+            window.__videoShieldSetRepeat = (enabled) => {
+              try {
+                if (!window.__videoShieldCfg) window.__videoShieldCfg = {};
+                window.__videoShieldCfg.autoRepeat = !!enabled;
+                applyRepeatPolicy(getPlayerVideo());
+                if (enabled) lastEndedVideoId = '';
+                return true;
+              } catch (_) { internalErrors++; return false; }
+            };
 
             window.__videoShieldPreferencesChanged = () => {
+              const media = getPlayerVideo();
+              applyRepeatPolicy(media);
+              applyPlaybackRatePolicy(media);
+              if (media && !isPlayerAd()) schedulePlaybackRateRestore(media);
               // Unrelated settings must not reset a user's quality or adaptive downgrade.
               if (qualitySession && qualitySession.mode !== String((window.__videoShieldCfg || {}).preferredQuality || 'auto')) {
                 qualityAppliedVideoId = ''; qualitySession = null;
@@ -700,7 +1019,7 @@ object AdBlockScript {
             if (typeof HTMLMediaElement !== 'undefined') {
               const nativePause = HTMLMediaElement.prototype.pause;
               HTMLMediaElement.prototype.pause = function() {
-                const playerVideo = document.querySelector('.html5-video-player video') || document.querySelector('video');
+                const playerVideo = document.querySelector('.html5-video-player video') || getPlayerVideo();
                 const keepPlaying = (window.__videoShieldPipPlaybackWanted && document.getElementById('youtoobee-pip-style')) ||
                     (window.__videoShieldMiniPlaybackWanted && document.getElementById('youtoobee-mini-style')) ||
                     (window.__videoShieldExpandPlaybackWanted && document.documentElement.getAttribute('data-votuibe-surface')==='expanded');
@@ -710,19 +1029,43 @@ object AdBlockScript {
             }
 
             document.addEventListener('play', updatePlaybackBridge, true);
-            for(const eventName of ['pointerdown','touchstart']) document.addEventListener(eventName,()=>{
+            for(const eventName of ['pointerdown','touchstart']) document.addEventListener(eventName,event=>{
               window.__videoShieldExpandPlaybackWanted=false;
+              const menu = event.target?.closest?.('.ytp-settings-button,.ytp-menuitem,[role="menuitem"],[role="menuitemradio"]');
+              if (menu) {
+                if (!qualityPlaybackIntent || qualityPlaybackIntent.id !== getVideoId())
+                  window.__videoShieldPrepareQualityChange();
+              } else cancelQualityPlaybackRestore();
             },true);
-            for (const eventName of ['loadedmetadata', 'play', 'volumechange']) {
+            document.addEventListener('keydown', cancelQualityPlaybackRestore, true);
+            for (const eventName of ['loadedmetadata', 'canplay', 'playing', 'play', 'volumechange']) {
               document.addEventListener(eventName, event => {
-                if (event.target === document.querySelector('video')) useSystemAudio(event.target);
+                if (event.target === getPlayerVideo()) {
+                  applyRepeatPolicy(event.target);
+                  if (eventName !== 'volumechange') applyPlaybackRatePolicy(event.target);
+                  useSystemAudio(event.target);
+                }
               }, true);
             }
             document.addEventListener('play', event => {
-              if (event.target === document.querySelector('video') && document.getElementById('youtoobee-mini-style'))
+              if (event.target === getPlayerVideo() && document.getElementById('youtoobee-mini-style'))
                 window.__videoShieldMiniPlaybackWanted = true;
             }, true);
-            document.addEventListener('pause', updatePlaybackBridge, true);
+            document.addEventListener('pause', event => {
+              updatePlaybackBridge(event);
+              // During an app-initiated quality switch, YouTube may pause the new
+              // rendition after it already resumed once. Re-assert play immediately.
+              const transition = qualityTransition;
+              if (transition && transition.wanted && event.target === getPlayerVideo()) {
+                setTimeout(() => restoreQualityPlaybackNow(transition), 0);
+              }
+            }, true);
+            document.addEventListener('loadedmetadata', event => {
+              const transition = qualityTransition;
+              if (transition && event.target === getPlayerVideo()) {
+                setTimeout(() => restoreQualityPlaybackNow(transition), 0);
+              }
+            }, true);
             document.addEventListener('yt-navigate-finish', () => {
               lastCompatibilityUrl = '';
               sweep();

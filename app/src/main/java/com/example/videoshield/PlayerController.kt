@@ -26,10 +26,34 @@ class PlayerController(private val webView: WebView) {
         evaluate("window.__videoShieldSetPosition && window.__videoShieldSetPosition($value)")
     }
 
+    fun setRepeatEnabled(enabled: Boolean) {
+        evaluate("window.__videoShieldSetRepeat && window.__videoShieldSetRepeat(${if (enabled) "true" else "false"})")
+    }
+
     fun setPlaybackRate(rate: Float) {
         val safe = rate.coerceIn(0.25f, 4.0f)
         val value = String.format(Locale.US, "%.2f", safe)
-        evaluate("window.__videoShieldSetRate && window.__videoShieldSetRate($value)")
+        evaluate(
+            """(() => {
+              const rate = $value;
+              try {
+                if (!window.__videoShieldCfg) window.__videoShieldCfg = {};
+                window.__videoShieldCfg.playbackSpeed = rate;
+                if (typeof window.__videoShieldSetRate === 'function') {
+                  return window.__videoShieldSetRate(rate);
+                }
+                const player = document.querySelector('.html5-video-player');
+                const video = player?.querySelector('video') || document.querySelector('video');
+                if (player && typeof player.setPlaybackRate === 'function') {
+                  try { player.setPlaybackRate(rate); } catch (_) {}
+                }
+                if (!video) return false;
+                video.defaultPlaybackRate = rate;
+                video.playbackRate = rate;
+                return true;
+              } catch (_) { return false; }
+            })()""".trimIndent()
+        )
     }
 
     fun setCommunitySegments(videoId: String, segments: List<CommunitySegment>) {

@@ -6,7 +6,8 @@ import java.util.Date
 
 /** Local-only compatibility telemetry. No browsing data leaves the device. */
 class CompatibilityDiagnosticsStore(context: Context) {
-    private val prefs = context.applicationContext.getSharedPreferences("videoshield_compatibility_diagnostics", Context.MODE_PRIVATE)
+    private val appContext = context.applicationContext
+    private val prefs = appContext.getSharedPreferences("videoshield_compatibility_diagnostics", Context.MODE_PRIVATE)
 
     fun recordReport(
         url: String?,
@@ -43,29 +44,31 @@ class CompatibilityDiagnosticsStore(context: Context) {
     fun unhealthyReports(): Long = prefs.getLong(KEY_UNHEALTHY, 0L)
 
     fun summary(): String = buildString {
-        append("Bridge reports: ${totalReports()} • healthy ${healthyReports()} • unhealthy ${unhealthyReports()}")
+        append(appContext.getString(R.string.diag_bridge_reports, totalReports(), healthyReports(), unhealthyReports()))
         val lastAt = prefs.getLong(KEY_LAST_AT, 0L)
         if (lastAt > 0L) {
-            append("\nLast: player ${yesNo(prefs.getBoolean(KEY_LAST_PLAYER, false))}")
-            append(" • video ${yesNo(prefs.getBoolean(KEY_LAST_VIDEO, false))}")
-            append(" • script errors ${prefs.getInt(KEY_LAST_ERRORS, 0)}")
+            append("\n").append(appContext.getString(R.string.diag_last_player,
+                yesNo(prefs.getBoolean(KEY_LAST_PLAYER, false)),
+                yesNo(prefs.getBoolean(KEY_LAST_VIDEO, false)),
+                prefs.getInt(KEY_LAST_ERRORS, 0)))
             val reported = prefs.getInt(KEY_LAST_REPORTED_RULE, 0)
             val active = prefs.getInt(KEY_LAST_ACTIVE_RULE, 0)
-            append("\nRules reported $reported / active $active")
+            append("\n").append(appContext.getString(R.string.diag_rules_reported, reported, active))
             append(" • ${formatAt(lastAt)}")
         }
         val selfTest = prefs.getString(KEY_SELF_TEST, "").orEmpty()
         val selfTestAt = prefs.getLong(KEY_SELF_TEST_AT, 0L)
         if (selfTest.isNotBlank()) {
-            append("\nSelf-test ${if (prefs.getBoolean(KEY_SELF_TEST_PASSED, false)) "PASS" else "FAIL"}")
+            append("\n").append(appContext.getString(R.string.diag_self_test,
+                appContext.getString(if (prefs.getBoolean(KEY_SELF_TEST_PASSED, false)) R.string.diag_pass else R.string.diag_fail)))
             if (selfTestAt > 0L) append(" • ${formatAt(selfTestAt)}")
-            append("\n$selfTest")
+            append("\n").append(LocalizedPresentation.diagnosticDetail(appContext, selfTest))
         }
     }
 
     fun reset() = prefs.edit().clear().apply()
 
-    private fun yesNo(value: Boolean) = if (value) "yes" else "no"
+    private fun yesNo(value: Boolean) = appContext.getString(if (value) R.string.diag_yes else R.string.diag_no)
     private fun formatAt(value: Long): String = DateFormat.getDateTimeInstance(DateFormat.SHORT, DateFormat.SHORT).format(Date(value))
 
     companion object {

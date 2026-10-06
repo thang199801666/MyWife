@@ -15,7 +15,6 @@ object EnhancedClientDefaults {
         preferences.playbackRecovery = true
         preferences.screenOffPlayback = true
         preferences.memoryHardening = true
-        preferences.amoledTheme = true
         preferences.compactYouTubeChrome = true
         preferences.autoRepeat = false
         preferences.preferredQuality = ShieldPreferences.QUALITY_AUTO

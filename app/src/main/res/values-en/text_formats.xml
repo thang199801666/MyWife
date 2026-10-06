@@ -1,14 +1,14 @@
 <resources>
     <string name="quality_adaptive">Auto</string>
-    <string name="auto_next_on">Auto next: On</string>
-    <string name="auto_next_off">Auto next: Off</string>
+    <string name="auto_next_on">Autoplay next: On</string>
+    <string name="auto_next_off">Autoplay next: Off</string>
     <string name="download_error_source">The source returned no downloadable video stream after retrying. Try again later; if it still fails, share the video link and details below.</string>
     <string name="download_error_live">Saving an ongoing livestream is not supported yet.</string>
     <string name="download_highest_unknown">Highest source quality</string>
     <string name="download_error_dns">Cannot resolve the server address. Check your network/DNS connection and try again.</string>
     <string name="download_error_space">There is not enough storage to download and process this file.</string>
     <string name="download_error_timeout">The download connection is too slow. Try again with a more stable connection.</string>
-    <string name="download_error_format">The selected quality is no longer available. Open Download and choose the source quality again.</string>
+    <string name="download_error_format">The selected quality is no longer available. Open Downloads and choose the source quality again.</string>
     <string name="download_error_access">The source requires sign-in or restricts access. The downloader does not currently use the app’s signed-in session.</string>
     <string name="download_error_server">The server rejected or rate-limited the download. Try later or change your network connection.</string>
     <string name="download_error_generic">Could not complete the download. Source diagnostics are shown below.</string>
@@ -32,12 +32,12 @@
     <string name="recommend_new">New discovery from pages you browsed</string>
     <string name="gesture_sensitivity">Gesture sensitivity %1$s</string>
     <string name="double_tap_seek">Double-tap seek %1$d seconds</string>
-    <string name="wifi_quality">Wi-Fi quality %1$s</string>
-    <string name="mobile_quality">Mobile data quality %1$s</string>
+    <string name="wifi_quality">Wi-Fi quality: %1$s</string>
+    <string name="mobile_quality">Mobile data quality: %1$s</string>
     <string name="allowed_channels">Allowed channels: %1$d</string>
     <string name="rules_rolled_back">Rolled back to rules v%1$d</string>
     <string name="rules_updated">Rules updated to v%1$d</string>
-    <string name="downloads_summary">%1$d items • Offline on this device</string>
+    <string name="downloads_summary">%1$d items • Available offline on this device</string>
     <string name="downloads_active">%1$d items • %2$d downloading</string>
     <string name="download_progress">Downloading • %1$d%%</string>
     <string name="options_for">Options for %1$s</string>
@@ -66,7 +66,7 @@
     <string name="history_suggestions">Suggestions from your watch history</string>
     <string name="next_videos">Videos to play next</string>
     <string name="favorite_videos">Your favorite videos</string>
-    <string name="offline_videos">Video and MP3 for offline playback</string>
+    <string name="offline_videos">Videos and MP3s for offline playback</string>
     <string name="offline_eq">Adjust offline playback audio</string>
     <string name="customize_experience">Customize your experience</string>
     <string name="your_library">Your library</string>
@@ -74,10 +74,10 @@
     <string name="clear_list">Clear this list</string>
     <string name="cleared">Cleared</string>
     <string name="hide_video">Hide this video</string>
-    <string name="hidden_done">Hidden. Use Tune to restore suggestions.</string>
+    <string name="hidden_done">Hidden. Use Tune recommendations to restore it.</string>
     <string name="restore_videos">Restore videos</string>
     <string name="restored_videos">Hidden videos restored</string>
-    <string name="saved_queue">Saved in Queue</string>
+    <string name="saved_queue">Saved to queue</string>
     <string name="add_queue">Add to queue</string>
     <string name="play_next">Play next</string>
     <string name="save_favorites">Save to favorites</string>
@@ -85,11 +85,11 @@
     <string name="move_up">Move up</string>
     <string name="move_down">Move down</string>
     <string name="remove">Remove</string>
-    <string name="saved_favorites">Saved to Favorites</string>
-    <string name="removed_favorites">Removed from Favorites</string>
+    <string name="saved_favorites">Saved to favorites</string>
+    <string name="removed_favorites">Removed from favorites</string>
     <string name="protect">Protect</string>
     <string name="queued">Queued</string>
-    <string name="repeat_on">Repeat on</string>
+    <string name="repeat_on">Repeat enabled</string>
     <string name="playing_video">Playing video</string>
     <string name="youtube_video">YouTube video</string>
     <string name="search_youtube">Search YouTube</string>
@@ -101,7 +101,7 @@
     <string name="eq_off">EQ is off</string>
     <string name="eq_no_control">EQ has no control of this playback session</string>
     <string name="eq_unsupported">EQ is not supported for this playback session</string>
-    <string name="eq_open">Open video/MP3 in Downloads to hear EQ</string>
+    <string name="eq_open">Open a video or MP3 in Downloads to use EQ</string>
     <string name="eq_active">EQ applied to offline playback • %1$d device bands</string>
     <string name="custom_eq">Custom</string>
     <string name="preset_flat">Flat</string>
@@ -136,4 +136,9 @@
     <string name="browse_error">Browse error • %1$s</string>
     <string name="recovery_restore">%1$s • restoring playback</string>
     <string name="download_interrupted">Download interrupted. Select Retry to download again.</string>
+    <string name="download_error_no_completed_file" formatted="false">Could not find the completed download file.</string>
+    <string name="download_error_destination_create" formatted="false">Could not create the file in Downloads.</string>
+    <string name="download_error_destination_select" formatted="false">Choose a location to save the file on your device.</string>
+    <string name="download_error_already_running" formatted="false">This download is already running.</string>
+    <string name="download_error_reset_partial" formatted="false">Could not reset the partial download data.</string>
 </resources>

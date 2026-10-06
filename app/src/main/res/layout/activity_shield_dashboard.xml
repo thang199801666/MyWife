@@ -3,10 +3,10 @@
     android:id="@+id/dashboardRoot"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="#0B0C0F">
+    android:background="?attr/appBackground">
     <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical" android:padding="18dp">
         <LinearLayout android:layout_width="match_parent" android:layout_height="52dp" android:orientation="horizontal" android:gravity="center_vertical">
-            <TextView android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1" android:gravity="center_vertical" android:text="@string/dashboard_title" android:textColor="#F4F6FA" android:textSize="24sp" android:textStyle="bold"/>
+            <TextView android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1" android:gravity="center_vertical" android:text="@string/dashboard_title" android:textColor="?attr/appTextPrimary" android:textSize="24sp" android:textStyle="bold"/>
             <Button android:id="@+id/dashboardCloseButton" style="@style/BottomActionButton" android:text="✕"/>
         </LinearLayout>
         <TextView android:id="@+id/dashboardState" android:layout_width="match_parent" android:layout_height="wrap_content" android:paddingVertical="14dp" android:textColor="#9FD4FF" android:textSize="14sp"/>
@@ -30,17 +30,17 @@
             <TextView style="@style/DashboardCard" android:text="@string/ui_allowed_channels_n"/><TextView android:id="@+id/allowlistCount" style="@style/DashboardNumber"/>
         </LinearLayout>
         <TextView style="@style/SettingsSection" android:text="@string/ui_playback_recovery"/>
-        <TextView android:id="@+id/recoveryDiagnosticsText" android:layout_width="match_parent" android:layout_height="wrap_content" android:paddingVertical="10dp" android:textColor="#C7CBD4" android:textSize="13sp"/>
+        <TextView android:id="@+id/recoveryDiagnosticsText" android:layout_width="match_parent" android:layout_height="wrap_content" android:paddingVertical="10dp" android:textColor="?attr/appTextSecondary" android:textSize="13sp"/>
         <Button android:id="@+id/dashboardResetRecoveryButton" android:layout_width="match_parent" android:layout_height="46dp" android:text="@string/ui_reset_recovery_diagnostics"/>
 
         <TextView style="@style/SettingsSection" android:text="@string/ui_runtime_device"/>
-        <TextView android:id="@+id/runtimeDiagnosticsText" android:layout_width="match_parent" android:layout_height="wrap_content" android:paddingVertical="10dp" android:textColor="#C7CBD4" android:textSize="13sp"/>
+        <TextView android:id="@+id/runtimeDiagnosticsText" android:layout_width="match_parent" android:layout_height="wrap_content" android:paddingVertical="10dp" android:textColor="?attr/appTextSecondary" android:textSize="13sp"/>
         <Button android:id="@+id/dashboardRuntimeTestButton" android:layout_width="match_parent" android:layout_height="46dp" android:text="@string/ui_run_runtime_database_self_test"/>
         <Button android:id="@+id/dashboardStressTestButton" android:layout_width="match_parent" android:layout_height="46dp" android:text="@string/ui_run_release_stress_test"/>
         <Button android:id="@+id/dashboardResetRuntimeButton" android:layout_width="match_parent" android:layout_height="46dp" android:text="@string/ui_reset_runtime_diagnostics"/>
 
         <TextView style="@style/SettingsSection" android:text="@string/ui_compatibility"/>
-        <TextView android:id="@+id/compatibilityDiagnosticsText" android:layout_width="match_parent" android:layout_height="wrap_content" android:paddingVertical="10dp" android:textColor="#C7CBD4" android:textSize="13sp"/>
+        <TextView android:id="@+id/compatibilityDiagnosticsText" android:layout_width="match_parent" android:layout_height="wrap_content" android:paddingVertical="10dp" android:textColor="?attr/appTextSecondary" android:textSize="13sp"/>
         <Button android:id="@+id/dashboardCompatibilityTestButton" android:layout_width="match_parent" android:layout_height="46dp" android:text="@string/ui_run_local_compatibility_self_test"/>
         <Button android:id="@+id/dashboardResetCompatibilityButton" android:layout_width="match_parent" android:layout_height="46dp" android:text="@string/ui_reset_compatibility_diagnostics"/>
         <Button android:id="@+id/dashboardSafeModeButton" android:layout_width="match_parent" android:layout_height="48dp" android:layout_marginTop="20dp" android:text="@string/ui_enter_safe_mode"/>

@@ -36,7 +36,7 @@ class DownloadService : Service() {
             if(scheduled.isEmpty()) stopSelf(startId)
             return START_NOT_STICKY
         }
-        startForeground(909,notification("Đang chuẩn bị tải…",0))
+        startForeground(909,notification(AppLanguage.wrap(this).getString(R.string.ui_download_preparing),0))
         if(id.isBlank() || !scheduled.add(id)) return START_NOT_STICKY
         worker.execute {
             var job=store.get(id)

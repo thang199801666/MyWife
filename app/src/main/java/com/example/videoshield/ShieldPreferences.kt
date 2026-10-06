@@ -69,9 +69,24 @@ class ShieldPreferences(context: Context) {
         get() = prefs.getInt(KEY_DOUBLE_TAP_SEEK_SECONDS, 10).coerceIn(5, 30)
         set(value) = prefs.edit().putInt(KEY_DOUBLE_TAP_SEEK_SECONDS, value.coerceIn(5, 30)).apply()
 
+    /** Manual app chrome theme. false = black theme, true = light theme. */
+    var lightTheme: Boolean
+        get() = prefs.getBoolean(KEY_LIGHT_THEME, false)
+        set(value) {
+            prefs.edit()
+                .putBoolean(KEY_LIGHT_THEME, value)
+                // Keep the existing WebView AMOLED policy aligned with the black app theme.
+                .putBoolean(KEY_AMOLED_THEME, !value)
+                .apply()
+        }
+
+    /** Compatibility alias used by the injected web theme policy. */
     var amoledTheme: Boolean
-        get() = prefs.getBoolean(KEY_AMOLED_THEME, true)
-        set(value) = prefs.edit().putBoolean(KEY_AMOLED_THEME, value).apply()
+        get() = !lightTheme
+        set(value) {
+            if (value) lightTheme = false
+            else prefs.edit().putBoolean(KEY_AMOLED_THEME, false).apply()
+        }
 
     var compactYouTubeChrome: Boolean
         get() = prefs.getBoolean(KEY_COMPACT_YOUTUBE_CHROME, true)
@@ -235,6 +250,7 @@ class ShieldPreferences(context: Context) {
         private const val KEY_MEMORY_HARDENING = "memory_hardening"
         private const val KEY_GESTURE_SENSITIVITY = "gesture_sensitivity"
         private const val KEY_DOUBLE_TAP_SEEK_SECONDS = "double_tap_seek_seconds"
+        private const val KEY_LIGHT_THEME = "light_theme"
         private const val KEY_AMOLED_THEME = "amoled_theme"
         private const val KEY_COMPACT_YOUTUBE_CHROME = "compact_youtube_chrome"
         private const val KEY_AUTO_REPEAT = "auto_repeat"

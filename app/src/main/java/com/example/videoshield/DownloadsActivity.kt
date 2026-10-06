@@ -36,13 +36,13 @@ class DownloadsActivity : LocalizedActivity() {
     override fun onCreate(state: Bundle?) {
         super.onCreate(state)
         filter=state?.getInt("filter")?.coerceIn(0,3) ?: 0
-        val root=LinearLayout(this).apply { orientation=LinearLayout.VERTICAL; setBackgroundColor(Color.rgb(15,15,15)) }
+        val root=LinearLayout(this).apply { orientation=LinearLayout.VERTICAL; setBackgroundColor(AppTheme.background(this@DownloadsActivity)) }
         root.offlineSystemInsets()
         val toolbar=LinearLayout(this).apply { gravity=Gravity.CENTER_VERTICAL; setPadding(dp(4),0,dp(8),0) }
         toolbar.addView(IconButton(this,null,android.R.attr.borderlessButtonStyle).apply {
             setIcon(R.drawable.ic_ui_back); contentDescription=getString(R.string.ui_back); setOnClickListener { finish() }
         },LinearLayout.LayoutParams(dp(48),dp(56)))
-        toolbar.addView(TextView(this).apply { text=getString(R.string.ui_downloads); textSize=22f; setTextColor(Color.WHITE); setTypeface(null,android.graphics.Typeface.BOLD) },LinearLayout.LayoutParams(0,-2,1f))
+        toolbar.addView(TextView(this).apply { text=getString(R.string.ui_downloads); textSize=22f; setTextColor(AppTheme.primary(this@DownloadsActivity)); setTypeface(null,android.graphics.Typeface.BOLD) },LinearLayout.LayoutParams(0,-2,1f))
         toolbar.addView(IconButton(this,null,android.R.attr.borderlessButtonStyle).apply {
             setIcon(R.drawable.ic_ui_info); contentDescription=getString(R.string.ui_download_storage_information)
             setOnClickListener {
@@ -54,7 +54,7 @@ class DownloadsActivity : LocalizedActivity() {
             }
         },LinearLayout.LayoutParams(dp(48),dp(48)))
         root.addView(toolbar)
-        summary=TextView(this).apply { textSize=13f; setTextColor(Color.LTGRAY); setPadding(dp(20),dp(8),dp(20),dp(12)) }
+        summary=TextView(this).apply { textSize=13f; setTextColor(AppTheme.secondary(this@DownloadsActivity)); setPadding(dp(20),dp(8),dp(20),dp(12)) }
         root.addView(summary)
         val filters=LinearLayout(this).apply { gravity=Gravity.CENTER_VERTICAL; setPadding(dp(16),0,dp(16),dp(8)) }
         listOf(getString(R.string.ui_all),"Video","MP3",getString(R.string.ui_temporary)).forEachIndexed { index,label ->
@@ -68,7 +68,7 @@ class DownloadsActivity : LocalizedActivity() {
         adapter=DownloadListAdapter(this,::options)
         list=ListView(this).apply { divider=null; dividerHeight=0; adapter=this@DownloadsActivity.adapter }
         val content=FrameLayout(this); content.addView(list,FrameLayout.LayoutParams(-1,-1))
-        empty=TextView(this).apply { gravity=Gravity.CENTER; textSize=16f; setTextColor(Color.LTGRAY); setPadding(dp(32),0,dp(32),0) }
+        empty=TextView(this).apply { gravity=Gravity.CENTER; textSize=16f; setTextColor(AppTheme.secondary(this@DownloadsActivity)); setPadding(dp(32),0,dp(32),0) }
         content.addView(empty,FrameLayout.LayoutParams(-1,-1))
         root.addView(content,LinearLayout.LayoutParams(-1,0,1f)); setContentView(root)
         list.setOnItemClickListener { _,_,position,_ -> adapter.items.getOrNull(position)?.let { if(it.status=="completed") play(it) else options(it) } }
@@ -94,8 +94,8 @@ class DownloadsActivity : LocalizedActivity() {
         chips.forEachIndexed { index,button ->
             if(button.background is GradientDrawable && button.isSelected==(index==filter)) return@forEachIndexed
             button.isSelected=index==filter
-            button.setTextColor(if(index==filter) Color.BLACK else Color.WHITE)
-            button.background=GradientDrawable().apply { setColor(if(index==filter) Color.WHITE else Color.rgb(39,39,39)); cornerRadius=dp(10).toFloat() }
+            button.setTextColor(if(index==filter) AppTheme.selectedText(this@DownloadsActivity) else AppTheme.primary(this@DownloadsActivity))
+            button.background=GradientDrawable().apply { setColor(if(index==filter) AppTheme.selectedSurface(this@DownloadsActivity) else AppTheme.control(this@DownloadsActivity)); cornerRadius=dp(10).toFloat() }
         }
         val active=rows.count { it.status in setOf("queued","downloading","processing") }
         summary.setTextIfChanged(if(active>0) getString(R.string.downloads_active,rows.size,active) else getString(R.string.downloads_summary,rows.size))
@@ -125,7 +125,7 @@ class DownloadsActivity : LocalizedActivity() {
                 val store=OfflineStore(this); store.clearFiles(job.id); store.put(job.copy(status="queued",progress=0,error="",completedAt=0,uri=if(job.temporary) "" else job.uri))
                 main.post { if(resumed && !isDestroyed && !isFinishing) DownloadService.enqueue(this,job.id) }
             }
-            getString(R.string.ui_details) -> AlertDialog.Builder(this).setMessage(DownloadFailure.localized(this,job.error.ifBlank { getString(R.string.ui_download_incomplete_tap_to_retry) })).setPositiveButton("OK",null).show()
+            getString(R.string.ui_details) -> AlertDialog.Builder(this).setMessage(DownloadFailure.localized(this,job.error.ifBlank { getString(R.string.ui_download_incomplete_tap_to_retry) })).setPositiveButton(getString(R.string.ui_ok),null).show()
             else -> worker.execute { OfflineStore(this).remove(job.id); main.post { if(!isDestroyed) refresh() } }
         } }
     }
