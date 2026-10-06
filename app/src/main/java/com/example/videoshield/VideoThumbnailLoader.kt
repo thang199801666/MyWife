@@ -2,13 +2,13 @@ package com.example.videoshield
 
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
+import android.content.ComponentCallbacks2
 import android.os.Handler
 import android.os.Looper
 import android.util.LruCache
 import android.widget.ImageView
 import java.net.HttpURLConnection
 import java.net.URI
-import java.io.ByteArrayOutputStream
 import java.lang.ref.WeakReference
 import java.util.concurrent.ArrayBlockingQueue
 import java.util.concurrent.ThreadPoolExecutor
@@ -22,8 +22,11 @@ class VideoThumbnailLoader {
     }
     // One decoder avoids parallel bitmap allocations and an extra native thread stack;
     // the queue keeps scrolling non-blocking while memory use stays bounded.
-    private val worker = ThreadPoolExecutor(1, 1, 15, TimeUnit.SECONDS, ArrayBlockingQueue(32))
+    private val worker = ThreadPoolExecutor(1, 1, 15, TimeUnit.SECONDS, ArrayBlockingQueue(32)).apply {
+        allowCoreThreadTimeOut(true)
+    }
     @Volatile private var closed = false
+    @Volatile private var generation = 0
     private val validVideoId = Regex("[A-Za-z0-9_-]{11}")
     private val requests = mutableMapOf<String, MutableList<WeakReference<ImageView>>>()
 
@@ -44,9 +47,10 @@ class VideoThumbnailLoader {
             }
             requests[videoId] = mutableListOf(WeakReference(view))
         }
+        val requestGeneration = generation
         runCatching { worker.execute {
             val needed = synchronized(requests) { requests[videoId]?.any { it.get() != null } == true }
-            if (closed || !needed) {
+            if (closed || requestGeneration != generation || !needed) {
                 synchronized(requests) { requests.remove(videoId) }
                 return@execute
             }
@@ -56,35 +60,57 @@ class VideoThumbnailLoader {
                     connection.connectTimeout = 5000
                     connection.readTimeout = 5000
                     connection.instanceFollowRedirects = false
-                    if (connection.responseCode != 200) null else connection.inputStream.use { input ->
-                        val output = ByteArrayOutputStream()
-                        val buffer = ByteArray(8192)
-                        while (output.size() <= 512 * 1024) {
-                            val count = input.read(buffer)
-                            if (count < 0) break
-                            output.write(buffer, 0, count)
+                    if (connection.responseCode != 200) null else {
+                        val length = connection.contentLengthLong
+                        if (length > 512L * 1024L) null else connection.inputStream.use { input ->
+                            BitmapFactory.decodeStream(input, null, BitmapFactory.Options().apply {
+                                // List thumbnails do not need 32-bit pixels. RGB_565 halves the
+                                // retained native bitmap allocation and decodeStream avoids a
+                                // second full compressed-byte copy in memory.
+                                inPreferredConfig = Bitmap.Config.RGB_565
+                                inDither = true
+                            })
                         }
-                        val bytes = output.toByteArray()
-                        if (bytes.size > 512 * 1024) null else BitmapFactory.decodeByteArray(bytes, 0, bytes.size)
                     }
                 } finally { connection.disconnect() }
             }.getOrNull()
             // Cache before releasing the in-flight key so another bind cannot
             // start a duplicate request between completion and UI delivery.
             val subscribers = synchronized(requests) {
-                if (bitmap != null && !closed) cache.put(videoId, bitmap)
+                if (bitmap != null && !closed && requestGeneration == generation) cache.put(videoId, bitmap)
                 requests.remove(videoId).orEmpty()
             }
-            if (bitmap != null && !closed) main.post {
-                if (!closed) subscribers.forEach { reference ->
+            if (bitmap != null && !closed && requestGeneration == generation) main.post {
+                if (!closed && requestGeneration == generation) subscribers.forEach { reference ->
                     reference.get()?.takeIf { it.tag == videoId }?.setImageBitmap(bitmap)
                 }
             }
         } }.onFailure { synchronized(requests) { requests.remove(videoId) } }
     }
 
+    fun trimMemory(level: Int) {
+        if (closed) return
+        // Thumbnail bitmaps are disposable. Drop them aggressively once this UI is hidden
+        // and shrink the cache under foreground memory pressure. Incrementing generation
+        // prevents an already-running decode from repopulating the cache after a trim.
+        if (level >= ComponentCallbacks2.TRIM_MEMORY_UI_HIDDEN) {
+            generation++
+            worker.queue.clear()
+            worker.purge()
+            synchronized(requests) { requests.clear(); cache.evictAll() }
+            return
+        }
+        if (level >= ComponentCallbacks2.TRIM_MEMORY_RUNNING_LOW) {
+            generation++
+            worker.queue.clear()
+            worker.purge()
+            synchronized(requests) { requests.clear(); cache.trimToSize(512 * 1024) }
+        }
+    }
+
     fun close() {
         closed = true
+        generation++
         worker.shutdownNow()
         synchronized(requests) { requests.clear(); cache.evictAll() }
         main.removeCallbacksAndMessages(null)

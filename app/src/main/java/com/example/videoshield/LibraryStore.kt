@@ -4,6 +4,7 @@ import android.content.ContentValues
 import android.content.Context
 import android.database.sqlite.SQLiteDatabase
 import android.database.sqlite.SQLiteOpenHelper
+import android.os.SystemClock
 
 data class VideoItem(
     val videoId: String,
@@ -27,6 +28,14 @@ data class PlaybackLibraryState(
     val subscribed: Boolean, val queueCount: Int
 )
 
+data class QueueToggleResult(val queued: Boolean, val queueCount: Int)
+
+data class QueueAdvanceResult(
+    val next: VideoItem?,
+    val removedCompleted: Boolean,
+    val queueCount: Int
+)
+
 
 data class LibraryIntegrityResult(
     val healthy: Boolean,
@@ -40,13 +49,50 @@ data class LibraryIntegrityResult(
 }
 
 class LibraryStore(context: Context) : SQLiteOpenHelper(context.applicationContext, DB_NAME, null, DB_VERSION) {
-    fun playbackState(videoId: String, channel: String, includeHistory: Boolean): PlaybackLibraryState =
-        PlaybackLibraryState(
-            if (includeHistory && videoId.isNotBlank()) historyItem(videoId) else null,
-            videoId.isNotBlank() && isFavorite(videoId),
-            videoId.isNotBlank() && isQueued(videoId),
-            channel.isNotBlank() && isSubscribed(channel), queueCount()
-        )
+    private var lastHistoryPruneAt = 0L
+    private var lastInterestPruneAt = 0L
+    private var lastCandidatePruneAt = 0L
+
+    private fun pruneDue(lastAt: Long, intervalMs: Long = 120_000L): Boolean =
+        SystemClock.elapsedRealtime() - lastAt >= intervalMs
+
+    /**
+     * Reads the complete playback-library snapshot in one SQLite cursor. Older code issued up to
+     * five independent queries here (history/favorite/queue/subscription/count) for every video
+     * transition. Scalar subqueries keep the operation atomic from the caller's point of view and
+     * substantially reduce cursor/database churn on the hot playback path.
+     */
+    fun playbackState(videoId: String, channel: String, includeHistory: Boolean): PlaybackLibraryState {
+        val id = videoId.takeIf { it.isNotBlank() }.orEmpty()
+        val channelId = channelKey(channel)
+        val historyEnabled = if (includeHistory && id.isNotBlank()) "1" else "0"
+        readableDatabase.rawQuery(
+            """
+            SELECT h.video_id,h.title,h.channel,h.url,h.last_played_at,h.position_ms,h.duration_ms,
+                   EXISTS(SELECT 1 FROM favorites f WHERE f.video_id=?),
+                   EXISTS(SELECT 1 FROM play_queue q WHERE q.video_id=?),
+                   EXISTS(SELECT 1 FROM subscriptions s WHERE s.channel_key=?),
+                   (SELECT COUNT(*) FROM play_queue)
+            FROM (SELECT 1) seed
+            LEFT JOIN history h ON h.video_id=? AND CAST(? AS INTEGER)=1
+            LIMIT 1
+            """.trimIndent(),
+            arrayOf(id, id, channelId, id, historyEnabled)
+        ).use { c ->
+            if (!c.moveToFirst()) return PlaybackLibraryState(null, false, false, false, 0)
+            val history = if (c.isNull(0)) null else VideoItem(
+                videoId = c.getString(0), title = c.getString(1), channel = c.getString(2), url = c.getString(3),
+                lastPlayedAt = c.getLong(4), positionMs = c.getLong(5), durationMs = c.getLong(6)
+            )
+            return PlaybackLibraryState(
+                history = history,
+                favorite = c.getInt(7) != 0,
+                queued = c.getInt(8) != 0,
+                subscribed = c.getInt(9) != 0,
+                queueCount = c.getInt(10)
+            )
+        }
+    }
     init { setWriteAheadLoggingEnabled(true) }
     override fun onCreate(db: SQLiteDatabase) {
         createHistory(db)
@@ -54,12 +100,14 @@ class LibraryStore(context: Context) : SQLiteOpenHelper(context.applicationConte
         createSubscriptions(db)
         createQueue(db)
         createPersonalization(db)
+        createIndexes(db)
     }
 
     override fun onUpgrade(db: SQLiteDatabase, oldVersion: Int, newVersion: Int) {
         if (oldVersion < 2) createQueue(db)
         if (oldVersion < 3) createPersonalization(db)
         if (oldVersion < 4) createRecommendationControls(db)
+        if (oldVersion < 5) createIndexes(db)
     }
 
     fun recordWatched(videoId: String, watchedMs: Long, now: Long) {
@@ -67,27 +115,33 @@ class LibraryStore(context: Context) : SQLiteOpenHelper(context.applicationConte
         val db = writableDatabase
         db.execSQL("INSERT OR IGNORE INTO viewing_interest(video_id,watched_ms,last_seen) VALUES(?,0,?)", arrayOf<Any>(videoId, now))
         db.execSQL("UPDATE viewing_interest SET watched_ms=MIN(watched_ms+?,7200000),last_seen=? WHERE video_id=?", arrayOf<Any>(watchedMs.coerceIn(0, 15_000), now, videoId))
-        db.execSQL("DELETE FROM viewing_interest WHERE video_id NOT IN (SELECT video_id FROM viewing_interest ORDER BY last_seen DESC LIMIT 1000)")
+        if (pruneDue(lastInterestPruneAt)) {
+            db.execSQL("DELETE FROM viewing_interest WHERE video_id NOT IN (SELECT video_id FROM viewing_interest ORDER BY last_seen DESC LIMIT 1000)")
+            lastInterestPruneAt = SystemClock.elapsedRealtime()
+        }
     }
 
     fun saveCandidates(items: List<VideoItem>) {
         val db = writableDatabase
         db.beginTransaction()
         try {
-            items.take(50).forEach { item ->
+            items.take(100).forEach { item ->
                 if (!Regex("[A-Za-z0-9_-]{11}").matches(item.videoId) || item.title.isBlank()) return@forEach
                 db.insertWithOnConflict("discovered_videos", null, ContentValues().apply {
                     put("video_id", item.videoId); put("title", item.title.take(240)); put("channel", item.channel.take(180))
                     put("url", "https://m.youtube.com/watch?v=${item.videoId}"); put("last_played_at", item.lastPlayedAt)
                 }, SQLiteDatabase.CONFLICT_REPLACE)
             }
-            db.execSQL("DELETE FROM discovered_videos WHERE video_id NOT IN (SELECT video_id FROM discovered_videos ORDER BY last_played_at DESC LIMIT 1000)")
+            if (pruneDue(lastCandidatePruneAt)) {
+                db.execSQL("DELETE FROM discovered_videos WHERE video_id NOT IN (SELECT video_id FROM discovered_videos ORDER BY last_played_at DESC LIMIT 1000)")
+                lastCandidatePruneAt = SystemClock.elapsedRealtime()
+            }
             db.setTransactionSuccessful()
         } finally { db.endTransaction() }
     }
 
     fun recommendations(since: Long, now: Long = System.currentTimeMillis(), focus: VideoItem? = null,
-                        searchQueries: List<String> = emptyList()): List<SuggestedVideo> {
+                        searchQueries: List<String> = emptyList(), maxPerChannel: Int = 4): List<SuggestedVideo> {
         val watched = mutableMapOf<String, Long>()
         readableDatabase.rawQuery("SELECT video_id,watched_ms FROM viewing_interest", null).use { c -> while (c.moveToNext()) watched[c.getString(0)] = c.getLong(1) }
         val history = history(1000)
@@ -99,7 +153,7 @@ class LibraryStore(context: Context) : SQLiteOpenHelper(context.applicationConte
         readableDatabase.rawQuery("SELECT video_id FROM dismissed_suggestions", null).use { c -> while (c.moveToNext()) dismissed += c.getString(0) }
         val candidates = queryVideos("SELECT video_id,title,channel,url,last_played_at,0,0 FROM discovered_videos ORDER BY last_played_at DESC LIMIT 1000", emptyArray())
         return RecommendationEngine.rank(candidates, evidence, subscriptions().map { it.name }.toSet(), dismissed, history.map { it.videoId }.toSet(), now,
-            blockedChannels = blockedChannels(), focus = focus, searchQueries = searchQueries)
+            blockedChannels = blockedChannels(), focus = focus, searchQueries = searchQueries, maxPerChannel = maxPerChannel)
     }
 
     fun dismissSuggestion(videoId: String) {
@@ -154,10 +208,13 @@ class LibraryStore(context: Context) : SQLiteOpenHelper(context.applicationConte
             put("position_ms", item.positionMs.coerceAtLeast(0L))
             put("duration_ms", item.durationMs.coerceAtLeast(0L))
         }, SQLiteDatabase.CONFLICT_REPLACE)
-        writableDatabase.execSQL(
-            "DELETE FROM history WHERE video_id NOT IN (SELECT video_id FROM history ORDER BY last_played_at DESC LIMIT ?)",
-            arrayOf(maxItems.coerceIn(25, 2000))
-        )
+        if (pruneDue(lastHistoryPruneAt)) {
+            writableDatabase.execSQL(
+                "DELETE FROM history WHERE video_id NOT IN (SELECT video_id FROM history ORDER BY last_played_at DESC LIMIT ?)",
+                arrayOf(maxItems.coerceIn(25, 2000))
+            )
+            lastHistoryPruneAt = SystemClock.elapsedRealtime()
+        }
     }
 
     fun history(limit: Int = 200): List<VideoItem> = queryVideos(
@@ -309,6 +366,49 @@ class LibraryStore(context: Context) : SQLiteOpenHelper(context.applicationConte
         }
     }
 
+    /** Atomically toggles one queue item and returns the exact resulting queue count. */
+    fun toggleQueue(item: VideoItem): QueueToggleResult {
+        if (item.videoId.isBlank() || item.url.isBlank()) return QueueToggleResult(false, queueCount())
+        val db = writableDatabase
+        db.beginTransaction()
+        return try {
+            val wasQueued = existsOn(db, "play_queue", "video_id", item.videoId)
+            val queued = if (wasQueued) {
+                db.delete("play_queue", "video_id=?", arrayOf(item.videoId))
+                false
+            } else {
+                db.insertOrThrow("play_queue", null, queueValues(item, System.currentTimeMillis()))
+                true
+            }
+            val count = scalarInt(db, "SELECT COUNT(*) FROM play_queue").coerceAtLeast(0)
+            db.setTransactionSuccessful()
+            QueueToggleResult(queued, count)
+        } finally {
+            db.endTransaction()
+        }
+    }
+
+    /** Removes a completed item and pops the next queue item in one transaction. */
+    fun advanceQueue(completedVideoId: String): QueueAdvanceResult {
+        val db = writableDatabase
+        db.beginTransaction()
+        return try {
+            val removed = completedVideoId.isNotBlank() &&
+                db.delete("play_queue", "video_id=?", arrayOf(completedVideoId)) > 0
+            val next = queryVideosOn(
+                db,
+                "SELECT video_id,title,channel,url,added_at,0,0 FROM play_queue ORDER BY queue_id ASC LIMIT 1",
+                emptyArray<String>()
+            ).firstOrNull()
+            if (next != null) db.delete("play_queue", "video_id=?", arrayOf(next.videoId))
+            val count = scalarInt(db, "SELECT COUNT(*) FROM play_queue").coerceAtLeast(0)
+            db.setTransactionSuccessful()
+            QueueAdvanceResult(next, removed, count)
+        } finally {
+            db.endTransaction()
+        }
+    }
+
     fun removeFromQueue(videoId: String): Boolean {
         if (videoId.isBlank()) return false
         return writableDatabase.delete("play_queue", "video_id=?", arrayOf(videoId)) > 0
@@ -406,9 +506,12 @@ class LibraryStore(context: Context) : SQLiteOpenHelper(context.applicationConte
         return out
     }
 
-    private fun exists(table: String, column: String, value: String): Boolean {
+    private fun exists(table: String, column: String, value: String): Boolean =
+        existsOn(readableDatabase, table, column, value)
+
+    private fun existsOn(db: SQLiteDatabase, table: String, column: String, value: String): Boolean {
         if (value.isBlank()) return false
-        readableDatabase.query(table, arrayOf(column), "$column=?", arrayOf(value), null, null, null, "1").use {
+        db.query(table, arrayOf(column), "$column=?", arrayOf(value), null, null, null, "1").use {
             return it.moveToFirst()
         }
     }
@@ -436,6 +539,18 @@ class LibraryStore(context: Context) : SQLiteOpenHelper(context.applicationConte
 
     private fun createRecommendationControls(db: SQLiteDatabase) {
         db.execSQL("CREATE TABLE IF NOT EXISTS blocked_channels(channel_key TEXT PRIMARY KEY)")
+    }
+
+
+    private fun createIndexes(db: SQLiteDatabase) {
+        // These tables are intentionally bounded, but ranking/pruning hits their recency
+        // columns repeatedly. Indexes keep Home refresh and periodic cleanup O(log N)
+        // instead of rescanning/sorting the full local personalization history.
+        db.execSQL("CREATE INDEX IF NOT EXISTS idx_history_last_played ON history(last_played_at DESC)")
+        db.execSQL("CREATE INDEX IF NOT EXISTS idx_viewing_interest_last_seen ON viewing_interest(last_seen DESC)")
+        db.execSQL("CREATE INDEX IF NOT EXISTS idx_discovered_last_played ON discovered_videos(last_played_at DESC)")
+        db.execSQL("CREATE INDEX IF NOT EXISTS idx_favorites_added_at ON favorites(added_at DESC)")
+        db.execSQL("CREATE INDEX IF NOT EXISTS idx_subscriptions_added_at ON subscriptions(added_at DESC)")
     }
 
     private fun createFavorites(db: SQLiteDatabase) {
@@ -508,6 +623,6 @@ class LibraryStore(context: Context) : SQLiteOpenHelper(context.applicationConte
 
     companion object {
         private const val DB_NAME = "videoshield_library.db"
-        private const val DB_VERSION = 4
+        private const val DB_VERSION = 5
     }
 }

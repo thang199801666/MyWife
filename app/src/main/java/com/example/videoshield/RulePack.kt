@@ -19,18 +19,25 @@ data class RulePack(
     val openInAppSelectors: List<String>,
     val rawJson: String
 ) {
-    fun domRulesJson(): String = JSONObject().apply {
-        put("version", ruleVersion)
-        put("adSelectors", JSONArray(adSelectors))
-        put("skipSelectors", JSONArray(skipSelectors))
-        put("annoyances", JSONObject().apply {
-            put("shorts", JSONArray(shortsSelectors))
-            put("recommendations", JSONArray(recommendationSelectors))
-            put("comments", JSONArray(commentSelectors))
-            put("endScreen", JSONArray(endScreenSelectors))
-            put("openInApp", JSONArray(openInAppSelectors))
-        })
-    }.toString()
+    // RulePack is immutable. DOM selectors are identical for every injection until the
+    // pack changes, so build this JSON once instead of allocating JSONArray/JSONObject
+    // trees again on every navigation/policy re-apply.
+    private val cachedDomRulesJson: String by lazy(LazyThreadSafetyMode.PUBLICATION) {
+        JSONObject().apply {
+            put("version", ruleVersion)
+            put("adSelectors", JSONArray(adSelectors))
+            put("skipSelectors", JSONArray(skipSelectors))
+            put("annoyances", JSONObject().apply {
+                put("shorts", JSONArray(shortsSelectors))
+                put("recommendations", JSONArray(recommendationSelectors))
+                put("comments", JSONArray(commentSelectors))
+                put("endScreen", JSONArray(endScreenSelectors))
+                put("openInApp", JSONArray(openInAppSelectors))
+            })
+        }.toString()
+    }
+
+    fun domRulesJson(): String = cachedDomRulesJson
 
     companion object {
         const val SUPPORTED_SCHEMA = 1

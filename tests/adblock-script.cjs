@@ -5,7 +5,9 @@ const path = require('node:path');
 const vm = require('node:vm');
 const assert = require('node:assert/strict');
 const source = fs.readFileSync(path.join(__dirname, '../app/src/main/java/com/example/videoshield/AdBlockScript.kt'), 'utf8');
-const template = source.split('return """')[1].split('""".trimIndent()')[0];
+const scriptMatch = source.match(/(?:return|val script =)\s*"""([\s\S]*?)"""\.trimIndent\(\)/);
+assert(scriptMatch, 'embedded player script must be found');
+const template = scriptMatch[1];
 let checks = 0;
 function fixture({ ad = false, skip = true, instantSkip = false, safeMode = false, ended = false, readyState = 4, duration = 120, adContainer = false, playbackSpeed = 1.5, mobileLabel = '', mobileOutside = false } = {}) {
   let now = 10000;
@@ -88,14 +90,14 @@ test('continuous DOM mutations batch scans without delaying an ad transition ind
   const scansBefore = f.state.scans;
   for (let i = 0; i < 120; i++) f.state.mutate();
   assert.equal(f.state.scans, scansBefore, 'mutations must not scan synchronously');
-  const batch = [...f.state.timers.entries()].filter(([,timer]) => timer.delay === 500);
+  const batch = [...f.state.timers.entries()].filter(([,timer]) => timer.delay === 1000);
   assert.equal(batch.length, 1, 'one fixed-deadline scan for a burst of mutations');
   f.state.ad = true;
   f.state.timers.delete(batch[0][0]);
   batch[0][1].callback();
   assert.equal(f.state.clicks, 1, 'the scheduled scan must still handle the newly active ad');
   f.state.mutate();
-  assert.equal([...f.state.timers.values()].filter(timer => timer.delay === 500).length, 1,
+  assert.equal([...f.state.timers.values()].filter(timer => timer.delay === 1000).length, 1,
     'later mutations must be able to schedule another batch');
 });
 
@@ -372,7 +374,7 @@ test('Highest waits for source qualities and chooses the actual maximum without 
   f.sweep();
   assert.equal(f.state.qualities.length, before, 'retry when source list is not ready');
   levels = ['medium', 'hd1080', 'auto', 'hd4320', 'hd2160'];
-  f.sweep();
+  f.sweep(5000);
   assert.deepEqual(f.state.qualities.at(-1), ['hd4320', 'hd4320']);
   const applied = f.state.qualities.length;
   f.sweep();
@@ -396,11 +398,11 @@ test('adaptive starts highest but leaves room for automatic lower qualities',()=
 });
 test('sustained low-buffer stall downgrades once and respects cooldown',()=>{
   const f=adaptiveFixture();f.video.readyState=2;
-  for(let i=0;i<5;i++)f.sweep();
+  for(let i=0;i<7;i++)f.sweep();
   assert.deepEqual(f.state.qualities.at(-1),['tiny','hd720']);
   for(let i=0;i<10;i++)f.sweep();
   assert.equal(f.sandbox.__videoShieldQualityState().target,'hd720');
-  for(let i=0;i<9;i++)f.sweep();
+  for(let i=0;i<12;i++)f.sweep();
   assert.equal(f.sandbox.__videoShieldQualityState().target,'large');
 });
 test('pause, seeking, buffered content and background timer gaps do not downgrade',()=>{
@@ -414,7 +416,7 @@ test('pause, seeking, buffered content and background timer gaps do not downgrad
   }
 });
 test('unrelated preference changes preserve the adaptive downgrade',()=>{
-  const f=adaptiveFixture();f.video.readyState=2;for(let i=0;i<5;i++)f.sweep();
+  const f=adaptiveFixture();f.video.readyState=2;for(let i=0;i<7;i++)f.sweep();
   const before=f.state.qualities.length;f.sandbox.__videoShieldSetRepeat(false);
   f.sandbox.__videoShieldPreferencesChanged();f.sweep();
   assert.equal(f.state.qualities.length,before);
@@ -437,7 +439,7 @@ test('website manual quality is reported and applied as a fixed choice',()=>{
 test('website Auto restores the adaptive mode and reports the choice',()=>{
   const f=adaptiveFixture();f.sandbox.__videoShieldCfg.preferredQuality='hd720';
   f.sandbox.__videoShieldPreferencesChanged();f.sweep();f.prefer('auto');
-  for(let i=0;i<5;i++)f.sweep();
+  f.sweep(5000);f.sweep();
   assert.deepEqual(f.state.qualityChoices,['adaptive']);
   assert.equal(f.sandbox.__videoShieldQualityState().mode,'adaptive');
 });
@@ -458,17 +460,17 @@ test('manual resolution waits for metadata before selecting a supported source',
   p.getAvailableQualityLevels=()=>levels;f.sandbox.__videoShieldCfg.preferredQuality='hd720';
   f.sandbox.__videoShieldPreferencesChanged();const before=f.state.qualities.length;f.sweep();
   assert.equal(f.state.qualities.length,before);
-  levels=['large','medium'];f.sweep();assert.deepEqual(f.state.qualities.at(-1),['large','large']);
+  levels=['large','medium'];f.sweep(5000);assert.deepEqual(f.state.qualities.at(-1),['large','large']);
 });
 test('stable buffered playback raises quality one step at a time',()=>{
-  const f=adaptiveFixture();f.video.readyState=2;for(let i=0;i<25;i++)f.sweep();
+  const f=adaptiveFixture();f.video.readyState=2;for(let i=0;i<30;i++)f.sweep();
   assert.equal(f.sandbox.__videoShieldQualityState().target,'large');
   f.video.readyState=4;f.video.buffered={length:1,start:()=>0,end:()=>f.video.currentTime+20};
   for(let i=0;i<30;i++){f.video.currentTime+=0.8;f.sweep();}
   assert.equal(f.sandbox.__videoShieldQualityState().target,'large','no early upgrade');
-  for(let i=0;i<10;i++){f.video.currentTime+=0.8;f.sweep();}
+  for(let i=0;i<14;i++){f.video.currentTime+=0.8;f.sweep();}
   assert.equal(f.sandbox.__videoShieldQualityState().target,'hd720');
-  for(let i=0;i<40;i++){f.video.currentTime+=0.8;f.sweep();}
+  for(let i=0;i<44;i++){f.video.currentTime+=0.8;f.sweep();}
   assert.equal(f.sandbox.__videoShieldQualityState().target,'hd1080');
   assert.deepEqual(f.state.qualityChoices,[],'automatic changes must not persist as manual');
 });
@@ -492,7 +494,7 @@ test('native next-video handling disables the independent website countdown',()=
   f.sandbox.__videoShieldSetRepeat(false);
   p.setAutonavState=s=>states.push(s);f.sweep();f.sweep();
   assert.deepEqual(states,[1]);
-  for(let i=0;i<4;i++)f.sweep();assert.deepEqual(states,[1,1]);
+  for(let i=0;i<6;i++)f.sweep();assert.deepEqual(states,[1,1]);
 });
 function restoreQuality(f) {
   const timer=[...f.state.timers].find(([,t])=>t.delay===120 || t.delay===250);

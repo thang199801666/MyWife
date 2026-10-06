@@ -65,4 +65,12 @@ class RecommendationRankingTest {
         assertTrue(ranked.first().reason.startsWith("Matches a recent search:"))
     }
 
+    @Test fun homeCanUseADeeperPerChannelPoolWithoutChangingTheDefaultCap() {
+        val candidates = (1..6).map { video("music$it", "Guitar lesson $it", "Music") }
+        val defaults = RecommendationEngine.rank(candidates, emptyList(), setOf("Music"), emptySet(), emptySet(), now)
+        val home = RecommendationEngine.rank(candidates, emptyList(), setOf("Music"), emptySet(), emptySet(), now, maxPerChannel = 6)
+        assertEquals(4, defaults.size)
+        assertEquals(6, home.size)
+    }
+
 }

@@ -9,7 +9,7 @@
     <string name="app_update_up_to_date">Đã là bản mới nhất.</string>
     <string name="app_update_incompatible">Bản mới không hỗ trợ thiết bị này.</string>
     <string name="app_update_available">Có bản %1$s</string>
-    <string name="app_update_size">%1$d MB • ARM64</string>
+    <string name="app_update_size">%1$d MB</string>
     <string name="app_update_download">Tải xuống</string>
     <string name="app_update_downloading">Đang tải…</string>
     <string name="app_update_download_failed">Tải thất bại. Thử lại.</string>
@@ -21,7 +21,7 @@
     <string name="app_update_releases">GitHub</string>
     <string name="app_update_browser_missing">Không mở được trình duyệt.</string>
     <string name="app_update_startup_title">Có bản mới</string>
-    <string name="app_update_startup_message">Vợ Tui %1$s • ~%2$d MB</string>
+    <string name="app_update_startup_message">%1$s • ~%2$d MB</string>
     <string name="app_update_now">Cập nhật</string>
     <string name="app_update_later">Để sau</string>
 </resources>

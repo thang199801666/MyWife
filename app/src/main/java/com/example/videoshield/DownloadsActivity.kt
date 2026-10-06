@@ -18,12 +18,12 @@ import android.widget.Button
 import android.widget.LinearLayout
 import android.widget.ListView
 import android.widget.TextView
-import java.util.concurrent.Executors
 
 class DownloadsActivity : LocalizedActivity() {
-    private val worker=Executors.newSingleThreadExecutor()
+    private val worker=SerialTaskQueue("downloads-screen",10L)
     private val main=Handler(Looper.getMainLooper())
     private lateinit var list: ListView
+    private lateinit var store: OfflineStore
     private var rows=emptyList<OfflineDownload>()
     private lateinit var adapter: DownloadListAdapter
     private lateinit var empty: TextView
@@ -33,6 +33,7 @@ class DownloadsActivity : LocalizedActivity() {
     private var sheet: Dialog?=null
     private var resumed=false
     private var lastCleanupAt=0L
+    @Volatile private var refreshInFlight=false
     private val ticker=object: Runnable {
         override fun run() {
             refresh()
@@ -41,6 +42,7 @@ class DownloadsActivity : LocalizedActivity() {
     }
     override fun onCreate(state: Bundle?) {
         super.onCreate(state)
+        store=OfflineStore(applicationContext)
         filter=state?.getInt("filter")?.coerceIn(0,3) ?: 0
         val root=LinearLayout(this).apply { orientation=LinearLayout.VERTICAL; setBackgroundColor(AppTheme.background(this@DownloadsActivity)) }
         root.offlineSystemInsets()
@@ -81,23 +83,27 @@ class DownloadsActivity : LocalizedActivity() {
         display()
     }
     private fun refresh() {
-        worker.execute {
-            val store=OfflineStore(this)
-            val now=System.currentTimeMillis()
-            if(now-lastCleanupAt>=60_000L) {
-                store.cleanup(now)
-                lastCleanupAt=now
-            }
-            if(!DownloadService.running) store.all().filter { it.status in setOf("downloading","processing") }.forEach {
-                store.put(it.copy(status="failed",error=getString(R.string.download_interrupted)))
-            }
-            val items=store.all()
-            main.post {
-                if(!resumed || isDestroyed) return@post
-                rows=items
-                display()
-            }
-        }
+        // Never let the 1.5 s active-download ticker build an I/O backlog if storage is slow.
+        if (refreshInFlight) return
+        refreshInFlight=true
+        runCatching { worker.execute {
+            try {
+                val now=System.currentTimeMillis()
+                if(now-lastCleanupAt>=60_000L) {
+                    store.cleanup(now)
+                    lastCleanupAt=now
+                }
+                if(!DownloadService.running) store.all().filter { it.status in setOf("downloading","processing") }.forEach {
+                    store.put(it.copy(status="failed",error=getString(R.string.download_interrupted)))
+                }
+                val items=store.all()
+                main.post {
+                    if(!resumed || isDestroyed) return@post
+                    rows=items
+                    display()
+                }
+            } finally { refreshInFlight=false }
+        } }.onFailure { refreshInFlight=false }
     }
     private fun dp(value: Int)=(value*resources.displayMetrics.density).toInt()
     private fun display() {
@@ -133,16 +139,17 @@ class DownloadsActivity : LocalizedActivity() {
             getString(R.string.ui_play_offline) -> play(job)
             getString(R.string.ui_cancel) -> startService(Intent(this,DownloadService::class.java).setAction("cancel").putExtra("id",job.id))
             getString(R.string.ui_retry),getString(R.string.ui_download_again) -> worker.execute {
-                val store=OfflineStore(this); store.clearFiles(job.id); store.put(job.copy(status="queued",progress=0,error="",completedAt=0,uri=if(job.temporary) "" else job.uri))
+                store.clearFiles(job.id); store.put(job.copy(status="queued",progress=0,error="",completedAt=0,uri=if(job.temporary) "" else job.uri))
                 main.post { if(resumed && !isDestroyed && !isFinishing) DownloadService.enqueue(this,job.id) }
             }
             getString(R.string.ui_details) -> AlertDialog.Builder(this).setMessage(DownloadFailure.localized(this,job.error.ifBlank { getString(R.string.ui_download_incomplete_tap_to_retry) })).setPositiveButton(getString(R.string.ui_ok),null).show()
-            else -> worker.execute { OfflineStore(this).remove(job.id); main.post { if(!isDestroyed) refresh() } }
+            else -> worker.execute { store.remove(job.id); main.post { if(!isDestroyed) refresh() } }
         } }
     }
     override fun onResume() { super.onResume(); resumed=true; main.removeCallbacks(ticker); main.post(ticker) }
     override fun onPause() { resumed=false; main.removeCallbacks(ticker); super.onPause() }
     override fun onSaveInstanceState(state: Bundle) { state.putInt("filter",filter); super.onSaveInstanceState(state) }
+    override fun onTrimMemory(level: Int) { super.onTrimMemory(level); if(::adapter.isInitialized) adapter.trimMemory(level) }
     override fun onDestroy() { sheet?.dismiss(); adapter.close(); main.removeCallbacksAndMessages(null); worker.shutdownNow(); super.onDestroy() }
     companion object { private val ACTIVE_STATUSES=setOf("queued","downloading","processing") }
 }

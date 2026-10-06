@@ -28,7 +28,10 @@ class SearchSuggestionsController(
     private val submit: (String) -> Unit
 ) {
     private val main = Handler(Looper.getMainLooper())
-    private val worker = ThreadPoolExecutor(1, 1, 0L, TimeUnit.MILLISECONDS, ArrayBlockingQueue(1))
+    private val worker = ThreadPoolExecutor(
+        1, 1, 10L, TimeUnit.SECONDS, ArrayBlockingQueue(1),
+        ThreadPoolExecutor.DiscardOldestPolicy()
+    ).apply { allowCoreThreadTimeOut(true) }
     private val history = SearchHistoryStore(input.context)
     private var pending: Future<*>? = null
     private var generation = 0L
@@ -152,6 +155,7 @@ class SearchSuggestionsController(
     private fun showMerged(query: String, remote: List<String>) {
         val result = ArrayList<SearchSuggestionRow>(10)
         val keys = LinkedHashSet<String>()
+        val queryKey = SearchHistoryStore.fold(query)
         fun add(text: String, fromHistory: Boolean) {
             val clean = text.trim().take(160)
             if (clean.isBlank()) return
@@ -160,7 +164,7 @@ class SearchSuggestionsController(
         }
         history.matches(query, 5).forEach { add(it.query, true) }
         remote.forEach { add(it, false) }
-        if (result.none { SearchHistoryStore.fold(it.text) == SearchHistoryStore.fold(query) }) add(query, false)
+        if (result.none { SearchHistoryStore.fold(it.text) == queryKey }) add(query, false)
         values.clear()
         values += result.take(10)
         adapter.notifyDataSetChanged()

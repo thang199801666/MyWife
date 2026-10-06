@@ -12,8 +12,7 @@ data class AppRelease(
     val assetName: String,
     val apkUrl: String,
     val size: Long,
-    val sha256: String,
-    val notes: String
+    val sha256: String
 ) {
     companion object {
         const val REPOSITORY = "thang199801666/MyWife"
@@ -47,8 +46,9 @@ data class AppRelease(
             val apk = asset(release, file)
             val url = apk.getString("browser_download_url")
             require(url == assetUrl(tag, file) && apk.getLong("size") == size)
-            return AppRelease(code, name, sdk, abi, file, url, size, hash,
-                release.optString("body").take(6000))
+            // Release notes are intentionally ignored. Update UI only needs trusted
+            // version/asset metadata; GitHub body must never leak into user prompts.
+            return AppRelease(code, name, sdk, abi, file, url, size, hash)
         }
 
         private fun validateStable(release: JSONObject) {

@@ -7,7 +7,9 @@ import org.json.JSONObject
 import java.io.File
 import java.net.URL
 import java.security.MessageDigest
-import java.util.concurrent.Executors
+import java.util.concurrent.LinkedBlockingQueue
+import java.util.concurrent.ThreadPoolExecutor
+import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.locks.ReentrantReadWriteLock
 import javax.net.ssl.HttpsURLConnection
@@ -16,7 +18,9 @@ import javax.net.ssl.HttpsURLConnection
 internal object DownloadEngineUpdate {
     const val BUNDLED_VERSION = "2026.08.19"
     private val checking = AtomicBoolean(false)
-    private val worker = Executors.newSingleThreadExecutor()
+    private val worker = ThreadPoolExecutor(1, 1, 20L, TimeUnit.SECONDS, LinkedBlockingQueue()).apply {
+        allowCoreThreadTimeOut(true)
+    }
     private fun binary(context: Context) = File(context.noBackupFilesDir, "youtubedl-android/yt-dlp/yt-dlp")
 
     fun installBundle(context: Context) {

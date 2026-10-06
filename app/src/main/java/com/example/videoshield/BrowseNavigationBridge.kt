@@ -34,20 +34,56 @@ object BrowseNavigationScript {
           },true);
           let previous='';
           const report=()=>{ const url=location.href; if(url===previous)return; previous=url; open(url); };
-          for (const name of ['pushState','replaceState']) {
-            const original=history[name];
-            history[name]=function(...args){ const result=original.apply(this,args); report(); return result; };
-          }
+          const isShorts=url=>{
+            try { const path=new URL(url,location.href).pathname; return path==='/shorts' || path.startsWith('/shorts/'); }
+            catch (_) { return false; }
+          };
+          const installHistoryHooks=()=>{
+            if (history.pushState?.__votuibeShortsBound && history.replaceState?.__votuibeShortsBound) return;
+            const nativePush=history.pushState.bind(history);
+            const nativeReplace=history.replaceState.bind(history);
+            // Keep one browser-history entry for the vertical Shorts session. YouTube may
+            // push a new SPA entry for every swipe; hundreds of entries inflate WebView
+            // history/saveState and can eventually contribute to renderer/process pressure.
+            const wrappedPush=function(...args){
+              const next=args.length>=3 ? args[2] : null;
+              const result=(isShorts(location.href) && next!=null && isShorts(next))
+                ? nativeReplace(...args) : nativePush(...args);
+              report(); return result;
+            };
+            const wrappedReplace=function(...args){ const result=nativeReplace(...args); report(); return result; };
+            try {
+              Object.defineProperty(wrappedPush,'__votuibeShortsBound',{value:true});
+              Object.defineProperty(wrappedReplace,'__votuibeShortsBound',{value:true});
+            } catch (_) {}
+            history.pushState=wrappedPush;
+            history.replaceState=wrappedReplace;
+          };
+          installHistoryHooks();
           window.addEventListener('popstate',report);
           document.addEventListener('yt-navigate-finish',report,true);
           // Some experiments replace the history methods after installation. The normal
           // history + yt-navigate hooks are immediate, so this is only a low-frequency
           // fallback instead of a permanent 1 Hz wake-up.
-          const fallback=()=>{
-            report();
-            setTimeout(fallback,document.visibilityState==='hidden'?15000:4000);
+          let fallbackTimer=0;
+          const scheduleFallback=()=>{
+            clearTimeout(fallbackTimer); fallbackTimer=0;
+            // The periodic hook check exists only for YouTube experiments that replace
+            // history.pushState while the vertical Shorts recycler is alive. Home/search
+            // navigation is already covered by click + yt-navigate-finish and needs no timer.
+            if(document.visibilityState==='hidden' || !isShorts(location.href)) return;
+            fallbackTimer=setTimeout(()=>{
+              fallbackTimer=0;
+              installHistoryHooks();
+              report();
+              scheduleFallback();
+            },15000);
           };
-          setTimeout(fallback,4000);
+          document.addEventListener('visibilitychange',()=>{
+            if(document.visibilityState==='hidden') { clearTimeout(fallbackTimer); fallbackTimer=0; }
+            else { installHistoryHooks(); report(); scheduleFallback(); }
+          },true);
+          scheduleFallback();
           report();
         })();
     """.trimIndent()

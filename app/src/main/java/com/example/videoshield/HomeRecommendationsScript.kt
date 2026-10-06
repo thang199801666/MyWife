@@ -5,6 +5,9 @@ import org.json.JSONObject
 
 /** Render local rankings in Home; result links enter the existing native player. */
 object HomeRecommendationsScript {
+    private val VIDEO_ID = Regex("^[A-Za-z0-9_-]{11}$")
+    fun clear(): String = "document.getElementById('votuibe-home-recommendations')?.remove();"
+
     fun build(
         enabled: Boolean,
         rows: List<SuggestedVideo>,
@@ -19,8 +22,8 @@ object HomeRecommendationsScript {
         val secondary = if (lightTheme) "#606060" else "#aaaaaa"
         val chip = if (lightTheme) "#f2f2f2" else "#272727"
         val payload = JSONArray()
-        rows.take(12).forEach { row ->
-            if (Regex("[A-Za-z0-9_-]{11}").matches(row.video.videoId)) payload.put(JSONObject().apply {
+        rows.take(24).forEach { row ->
+            if (VIDEO_ID.matches(row.video.videoId)) payload.put(JSONObject().apply {
                 put("id", row.video.videoId)
                 put("title", row.video.title)
                 put("channel", row.video.channel)
@@ -29,9 +32,9 @@ object HomeRecommendationsScript {
         }
         return """
             (()=>{
-              if(!['/',''].includes(location.pathname)) return;
               const id='votuibe-home-recommendations';
               let section=document.getElementById(id);
+              if(!['/',''].includes(location.pathname)) { section?.remove(); return; }
               if(!$enabled) { section?.remove(); return; }
               const rows=$payload;
               const fingerprint=JSON.stringify([rows,$headingJson,$hintJson,${if (lightTheme) "1" else "0"}]);
@@ -46,19 +49,21 @@ object HomeRecommendationsScript {
               section.replaceChildren();
               section.style.cssText='box-sizing:border-box;background:$background;color:$text;font-family:Roboto,Arial,sans-serif;padding:4px 0 2px;width:100%';
 
-              const headingRow=document.createElement('div');
-              headingRow.style.cssText='display:flex;align-items:center;justify-content:space-between;padding:12px 16px 10px';
-              const title=document.createElement('h2');
-              title.textContent=$headingJson;
-              title.style.cssText='font-size:19px;line-height:24px;font-weight:700;margin:0;color:$text';
-              headingRow.append(title);
-              section.append(headingRow);
+              const headingText=$headingJson.trim();
+              if(headingText) {
+                const headingRow=document.createElement('div');
+                headingRow.style.cssText='display:flex;align-items:center;justify-content:space-between;padding:12px 16px 10px';
+                const title=document.createElement('h2');
+                title.textContent=headingText;
+                title.style.cssText='font-size:19px;line-height:24px;font-weight:700;margin:0;color:$text';
+                headingRow.append(title);
+                section.append(headingRow);
+              }
 
               if(!rows.length) {
-                const empty=document.createElement('p');
-                empty.textContent=$hintJson;
-                empty.style.cssText='color:$secondary;font-size:14px;line-height:20px;margin:0;padding:4px 16px 20px';
-                section.append(empty);
+                // Home should stay visually identical to YouTube when local discovery has
+                // not collected enough candidates yet. Do not render an empty heading/hint.
+                section.remove();
                 return;
               }
 
@@ -71,7 +76,7 @@ object HomeRecommendationsScript {
 
                 const image=document.createElement('img');
                 image.src='https://i.ytimg.com/vi/'+row.id+'/hqdefault.jpg';
-                image.alt=''; image.loading='lazy'; image.decoding='async';
+                image.alt=''; image.loading='lazy'; image.decoding='async'; image.fetchPriority='low';
                 image.style.cssText='display:block;width:100%;aspect-ratio:16/9;object-fit:cover;background:$chip';
                 link.append(image);
 

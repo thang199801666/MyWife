@@ -13,10 +13,9 @@ import android.os.Build
 import android.os.IBinder
 import android.provider.MediaStore
 import java.io.File
-import java.util.concurrent.Executors
 
 class DownloadService : Service() {
-    private val worker = Executors.newSingleThreadExecutor()
+    private val worker = SerialTaskQueue("download-service", 20L)
     private lateinit var store: OfflineStore
     private val scheduled = mutableSetOf<String>()
     @Volatile private var active = ""
@@ -44,14 +43,25 @@ class DownloadService : Service() {
                 active=id; cancelled=""; var pendingExport: Uri?=null; var managedExport=false
                 try {
                     job=job.copy(status="downloading",error=""); store.put(job)
-                    val running=job; var lastUpdate=0L
+                    val running=job
+                    var lastNotificationAt=0L
+                    var lastPersistAt=0L
+                    var lastNotifiedProgress=-1
+                    var lastPersistedProgress=-1
+                    val notificationManager=getSystemService(NotificationManager::class.java)
                     val file=DownloadEngine.download(this,running,store.directory(id)) { percent ->
                         if(cancelled==id) throw InterruptedException("Cancelled")
                         val now=System.currentTimeMillis()
-                        if(now-lastUpdate>=1000) {
-                            lastUpdate=now; val value=percent.toInt().coerceIn(0,99)
+                        val value=percent.toInt().coerceIn(0,99)
+                        if(value!=lastPersistedProgress && now-lastPersistAt>=PROGRESS_PERSIST_INTERVAL_MS) {
+                            lastPersistAt=now
+                            lastPersistedProgress=value
                             store.put(running.copy(progress=value))
-                            getSystemService(NotificationManager::class.java).notify(909,notification(running.title,value))
+                        }
+                        if(value!=lastNotifiedProgress && now-lastNotificationAt>=PROGRESS_NOTIFICATION_INTERVAL_MS) {
+                            lastNotificationAt=now
+                            lastNotifiedProgress=value
+                            notificationManager.notify(909,notification(running.title,value))
                         }
                     }
                     if(cancelled==id) throw InterruptedException("Cancelled")
@@ -114,6 +124,8 @@ class DownloadService : Service() {
     override fun onDestroy() { running=false; if(active.isNotBlank()) DownloadEngine.cancel(active); worker.shutdownNow(); super.onDestroy() }
     override fun onTimeout(startId: Int, fgsType: Int) { if(active.isNotBlank()) cancelled=active; stopSelf() }
     companion object {
+        private const val PROGRESS_NOTIFICATION_INTERVAL_MS = 1_000L
+        private const val PROGRESS_PERSIST_INTERVAL_MS = 3_000L
         @Volatile var running=false
             private set
         fun enqueue(context: Context, id: String) { context.startForegroundService(Intent(context,DownloadService::class.java).putExtra("id",id)) }

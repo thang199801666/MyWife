@@ -76,5 +76,6 @@ class OfflinePlayerActivity : LocalizedActivity() {
     }
     override fun onPause() { if(::video.isInitialized) video.pause(); super.onPause() }
     override fun onSaveInstanceState(state: Bundle) { if(::video.isInitialized) state.putInt("position",video.currentPosition); super.onSaveInstanceState(state) }
+    override fun onTrimMemory(level: Int) { super.onTrimMemory(level); thumbnails.trimMemory(level) }
     override fun onDestroy() { if(::screenOn.isInitialized) screenOn.update(false); thumbnails.close(); EqDialog.dismiss(this); equalizer?.close(); equalizer=null; if(::video.isInitialized) video.stopPlayback(); super.onDestroy() }
 }

@@ -15,6 +15,7 @@ class DownloadListAdapter(private val activity: Activity, private val options: (
     private val thumbnails=VideoThumbnailLoader()
     var items=emptyList<OfflineDownload>(); private set
     fun replace(value: List<OfflineDownload>) { if(items!=value) { items=value; notifyDataSetChanged() } }
+    fun trimMemory(level: Int)=thumbnails.trimMemory(level)
     fun close()=thumbnails.close()
     override fun getCount()=items.size
     override fun getItem(position: Int)=items[position]

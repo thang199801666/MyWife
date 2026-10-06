@@ -15,11 +15,15 @@ import android.widget.ScrollView
 import android.widget.TextView
 import androidx.core.content.FileProvider
 import java.io.File
-import java.util.concurrent.Executors
+import java.util.concurrent.LinkedBlockingQueue
+import java.util.concurrent.ThreadPoolExecutor
+import java.util.concurrent.TimeUnit
 
 /** Updates are explicitly requested, downloaded privately, then handed to Android for approval. */
 class AppUpdateActivity : LocalizedActivity() {
-    private val worker = Executors.newSingleThreadExecutor()
+    private val worker = ThreadPoolExecutor(1, 1, 10L, TimeUnit.SECONDS, LinkedBlockingQueue()).apply {
+        allowCoreThreadTimeOut(true)
+    }
     private lateinit var client: AppReleaseClient
     private lateinit var status: TextView
     private lateinit var details: TextView

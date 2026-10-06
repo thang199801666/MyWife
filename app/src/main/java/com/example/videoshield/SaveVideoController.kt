@@ -8,11 +8,11 @@ import android.os.Handler
 import android.os.Looper
 import android.widget.Toast
 import java.util.UUID
-import java.util.concurrent.Executors
 
 class SaveVideoController(private val activity: Activity) {
-    private val worker=Executors.newSingleThreadExecutor()
+    private val worker=SerialTaskQueue("save-video",15L)
     private val main=Handler(Looper.getMainLooper())
+    private val store=OfflineStore(activity.applicationContext)
     @Volatile private var closed=false
     @Volatile private var inspection=""
     private var dialog: AlertDialog?=null
@@ -61,7 +61,7 @@ class SaveVideoController(private val activity: Activity) {
                     audioQuality=quality.audioQuality,quality=quality.label,
                     status=if(!temporary && Build.VERSION.SDK_INT<29) "destination" else "queued")
                 worker.execute {
-                    val store=OfflineStore(activity.applicationContext); store.cleanup(); store.put(job)
+                    store.cleanup(); store.put(job)
                     main.post {
                         if(closed || activity.isDestroyed) return@post
                         if(job.status=="destination") {
@@ -84,7 +84,7 @@ class SaveVideoController(private val activity: Activity) {
         val id=preferences.getString("destination","").orEmpty()
         preferences.edit().remove("destination").apply()
         worker.execute {
-            val store=OfflineStore(activity.applicationContext); val job=store.get(id) ?: return@execute
+            val job=store.get(id) ?: return@execute
             val uri=data?.data
             if(result!=Activity.RESULT_OK || uri==null) { store.put(job.copy(status="cancelled")); return@execute }
             runCatching { activity.contentResolver.takePersistableUriPermission(uri,Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION) }

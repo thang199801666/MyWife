@@ -1,6 +1,7 @@
 package com.example.videoshield
 
 import android.webkit.WebView
+import android.os.Looper
 import org.json.JSONArray
 import org.json.JSONObject
 import java.util.Locale
@@ -109,13 +110,18 @@ class PlayerController(private val webView: WebView) {
 
     private fun evaluate(script: String) {
         if (released) return
-        webView.post {
-            if (released) return@post
-            try {
-                webView.evaluateJavascript(script, null)
-            } catch (_: IllegalStateException) {
-                // The WebView may have been destroyed after this Runnable was queued.
+        val action = {
+            if (!released) {
+                try {
+                    webView.evaluateJavascript(script, null)
+                } catch (_: IllegalStateException) {
+                    // The WebView may have been destroyed after this action was queued.
+                }
             }
         }
+        // Most player commands originate on the Activity/UI thread. Avoid allocating and
+        // scheduling another main-queue message for that common path, while preserving
+        // thread safety for service/database callbacks.
+        if (Looper.myLooper() == Looper.getMainLooper()) action() else webView.post(action)
     }
 }

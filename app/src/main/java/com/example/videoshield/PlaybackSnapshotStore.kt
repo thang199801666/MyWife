@@ -1,6 +1,7 @@
 package com.example.videoshield
 
 import android.content.Context
+import android.os.SystemClock
 
 data class PlaybackSnapshot(
     val playing: Boolean,
@@ -26,6 +27,13 @@ data class PlaybackSnapshot(
 
 class PlaybackSnapshotStore(context: Context) {
     private val prefs = context.applicationContext.getSharedPreferences("videoshield_playback_snapshot", Context.MODE_PRIVATE)
+    private var lastWriteAt = 0L
+    private var lastPlaying = false
+    private var lastTitle = ""
+    private var lastChannel = ""
+    private var lastUrl = ""
+    private var lastVideoId = ""
+    private var lastDurationMs = 0L
 
     fun update(
         playing: Boolean,
@@ -36,23 +44,43 @@ class PlaybackSnapshotStore(context: Context) {
         positionMs: Long,
         durationMs: Long
     ) {
+        val safeTitle = title.take(240)
+        val safeChannel = channel.take(180)
+        val safeUrl = url.take(1000)
+        val safeVideoId = videoId.take(64)
+        val safeDuration = durationMs.coerceAtLeast(0L)
+        val now = SystemClock.elapsedRealtime()
+        val structuralChange = playing != lastPlaying || safeTitle != lastTitle || safeChannel != lastChannel ||
+            safeUrl != lastUrl || safeVideoId != lastVideoId || safeDuration != lastDurationMs
+        if (!structuralChange && now - lastWriteAt < POSITION_SNAPSHOT_INTERVAL_MS) return
+        lastWriteAt = now
+        lastPlaying = playing
+        lastTitle = safeTitle
+        lastChannel = safeChannel
+        lastUrl = safeUrl
+        lastVideoId = safeVideoId
+        lastDurationMs = safeDuration
         prefs.edit()
             .putBoolean("playing", playing)
-            .putString("title", title.take(240))
-            .putString("channel", channel.take(180))
-            .putString("url", url.take(1000))
-            .putString("video_id", videoId.take(64))
+            .putString("title", safeTitle)
+            .putString("channel", safeChannel)
+            .putString("url", safeUrl)
+            .putString("video_id", safeVideoId)
             .putLong("position_ms", positionMs.coerceAtLeast(0L))
-            .putLong("duration_ms", durationMs.coerceAtLeast(0L))
+            .putLong("duration_ms", safeDuration)
             .putLong("updated_at", System.currentTimeMillis())
             .apply()
     }
 
     fun markStopped() {
+        lastWriteAt = 0L
+        lastPlaying = false
         prefs.edit().putBoolean("playing", false).putLong("updated_at", System.currentTimeMillis()).apply()
     }
 
     fun clear() {
+        lastWriteAt = 0L
+        lastVideoId = ""
         prefs.edit().clear().apply()
     }
 
@@ -66,4 +94,8 @@ class PlaybackSnapshotStore(context: Context) {
         durationMs = prefs.getLong("duration_ms", 0L),
         updatedAt = prefs.getLong("updated_at", 0L)
     )
+
+    companion object {
+        private const val POSITION_SNAPSHOT_INTERVAL_MS = 45_000L
+    }
 }

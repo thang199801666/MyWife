@@ -8,6 +8,7 @@ import android.app.PictureInPictureParams
 import android.app.PendingIntent
 import android.app.RemoteAction
 import android.content.Intent
+import android.content.ComponentCallbacks2
 import android.content.pm.ActivityInfo
 import android.content.res.Configuration
 import android.graphics.Color
@@ -37,66 +38,35 @@ import java.net.URLEncoder
 
 class MainActivity : LocalizedActivity() {
     private var quickActionSheet: android.app.Dialog? = null
-    private val libraryWorker = java.util.concurrent.Executors.newSingleThreadExecutor()
+    private val libraryTasks = SerialTaskQueue("library", 30L)
     private val habitTracker = ViewingHabitTracker()
-    private var homeRecommendationRequest = 0L
-    private var homeRecommendationOffset = 0
+    private lateinit var browseSession: BrowseSessionCoordinator
+    private lateinit var homeRecommendations: HomeRecommendationCoordinator
+    private var historyPersistVideoId = ""
+    private var pendingWatchedMs = 0L
+    private var lastHistoryPersistAt = 0L
+
+    private fun persistBrowseUrl(url: String, route: YouTubeRoute, immediate: Boolean = false) {
+        if (::browseSession.isInitialized) browseSession.persistBrowseUrl(url, route, immediate)
+    }
+
+    private fun flushPendingBrowseUrl() {
+        if (::browseSession.isInitialized) browseSession.flushBrowseUrl()
+    }
+
+    private fun noteShortsTransition(route: YouTubeRoute) {
+        if (::browseSession.isInitialized) browseSession.onBrowseRoute(route, if (::browseWebView.isInitialized) browseWebView else null)
+    }
 
     private fun refreshHomeRecommendations() {
-        if (!::browseWebView.isInitialized || isDestroyed || isFinishing || libraryWorker.isShutdown) return
-        val request = ++homeRecommendationRequest
-        if (YouTubeRoute.parse(browseWebView.url).destination != YouTubeDestination.HOME) return
-        val enabled = preferences.personalizedSuggestions && preferences.rememberHistory
-        val since = preferences.recommendationsSince
-        val recommendationOffset = homeRecommendationOffset
-        val recentSearches = if (::searchHistoryStore.isInitialized) {
-            searchHistoryStore.recent(24).filter { it.usedAt >= since }.map { it.query }
-        } else emptyList()
-        val lightTheme = AppTheme.isLight(this)
-        libraryWorker.execute {
-            val ranked = if (enabled) runCatching { libraryStore.recommendations(since, searchQueries = recentSearches) }.getOrDefault(emptyList()) else emptyList()
-            val rows = if (ranked.size <= 12) ranked else {
-                val start = recommendationOffset.mod(ranked.size)
-                (ranked.drop(start) + ranked.take(start)).take(12)
-            }
-            val script = HomeRecommendationsScript.build(
-                enabled,
-                rows.map { it.copy(reason = LocalizedPresentation.recommendation(this, it.reason)) },
-                getString(R.string.ui_for_you),
-                getString(R.string.home_hint),
-                lightTheme
-            )
-            runOnUiThread {
-                if (!isDestroyed && !isFinishing && request == homeRecommendationRequest &&
-                    enabled == (preferences.personalizedSuggestions && preferences.rememberHistory) &&
-                    since == preferences.recommendationsSince &&
-                    recommendationOffset == homeRecommendationOffset &&
-                    YouTubeAdapter.isTrustedBridgeUrl(browseWebView.url) &&
-                    YouTubeRoute.parse(browseWebView.url).destination == YouTubeDestination.HOME) {
-                    browseWebView.evaluateJavascript(script, null)
-                }
-            }
-        }
+        if (::homeRecommendations.isInitialized) homeRecommendations.refresh()
     }
 
     private fun writeLibrary(action: () -> Unit) {
-        if (isDestroyed || libraryWorker.isShutdown) return
-        libraryWorker.execute { try { action() } catch (e: Exception) { android.util.Log.w("YouTooBee", "Local library write failed", e) } }
+        if (isDestroyed || libraryTasks.isShutdown) return
+        libraryTasks.execute { try { action() } catch (e: Exception) { android.util.Log.w("YouTooBee", "Local library write failed", e) } }
     }
 
-    private fun installDiscovery(view: WebView) {
-        view.addJavascriptInterface(DiscoveryBridge(
-            allowed = { !isDestroyed && !isFinishing && preferences.personalizedSuggestions && preferences.rememberHistory && YouTubeAdapter.isTrustedBridgeUrl(view.url) },
-            accept = { payload ->
-                val capturedAt = System.currentTimeMillis()
-                writeLibrary {
-                    if (preferences.personalizedSuggestions && preferences.rememberHistory && capturedAt >= preferences.recommendationsSince)
-                        libraryStore.saveCandidates(DiscoveryBridge.parse(payload, capturedAt))
-                    runOnUiThread { refreshHomeRecommendations() }
-                }
-            }
-        ), "YouTooBeeDiscovery")
-    }
     private lateinit var webView: WebView
     private lateinit var browseWebView: WebView
     private lateinit var homePullRefreshLayout: HomePullRefreshLayout
@@ -163,6 +133,7 @@ class MainActivity : LocalizedActivity() {
     private var resumeAppliedVideoId = ""
     private var pendingResumeRead: PlaybackReadKey? = null
     private var libraryFlagsRequest = 0L
+    private var queueAdvanceRequest = 0L
     private var playerNavigationGeneration = 0L
     private var speedAppliedVideoId = ""
     private var communitySegmentRequestKey = ""
@@ -175,6 +146,7 @@ class MainActivity : LocalizedActivity() {
     private var playingBeforePip = false
     private var pipPlaybackWanted = false
     private var browseWebViewPaused = false
+    private var playerImagesEnabled = true
 
 
     @SuppressLint("SetJavaScriptEnabled")
@@ -192,6 +164,7 @@ class MainActivity : LocalizedActivity() {
         }
 
         preferences = ShieldPreferences(this)
+        browseSession = BrowseSessionCoordinator(preferences)
         rulePackManager = RulePackManager(this)
         filterEngine = FilterEngine(preferences, rulePackManager)
         browseFilterEngine = FilterEngine(preferences, rulePackManager)
@@ -231,6 +204,16 @@ class MainActivity : LocalizedActivity() {
 
         webView = findViewById(R.id.webView)
         browseWebView = findViewById(R.id.browseWebView)
+        homeRecommendations = HomeRecommendationCoordinator(
+            context = this,
+            preferences = preferences,
+            store = libraryStore,
+            searchHistory = searchHistoryStore,
+            tasks = libraryTasks,
+            webView = { if (::browseWebView.isInitialized) browseWebView else null },
+            route = { browseRoute },
+            alive = { !isDestroyed && !isFinishing }
+        )
         homePullRefreshLayout = findViewById(R.id.homePullRefresh)
         playerSurfaceController = PlayerSurfaceController(
             this,
@@ -245,9 +228,8 @@ class MainActivity : LocalizedActivity() {
         }
         homePullRefreshLayout.onRefresh = {
             if (!isDestroyed && !isFinishing && browseRoute.destination == YouTubeDestination.HOME) {
-                // Rotate the app's local For You block as well as asking YouTube for a fresh Home feed.
-                homeRecommendationOffset += 12
-                ++homeRecommendationRequest
+                // Rotate the local recommendations as well as asking YouTube for a fresh Home feed.
+                homeRecommendations.rotatePage()
                 if (YouTubeAdapter.isTrustedBridgeUrl(browseWebView.url)) browseWebView.reload()
                 else browseWebView.loadUrl(AppLanguage.youtubeUrl(this, YouTubeRoute.HOME_URL))
             } else {
@@ -365,11 +347,17 @@ class MainActivity : LocalizedActivity() {
 
         val incoming = extractIncomingUrl(intent)
         val sameLanguage = savedInstanceState?.getString("app_language_tag") == AppLanguage.tag(this)
-        val restoredBrowse = if (savedInstanceState != null && sameLanguage) {
+        val savedBrowseUrl = savedInstanceState?.getString(STATE_BROWSE_URL)
+        val savedBrowseRoute = YouTubeRoute.parse(savedBrowseUrl)
+        // A long Shorts session can make Chromium's serialized navigation state large.
+        // Restore the current Shorts URL instead of restoring the entire WebView history.
+        val restoredBrowse = if (savedInstanceState != null && sameLanguage &&
+            savedBrowseRoute.destination != YouTubeDestination.SHORTS) {
             try {
                 savedInstanceState.getBundle(STATE_BROWSE_WEBVIEW)?.let { browseWebView.restoreState(it) != null } == true
             } catch (_: Exception) { false }
         } else false
+        val savedPlayerUrl = savedInstanceState?.getString(STATE_PLAYER_URL)
         val restoredPlayer = if (savedInstanceState != null && sameLanguage && !rendererGone) {
             try {
                 savedInstanceState.getBundle(STATE_PLAYER_WEBVIEW)?.let { webView.restoreState(it) != null } == true
@@ -379,17 +367,28 @@ class MainActivity : LocalizedActivity() {
             runtimeDiagnostics.recordRestore("browse WebView instance state", restoredBrowse)
             runtimeDiagnostics.recordRestore("player WebView instance state", restoredPlayer)
         }
-        if (!restoredBrowse) browseWebView.loadUrl(AppLanguage.youtubeUrl(this,preferences.lastBrowseUrl))
+        if (!restoredBrowse) {
+            val restoreBrowseUrl = savedBrowseUrl?.takeIf { YouTubeAdapter.isTrustedBridgeUrl(it) } ?: preferences.lastBrowseUrl
+            browseWebView.loadUrl(AppLanguage.youtubeUrl(this,restoreBrowseUrl))
+        }
 
         if (restoredPlayer) {
             playerSurfaceController.restore(savedInstanceState?.getString(STATE_PLAYER_SURFACE))
             playerRoute = YouTubeRoute.parse(webView.url)
         } else {
-            val playbackRestore = if (incoming == null) playbackSession.recoverableUrl(preferences.resumePlayback, RESTORE_SNAPSHOT_MAX_AGE_MS) else null
+            val savedPlaybackTarget = savedPlayerUrl
+                ?.takeIf { YouTubeAdapter.isTrustedBridgeUrl(it) && YouTubeRoute.parse(it).isNativePlayback }
+            val playbackRestore = if (incoming == null && savedPlaybackTarget == null) {
+                playbackSession.recoverableUrl(preferences.resumePlayback, RESTORE_SNAPSHOT_MAX_AGE_MS)
+            } else null
             if (playbackRestore != null) runtimeDiagnostics.recordRestore("playback snapshot", true)
-            val initialTarget = incoming ?: playbackRestore
+            val initialTarget = incoming ?: savedPlaybackTarget ?: playbackRestore
             if (initialTarget != null) {
                 navigateClient(initialTarget, expandPlayback = true)
+                if (incoming == null && savedPlaybackTarget != null) {
+                    playerSurfaceController.restore(savedInstanceState?.getString(STATE_PLAYER_SURFACE))
+                    syncBrowseWebViewActivity()
+                }
             } else {
                 playerSurfaceController.hide()
             }
@@ -409,7 +408,6 @@ class MainActivity : LocalizedActivity() {
     @SuppressLint("SetJavaScriptEnabled", "AddJavascriptInterface")
     private fun configureWebView() {
         updateEarlyPlayerScripts()
-        installDiscovery(webView)
         (webView as PlaybackWebView).apply {
             canSwipeMinimize = {
                 playerSurfaceController.expanded &&
@@ -458,11 +456,9 @@ class MainActivity : LocalizedActivity() {
                     }
                 },
                 onPlaybackState = { playing, title, channel, channelUrl, videoId, positionMs, durationMs ->
-                    runOnUiThread { onPlaybackState(playing, title, channel, channelUrl, videoId, positionMs, durationMs) }
+                    onPlaybackState(playing, title, channel, channelUrl, videoId, positionMs, durationMs)
                 },
-                onPlaybackEnded = { videoId ->
-                    runOnUiThread { onPlaybackEnded(videoId) }
-                },
+                onPlaybackEnded = { videoId -> onPlaybackEnded(videoId) },
                 onDownloadRequested = { showCurrentDownload() },
                 onQualitySelected = { quality -> saveManualQuality(quality); refreshUi() },
                 onRepeatSelected = { enabled ->
@@ -473,19 +469,33 @@ class MainActivity : LocalizedActivity() {
                     playbackBackend.setRepeatEnabled(enabled)
                     refreshUi()
                 },
-                onCompatibilityReport = { playerFound, videoFound, scriptErrors, ruleVersion ->
-                    runOnUiThread {
-                        val activeRuleVersion = rulePackManager.active().ruleVersion
-                        compatibilityDiagnostics.recordReport(
-                            webView.url,
-                            playerFound,
-                            videoFound,
-                            scriptErrors,
-                            ruleVersion,
-                            activeRuleVersion
-                        )
-                        compatibilityMonitor.onReport(webView.url, playerFound, videoFound, scriptErrors, ruleVersion)
+                onPlaybackRateSelected = { selectedRate ->
+                    val safeRate = selectedRate.coerceIn(0.25f, 4.0f)
+                    if (kotlin.math.abs(preferences.playbackSpeed - safeRate) > 0.01f) {
+                        preferences.playbackSpeed = safeRate
                     }
+                    speedAppliedVideoId = playbackSession.state.videoId
+                    // Run after YouTube's own menu handler has settled. This makes the
+                    // website menu and the app control converge on the same media rate.
+                    webView.postDelayed({
+                        if (!isDestroyed && !isFinishing &&
+                            kotlin.math.abs(preferences.playbackSpeed - safeRate) <= 0.01f) {
+                            playbackBackend.setPlaybackRate(safeRate)
+                        }
+                    }, 180L)
+                    refreshUi()
+                },
+                onCompatibilityReport = { playerFound, videoFound, scriptErrors, ruleVersion ->
+                    val activeRuleVersion = rulePackManager.active().ruleVersion
+                    compatibilityDiagnostics.recordReport(
+                        webView.url,
+                        playerFound,
+                        videoFound,
+                        scriptErrors,
+                        ruleVersion,
+                        activeRuleVersion
+                    )
+                    compatibilityMonitor.onReport(webView.url, playerFound, videoFound, scriptErrors, ruleVersion)
                 }
             ),
             "VideoShieldBridge"
@@ -532,7 +542,7 @@ class MainActivity : LocalizedActivity() {
                     rulePackManager.active(),
                     filterEngine.pageWhitelisted,
                     preferredQualityOverride = effectivePreferredQuality()
-                ) + "\n" + EarlyAdScript.build(preferences) + "\n" + DiscoveryScript.build(preferences.personalizedSuggestions && preferences.rememberHistory) + "\n" + ClientSurfaceScript.player(getString(R.string.ui_download), preferences.lightTheme) +
+                ) + "\n" + EarlyAdScript.build(preferences) + "\n" + ClientSurfaceScript.player(getString(R.string.ui_download), preferences.lightTheme) +
                     (if (isInPictureInPictureMode) "\n" + ClientSurfaceScript.pip(true, pipPlaybackWanted) else "") +
                     (if (playerSurfaceController.minimized) "\n" + ClientSurfaceScript.mini(true, playbackSession.state.playing) else "")
             },
@@ -632,11 +642,18 @@ class MainActivity : LocalizedActivity() {
             displayZoomControls = false
             userAgentString = userAgentString.replace("; wv", "")
         }
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            try {
+                // When the browse surface is hidden behind the dedicated player, allow
+                // Chromium to reclaim its renderer before the whole app is pressured.
+                browseWebView.setRendererPriorityPolicy(WebView.RENDERER_PRIORITY_BOUND, true)
+            } catch (_: Exception) {}
+        }
         CookieManager.getInstance().apply {
             setAcceptCookie(true)
             setAcceptThirdPartyCookies(browseWebView, true)
         }
-        installDiscovery(browseWebView)
+        homeRecommendations.installBridge(browseWebView)
         browseWebView.addJavascriptInterface(BrowseNavigationBridge { target ->
             runOnUiThread {
                 if (!isDestroyed && !isFinishing && YouTubeAdapter.isTrustedBridgeUrl(browseWebView.url)) {
@@ -653,7 +670,7 @@ class MainActivity : LocalizedActivity() {
                     rulePackManager.active(),
                     pageWhitelisted = false,
                     preferredQualityOverride = effectivePreferredQuality()
-                ) + "\n" + EarlyAdScript.build(preferences) + "\n" + DiscoveryScript.build(preferences.personalizedSuggestions && preferences.rememberHistory) + "\n" + ClientSurfaceScript.browse(preferences.lightTheme) + "\n" + BrowseNavigationScript.build() + "\n" + SearchPreviewScript.build()
+                ) + "\n" + EarlyAdScript.build(preferences) + "\n" + DiscoveryScript.build(preferences.personalizedSuggestions && preferences.rememberHistory) + "\n" + ClientSurfaceScript.browse(preferences.lightTheme) + "\n" + BrowseNavigationScript.build() + "\n" + ShortsResourceGuardScript.install() + "\n" + SearchPreviewScript.build()
             },
             onBlocked = { stats.networkBlocked() },
             onUrlChanged = { url ->
@@ -663,10 +680,21 @@ class MainActivity : LocalizedActivity() {
                         promoteBrowsePlayback(url)
                         return@runOnUiThread
                     }
+                    val previousDestination = browseRoute.destination
                     browseRoute = route
-                    preferences.lastBrowseUrl = url
-                    refreshHomeRecommendations()
-                    if (!urlInput.hasFocus()) {
+                    persistBrowseUrl(url, route)
+                    noteShortsTransition(route)
+                    if (route.destination == YouTubeDestination.HOME) {
+                        refreshHomeRecommendations()
+                    } else if (previousDestination == YouTubeDestination.HOME) {
+                        // Release the 24 local Home recommendation cards/thumbnails when
+                        // entering Shorts or another surface; the SPA root itself persists.
+                        browseWebView.evaluateJavascript(HomeRecommendationsScript.clear(), null)
+                    }
+                    // A Shorts swipe changes only the media id, not app chrome. Avoid a
+                    // full native UI refresh and preference write for every vertical swipe.
+                    val chromeChanged = previousDestination != route.destination
+                    if (!urlInput.hasFocus() && (route.destination != YouTubeDestination.SHORTS || chromeChanged)) {
                         urlInput.setText("")
                         urlInput.hint = ClientChromePolicy.forRoute(
                             browseRoute,
@@ -674,7 +702,7 @@ class MainActivity : LocalizedActivity() {
                             pictureInPicture = false
                         ).searchHint.let { if(it == "Search YouTube") getString(R.string.search_youtube) else it }
                     }
-                    refreshUi()
+                    if (route.destination != YouTubeDestination.SHORTS || chromeChanged) refreshUi()
                 }
             },
             onNavigationStarted = { url ->
@@ -704,6 +732,9 @@ class MainActivity : LocalizedActivity() {
             },
             onRendererGone = { didCrash ->
                 runOnUiThread {
+                    // Preserve only the current logical route; the dead Chromium history
+                    // is intentionally not restored after a long Shorts session.
+                    persistBrowseUrl(browseRoute.url, browseRoute, immediate = true)
                     runtimeDiagnostics.recordRestore(
                         if (didCrash) "browse renderer crashed" else "browse renderer terminated",
                         false
@@ -893,16 +924,20 @@ class MainActivity : LocalizedActivity() {
                 playbackBackend.setRepeatEnabled(preferences.autoRepeat)
                 playbackBackend.setPlaybackRate(preferences.playbackSpeed)
             }
+            syncPlayerResourcePolicy()
         }
     }
 
     override fun onPause() {
+        flushPendingBrowseUrl()
+        if (::stats.isInitialized) stats.flush()
         if (::playbackScreenOn.isInitialized) playbackScreenOn.update(false)
         if (::searchSuggestions.isInitialized) searchSuggestions.pause()
         window.decorView.removeCallbacks(uiRefreshFrame)
         uiRefreshPending = false
         setBrowseWebViewPaused(true)
         if (::webViewLifecycle.isInitialized) webViewLifecycle.onActivityPaused()
+        syncPlayerResourcePolicy()
         if (::networkStateMonitor.isInitialized) networkStateMonitor.stop()
         if (::playbackRecovery.isInitialized) playbackRecovery.setActive(false)
         super.onPause()
@@ -920,6 +955,21 @@ class MainActivity : LocalizedActivity() {
         if (!::browseWebView.isInitialized || !::playerSurfaceController.isInitialized) return
         val foreground = !::webViewLifecycle.isInitialized || webViewLifecycle.foreground
         setBrowseWebViewPaused(!foreground || playerSurfaceController.expanded || isInPictureInPictureMode)
+        syncPlayerResourcePolicy()
+    }
+
+    /**
+     * The dedicated watch WebView only needs page imagery while the full player surface is
+     * visible. Disabling future image loads for mini/PiP/background playback leaves media
+     * streaming untouched but avoids related-video/avatar/image churn behind the video.
+     */
+    private fun syncPlayerResourcePolicy() {
+        if (!::webView.isInitialized || !::playerSurfaceController.isInitialized) return
+        val foreground = !::webViewLifecycle.isInitialized || webViewLifecycle.foreground
+        val shouldLoadImages = foreground && playerSurfaceController.expanded && !isInPictureInPictureMode
+        if (playerImagesEnabled == shouldLoadImages) return
+        playerImagesEnabled = shouldLoadImages
+        try { webView.settings.loadsImagesAutomatically = shouldLoadImages } catch (_: Exception) {}
     }
 
     private fun applyPolicyAndRefresh() {
@@ -931,7 +981,7 @@ class MainActivity : LocalizedActivity() {
                     rulePackManager.active(),
                     filterEngine.pageWhitelisted,
                     preferredQualityOverride = effectivePreferredQuality()
-                ) + "\n" + EarlyAdScript.build(preferences) + "\n" + DiscoveryScript.build(preferences.personalizedSuggestions && preferences.rememberHistory) + "\n" + ClientSurfaceScript.player(getString(R.string.ui_download), preferences.lightTheme),
+                ) + "\n" + EarlyAdScript.build(preferences) + "\n" + ClientSurfaceScript.player(getString(R.string.ui_download), preferences.lightTheme),
                 null
             )
         }
@@ -941,7 +991,7 @@ class MainActivity : LocalizedActivity() {
                 rulePackManager.active(),
                 pageWhitelisted = false,
                 preferredQualityOverride = effectivePreferredQuality()
-            ) + "\n" + EarlyAdScript.build(preferences) + "\n" + DiscoveryScript.build(preferences.personalizedSuggestions && preferences.rememberHistory) + "\n" + ClientSurfaceScript.browse(preferences.lightTheme) + "\n" + BrowseNavigationScript.build(),
+            ) + "\n" + EarlyAdScript.build(preferences) + "\n" + DiscoveryScript.build(preferences.personalizedSuggestions && preferences.rememberHistory) + "\n" + ClientSurfaceScript.browse(preferences.lightTheme) + "\n" + BrowseNavigationScript.build() + "\n" + ShortsResourceGuardScript.install(),
             null
         )
         refreshUi()
@@ -1024,8 +1074,8 @@ class MainActivity : LocalizedActivity() {
         }
         val normalized = YouTubeAdapter.normalizeIncomingUrl(url) ?: url
         browseRoute = YouTubeRoute.parse(normalized)
-        if (browseRoute.destination != YouTubeDestination.HOME) homeRecommendationOffset = 0
-        preferences.lastBrowseUrl = normalized
+        if (browseRoute.destination != YouTubeDestination.HOME) homeRecommendations.resetPage()
+        persistBrowseUrl(normalized, browseRoute, immediate = true)
         browseWebView.loadUrl(AppLanguage.youtubeUrl(this,normalized))
         refreshUi()
     }
@@ -1120,13 +1170,31 @@ class MainActivity : LocalizedActivity() {
         playbackRecovery.heartbeat(playing, positionMs)
         playbackHealth.heartbeat(playing, videoId)
         if (playing) recoveryDiagnostics.recordSuccessfulHeartbeat()
-        updatePipActionsIfNeeded()
+        if (delta.previous.playing != session.playing) updatePipActionsIfNeeded()
         webViewLifecycle.updateWakeLock("playback state")
 
         if (pendingResumeRead?.matches(videoId, playerNavigationGeneration) == false) pendingResumeRead = null
         if (delta.videoChanged) {
-            webView.evaluateJavascript(AdBlockScript.build(preferences, rulePackManager.active(),
-                filterEngine.pageWhitelisted, preferredQualityOverride = effectivePreferredQuality()), null)
+            // The shield runtime survives YouTube SPA video changes. Re-injecting the full
+            // ~90 KB policy script here forced JS parsing on every video even though the
+            // configuration had not changed. A lightweight sweep is enough to bind the
+            // new media element; true policy changes still use applyPolicyAndRefresh().
+            webView.evaluateJavascript(
+                "window.__videoShieldSweep && window.__videoShieldSweep(false); " +
+                    "window.__videoShieldScheduleCompatibility && window.__videoShieldScheduleCompatibility();",
+                null
+            )
+
+            // The dedicated watch surface never uses WebView back/forward navigation.
+            // Keep only the current watch entry so long autoplay/queue sessions cannot
+            // accumulate a large Chromium navigation list in RAM.
+            val currentVideoId = videoId
+            webView.post {
+                if (!isDestroyed && !isFinishing && playbackSession.state.videoId == currentVideoId) {
+                    try { webView.clearHistory() } catch (_: Exception) {}
+                }
+            }
+
             currentFavorite = false
             currentQueued = false
             readPlaybackLibraryState(includeResume = true)
@@ -1140,17 +1208,42 @@ class MainActivity : LocalizedActivity() {
         }
 
         if (pendingResumeRead == null && preferences.rememberHistory && videoId.isNotBlank() && YouTubeAdapter.isTrustedBridgeUrl(pageUrl)) {
+            val elapsed = android.os.SystemClock.elapsedRealtime()
             val now = System.currentTimeMillis()
-            val watched = if (preferences.personalizedSuggestions) habitTracker.update(videoId, playing, positionMs, android.os.SystemClock.elapsedRealtime(), preferences.playbackSpeed.toDouble()) else { habitTracker.reset(); 0L }
-            val item = VideoItem(videoId, title, channel, pageUrl, now, positionMs, durationMs)
-            writeLibrary {
-                if (preferences.rememberHistory && now >= preferences.historyClearedAt) {
-                    libraryStore.recordHistory(item, preferences.maxHistoryItems)
-                    if (preferences.personalizedSuggestions && now >= preferences.recommendationsSince) libraryStore.recordWatched(videoId, watched, now)
+            if (historyPersistVideoId != videoId) {
+                val previousVideoId = historyPersistVideoId
+                val carryWatchedMs = pendingWatchedMs
+                if (preferences.personalizedSuggestions && previousVideoId.isNotBlank() && carryWatchedMs > 0L &&
+                    now >= preferences.recommendationsSince) {
+                    writeLibrary { libraryStore.recordWatched(previousVideoId, carryWatchedMs, now) }
+                }
+                historyPersistVideoId = videoId
+                pendingWatchedMs = 0L
+                lastHistoryPersistAt = 0L
+            }
+            val watched = if (preferences.personalizedSuggestions) {
+                habitTracker.update(videoId, playing, positionMs, elapsed, preferences.playbackSpeed.toDouble())
+            } else { habitTracker.reset(); 0L }
+            pendingWatchedMs = (pendingWatchedMs + watched).coerceAtMost(120_000L)
+            val playbackStateChanged = delta.previous.playing != session.playing
+            val shouldPersist = delta.videoChanged || playbackStateChanged || !playing ||
+                elapsed - lastHistoryPersistAt >= HISTORY_PROGRESS_PERSIST_INTERVAL_MS
+            if (shouldPersist) {
+                lastHistoryPersistAt = elapsed
+                val watchedToPersist = pendingWatchedMs
+                pendingWatchedMs = 0L
+                val item = VideoItem(videoId, title, channel, pageUrl, now, positionMs, durationMs)
+                writeLibrary {
+                    if (preferences.rememberHistory && now >= preferences.historyClearedAt) {
+                        libraryStore.recordHistory(item, preferences.maxHistoryItems)
+                        if (preferences.personalizedSuggestions && watchedToPersist > 0L && now >= preferences.recommendationsSince)
+                            libraryStore.recordWatched(videoId, watchedToPersist, now)
+                    }
                 }
             }
         } else {
             habitTracker.reset()
+            pendingWatchedMs = 0L
         }
 
         if (delta.channelChanged) {
@@ -1170,7 +1263,10 @@ class MainActivity : LocalizedActivity() {
                 )
             }
         }
-        refreshUi()
+        val presentationChanged = delta.videoChanged || delta.channelChanged ||
+            delta.previous.playing != session.playing || delta.previous.title != session.title ||
+            delta.previous.durationMs != session.durationMs
+        if (presentationChanged) refreshUi() else updateMiniProgress(session)
         playbackSession.publish(preferences.backgroundControls, preferences.playbackSpeed)
     }
 
@@ -1223,22 +1319,33 @@ class MainActivity : LocalizedActivity() {
     }
 
     private fun playNextFromQueue(manual: Boolean, completedVideoId: String = playbackSession.state.videoId) {
-        ++libraryFlagsRequest
-        if (completedVideoId.isNotBlank() && libraryStore.removeFromQueue(completedVideoId)) {
-            queueCountCache = (queueCountCache - 1).coerceAtLeast(0)
+        val request = ++queueAdvanceRequest
+        val generation = playerNavigationGeneration
+        writeLibrary {
+            val result = runCatching { libraryStore.advanceQueue(completedVideoId) }
+            runOnUiThread {
+                if (isDestroyed || isFinishing || request != queueAdvanceRequest) return@runOnUiThread
+                if (!manual && generation != playerNavigationGeneration && playbackSession.state.videoId != completedVideoId) return@runOnUiThread
+                val advanced = result.getOrNull()
+                if (advanced == null) {
+                    if (manual) Toast.makeText(this, getString(R.string.ui_could_not_load_the_library_reopen_this_tab_to_retry), Toast.LENGTH_SHORT).show()
+                    refreshUi()
+                    return@runOnUiThread
+                }
+                queueCountCache = advanced.queueCount
+                currentQueued = false
+                val next = advanced.next
+                if (next == null) {
+                    if (manual) Toast.makeText(this, getString(R.string.ui_queue_is_empty), Toast.LENGTH_SHORT).show()
+                    else playSuggestedNext(completedVideoId)
+                    refreshUi()
+                    return@runOnUiThread
+                }
+                Toast.makeText(this, getString(R.string.up_next, next.title), Toast.LENGTH_SHORT).show()
+                openPlayer(next.url, expand = playerSurfaceController.expanded)
+                refreshUi()
+            }
         }
-        val next = libraryStore.popNext() ?: run {
-            currentQueued = false
-            if (manual) Toast.makeText(this, getString(R.string.ui_queue_is_empty), Toast.LENGTH_SHORT).show()
-            else playSuggestedNext(completedVideoId)
-            refreshUi()
-            return
-        }
-        queueCountCache = (queueCountCache - 1).coerceAtLeast(0)
-        currentQueued = false
-        Toast.makeText(this, getString(R.string.up_next,next.title), Toast.LENGTH_SHORT).show()
-        openPlayer(next.url, expand = playerSurfaceController.expanded)
-        refreshUi()
     }
 
     private fun playSuggestedNext(completedId: String) {
@@ -1317,31 +1424,38 @@ class MainActivity : LocalizedActivity() {
     }
 
     private fun toggleCurrentQueue() {
-        ++libraryFlagsRequest
         val session = playbackSession.state
         if (session.videoId.isBlank()) return
-        if (currentQueued) {
-            if (libraryStore.removeFromQueue(session.videoId)) queueCountCache = (queueCountCache - 1).coerceAtLeast(0)
-            currentQueued = false
-            Toast.makeText(this, getString(R.string.ui_removed_from_queue), Toast.LENGTH_SHORT).show()
-        } else {
-            val item = VideoItem(
-                session.videoId,
-                session.title.ifBlank { getString(R.string.youtube_video) },
-                session.channel,
-                webView.url.orEmpty(),
-                System.currentTimeMillis(),
-                session.positionMs,
-                session.durationMs
-            )
-            if (libraryStore.enqueue(item)) {
-                queueCountCache += 1
-                currentQueued = true
-                Toast.makeText(this, getString(R.string.ui_added_to_queue), Toast.LENGTH_SHORT).show()
+        val key = PlaybackReadKey(session.videoId, playerNavigationGeneration)
+        val request = ++libraryFlagsRequest
+        val item = VideoItem(
+            session.videoId,
+            session.title.ifBlank { getString(R.string.youtube_video) },
+            session.channel,
+            webView.url.orEmpty(),
+            System.currentTimeMillis(),
+            session.positionMs,
+            session.durationMs
+        )
+        writeLibrary {
+            val result = runCatching { libraryStore.toggleQueue(item) }
+            runOnUiThread {
+                if (isDestroyed || isFinishing || request != libraryFlagsRequest ||
+                    !key.matches(playbackSession.state.videoId, playerNavigationGeneration)) return@runOnUiThread
+                result.onSuccess { state ->
+                    currentQueued = state.queued
+                    queueCountCache = state.queueCount
+                    Toast.makeText(
+                        this,
+                        getString(if (state.queued) R.string.ui_added_to_queue else R.string.ui_removed_from_queue),
+                        Toast.LENGTH_SHORT
+                    ).show()
+                }.onFailure {
+                    Toast.makeText(this, getString(R.string.ui_could_not_save_the_change_please_retry), Toast.LENGTH_SHORT).show()
+                }
+                refreshUi()
             }
         }
-        readPlaybackLibraryState(includeResume = false)
-        refreshUi()
     }
 
     private fun cyclePlaybackSpeed() {
@@ -1786,13 +1900,19 @@ class MainActivity : LocalizedActivity() {
             setIcon(if (session.playing) R.drawable.ic_ui_pause else R.drawable.ic_ui_play)
             contentDescription = if (session.playing) getString(R.string.ui_pause) else getString(R.string.ui_play)
         }
-        findViewById<ProgressBar>(R.id.miniPlayerProgress).progress = if (session.durationMs > 0L) {
-            ((session.positionMs.coerceIn(0L, session.durationMs) * 1000L) / session.durationMs).toInt()
-        } else 0
+        updateMiniProgress(session)
         updateBrowserChromeVisibility(if (::webView.isInitialized) webView.url else null)
         updateBottomNavigation()
         val sleepMinutes = if (::sleepTimerController.isInitialized) sleepTimerController.remainingMinutes() else 0
         findViewById<Button>(R.id.sleepButton).setTextIfChanged(if (sleepMinutes > 0) getString(R.string.sleep_button,sleepMinutes) else getString(R.string.ui_sleep))
+    }
+
+
+    private fun updateMiniProgress(session: PlaybackSessionState) {
+        if (isDestroyed || isFinishing) return
+        findViewById<ProgressBar>(R.id.miniPlayerProgress).progress = if (session.durationMs > 0L) {
+            ((session.positionMs.coerceIn(0L, session.durationMs) * 1000L) / session.durationMs).toInt()
+        } else 0
     }
 
     private fun updateBottomNavigation() {
@@ -1917,11 +2037,25 @@ class MainActivity : LocalizedActivity() {
     override fun onTrimMemory(level: Int) {
         super.onTrimMemory(level)
         if (::webViewLifecycle.isInitialized) webViewLifecycle.onTrimMemory(level)
+        if (::browseWebView.isInitialized && ::preferences.isInitialized && preferences.memoryHardening &&
+            browseRoute.destination == YouTubeDestination.SHORTS &&
+            level >= ComponentCallbacks2.TRIM_MEMORY_RUNNING_LOW) {
+            browseWebView.evaluateJavascript(ShortsResourceGuardScript.trim(true), null)
+        }
+        if (::webView.isInitialized && ::playbackSession.isInitialized && ::preferences.isInitialized &&
+            preferences.memoryHardening && !playbackSession.state.playing &&
+            level >= ComponentCallbacks2.TRIM_MEMORY_BACKGROUND) {
+            try { webView.clearCache(false) } catch (_: Exception) {}
+        }
     }
 
     override fun onLowMemory() {
         super.onLowMemory()
         if (::webViewLifecycle.isInitialized) webViewLifecycle.onLowMemory()
+        if (::browseWebView.isInitialized && ::preferences.isInitialized && preferences.memoryHardening &&
+            browseRoute.destination == YouTubeDestination.SHORTS) {
+            browseWebView.evaluateJavascript(ShortsResourceGuardScript.trim(true), null)
+        }
     }
 
     private fun checkRuleUpdatesIfDue() {
@@ -1988,17 +2122,32 @@ class MainActivity : LocalizedActivity() {
         outState.putString("app_language_tag",uiLanguageTag)
         if (::browseWebView.isInitialized) {
             try {
-                val browseState = Bundle()
-                browseWebView.saveState(browseState)
-                outState.putBundle(STATE_BROWSE_WEBVIEW, browseState)
+                val currentBrowseUrl = browseWebView.url.orEmpty().ifBlank { browseRoute.url }
+                outState.putString(STATE_BROWSE_URL, currentBrowseUrl)
+                // Do not serialize a potentially huge Shorts SPA history into the
+                // Activity Bundle. The current URL is enough to restore that surface.
+                if (YouTubeRoute.parse(currentBrowseUrl).destination != YouTubeDestination.SHORTS) {
+                    val browseState = Bundle()
+                    browseWebView.saveState(browseState)
+                    outState.putBundle(STATE_BROWSE_WEBVIEW, browseState)
+                }
             } catch (_: Exception) {}
         }
         if (::webView.isInitialized && !rendererGone) {
             try {
-                val playerState = Bundle()
-                webView.saveState(playerState)
-                outState.putBundle(STATE_PLAYER_WEBVIEW, playerState)
+                val currentPlayerUrl = webView.url.orEmpty().ifBlank { playerRoute.url }
+                outState.putString(STATE_PLAYER_URL, currentPlayerUrl)
                 outState.putString(STATE_PLAYER_SURFACE, playerSurfaceController.state.name)
+
+                // WebView.saveState serializes the navigation list. Long watch sessions can
+                // otherwise create a large Activity Bundle. Keep the rich state only for a
+                // short history; longer sessions restore from URL + playback snapshot.
+                val historySize = runCatching { webView.copyBackForwardList().size }.getOrDefault(0)
+                if (historySize in 1..PLAYER_WEBVIEW_STATE_HISTORY_LIMIT) {
+                    val playerState = Bundle()
+                    webView.saveState(playerState)
+                    outState.putBundle(STATE_PLAYER_WEBVIEW, playerState)
+                }
             } catch (_: Exception) {}
         }
         super.onSaveInstanceState(outState)
@@ -2039,6 +2188,8 @@ class MainActivity : LocalizedActivity() {
     }
 
     override fun onDestroy() {
+        if (::browseSession.isInitialized) browseSession.close()
+        if (::stats.isInitialized) stats.flush()
         if (::playbackScreenOn.isInitialized) playbackScreenOn.update(false)
         quickActionSheet?.dismiss()
         EqDialog.dismiss(this)
@@ -2046,13 +2197,10 @@ class MainActivity : LocalizedActivity() {
         if (::searchSuggestions.isInitialized) searchSuggestions.close()
         window.decorView.removeCallbacks(uiRefreshFrame)
         uiRefreshPending = false
-        libraryWorker.execute { if (::libraryStore.isInitialized) libraryStore.close() }
-        libraryWorker.shutdown()
+        if (::homeRecommendations.isInitialized) homeRecommendations.close()
+        libraryTasks.shutdownAfter { if (::libraryStore.isInitialized) libraryStore.close() }
         if (::playerController.isInitialized) playerController.release()
-        if (isFinishing) {
-            if (::webViewLifecycle.isInitialized) webViewLifecycle.release("activity finishing")
-            if (::playbackSession.isInitialized) playbackSession.stopService()
-        }
+        if (isFinishing && ::playbackSession.isInitialized) playbackSession.stopService()
         if (::sleepTimerController.isInitialized) sleepTimerController.dispose()
         if (::playbackRecovery.isInitialized) playbackRecovery.dispose()
         if (::networkStateMonitor.isInitialized) networkStateMonitor.stop()
@@ -2084,10 +2232,14 @@ class MainActivity : LocalizedActivity() {
         super.onDestroy()
     }
     companion object {
+        private const val HISTORY_PROGRESS_PERSIST_INTERVAL_MS = 20_000L
         private const val RESTORE_SNAPSHOT_MAX_AGE_MS = 12L * 60L * 60L * 1000L
         private const val STATE_BROWSE_WEBVIEW = "browse_webview_state"
+        private const val STATE_BROWSE_URL = "browse_url"
         private const val STATE_PLAYER_WEBVIEW = "player_webview_state"
+        private const val STATE_PLAYER_URL = "player_url"
         private const val STATE_PLAYER_SURFACE = "player_surface_state"
+        private const val PLAYER_WEBVIEW_STATE_HISTORY_LIMIT = 6
     }
 
 }

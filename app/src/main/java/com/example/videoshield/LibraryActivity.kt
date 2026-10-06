@@ -30,6 +30,7 @@ class LibraryActivity : LocalizedActivity() {
     private lateinit var store: LibraryStore
     private lateinit var preferences: ShieldPreferences
     private lateinit var snapshotStore: PlaybackSnapshotStore
+    private lateinit var searchHistoryStore: SearchHistoryStore
     private lateinit var list: ListView
     private lateinit var empty: TextView
     private lateinit var title: TextView
@@ -38,7 +39,7 @@ class LibraryActivity : LocalizedActivity() {
     private lateinit var miniPlayerBar: SwipeDismissLayout
     private var mode: String = MODE_HISTORY
     private var relatedVideo: VideoItem? = null
-    private val suggestionWorker = java.util.concurrent.Executors.newSingleThreadExecutor()
+    private val libraryTasks = SerialTaskQueue("library-screen", 20L)
     private var refreshGeneration = 0
     private var loadedRows: List<LibraryRow> = emptyList()
     private lateinit var search: EditText
@@ -68,6 +69,7 @@ class LibraryActivity : LocalizedActivity() {
         preferences = ShieldPreferences(this)
         store = LibraryStore(this)
         snapshotStore = PlaybackSnapshotStore(this)
+        searchHistoryStore = SearchHistoryStore(this)
         list = findViewById(R.id.libraryList)
         empty = findViewById(R.id.libraryEmpty)
         title = findViewById(R.id.libraryTitle)
@@ -163,6 +165,11 @@ class LibraryActivity : LocalizedActivity() {
         super.onPause()
     }
 
+    override fun onTrimMemory(level: Int) {
+        super.onTrimMemory(level)
+        thumbnails.trimMemory(level)
+    }
+
     private fun applyThemeSurface() {
         AppTheme.applySystemBars(this)
         findViewById<View>(R.id.libraryRoot).setBackgroundColor(AppTheme.background(this))
@@ -236,21 +243,33 @@ class LibraryActivity : LocalizedActivity() {
         empty.text = getString(R.string.ui_loading)
         val since = preferences.recommendationsSince
         val focus = relatedVideo
-        val recentSearches = SearchHistoryStore(this).recent(24).filter { it.usedAt >= since }.map { it.query }
-        suggestionWorker.execute {
+        val recentSearches = if (selected == MODE_FOR_YOU) {
+            searchHistoryStore.recent(24).filter { it.usedAt >= since }.map { it.query }
+        } else {
+            emptyList()
+        }
+        libraryTasks.executeLatest(REFRESH_TASK) {
             val result = runCatching {
-                val favorites = store.favoriteIds()
                 when (selected) {
                     MODE_RELATED -> {
                         val seed = focus ?: store.history(1).firstOrNull()
                         if (seed == null) emptyList() else store.recommendations(since, focus = seed).map { LibraryRow.Suggestion(it) }
                     }
                     MODE_FOR_YOU -> store.recommendations(since, searchQueries = recentSearches).map { LibraryRow.Suggestion(it) }
-                    MODE_CONTINUE -> store.history(1000).filter(LibraryPolicy::canResume).map { LibraryRow.Video(it, it.videoId in favorites, false) }
+                    MODE_CONTINUE -> {
+                        val favorites = store.favoriteIds()
+                        store.history(1000).filter(LibraryPolicy::canResume).map { LibraryRow.Video(it, it.videoId in favorites, false) }
+                    }
                     MODE_FAVORITES -> store.favorites().map { LibraryRow.Video(it, true, false) }
-                    MODE_QUEUE -> store.queue().map { LibraryRow.Video(it, it.videoId in favorites, true) }
+                    MODE_QUEUE -> {
+                        val favorites = store.favoriteIds()
+                        store.queue().map { LibraryRow.Video(it, it.videoId in favorites, true) }
+                    }
                     MODE_SUBSCRIPTIONS -> store.subscriptions().map { LibraryRow.Channel(it) }
-                    else -> store.history().map { LibraryRow.Video(it, it.videoId in favorites, false) }
+                    else -> {
+                        val favorites = store.favoriteIds()
+                        store.history().map { LibraryRow.Video(it, it.videoId in favorites, false) }
+                    }
                 }
             }
             runOnUiThread {
@@ -303,7 +322,7 @@ class LibraryActivity : LocalizedActivity() {
     }
 
     private fun mutate(message: String? = null, action: () -> Unit) {
-        suggestionWorker.execute {
+        libraryTasks.execute {
             val result = runCatching(action)
             runOnUiThread {
                 if (isDestroyed || isFinishing) return@runOnUiThread
@@ -361,7 +380,7 @@ class LibraryActivity : LocalizedActivity() {
     }
 
     private fun showRecommendationControls() {
-        suggestionWorker.execute {
+        libraryTasks.execute {
             val result = runCatching { store.blockedChannels().toTypedArray() }
             runOnUiThread {
                 if (isDestroyed || isFinishing) return@runOnUiThread
@@ -455,7 +474,7 @@ class LibraryActivity : LocalizedActivity() {
             else -> null
         } }.filter { LibraryPolicy.matches(query, it.title, it.channel) }.distinctBy { it.videoId }.take(50).let { if (shuffle) it.shuffled() else it }
         if (videos.isEmpty()) { Toast.makeText(this, getString(R.string.ui_no_videos_to_play), Toast.LENGTH_SHORT).show(); return }
-        suggestionWorker.execute {
+        libraryTasks.execute {
             val result = runCatching {
                 store.prepareCollection(videos)
             }
@@ -606,7 +625,7 @@ class LibraryActivity : LocalizedActivity() {
             text.text = "${row.item.title}\n${row.item.channel}$progress"
             text.setOnClickListener {
                 if (row.queued) {
-                    suggestionWorker.execute {
+                    libraryTasks.execute {
                         val removed = runCatching { store.removeFromQueue(row.item.videoId) }
                         runOnUiThread {
                             if (!isDestroyed && !isFinishing) {
@@ -725,12 +744,13 @@ class LibraryActivity : LocalizedActivity() {
         miniPlayerHandler.removeCallbacks(searchFilter)
         thumbnails.close()
         ++refreshGeneration
-        suggestionWorker.execute { store.close() }
-        suggestionWorker.shutdown()
+        libraryTasks.cancelPending(REFRESH_TASK)
+        libraryTasks.shutdownAfter { store.close() }
         super.onDestroy()
     }
 
     companion object {
+        private const val REFRESH_TASK = "library-refresh"
         const val EXTRA_MODE = "mode"
         const val MODE_CONTINUE = "continue"
         const val MODE_HISTORY = "history"

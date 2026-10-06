@@ -29,25 +29,25 @@ object SearchPreviewScript {
             image.loading='lazy'; image.decoding='async';
             image.src='https://i.ytimg.com/vi/'+id+'/mqdefault.jpg';
           };
-          const observed=new WeakSet();
+          let observed=new WeakSet();
           const visible=new IntersectionObserver(entries=>{
             for(const entry of entries) if(entry.isIntersecting) repair(entry.target);
           },{rootMargin:'240px'});
           let pending=false;
+          let observing=false;
           const scan=()=>{
             pending=false;
             if (!active()) return;
             for(const link of document.querySelectorAll(selector)) {
               if(!observed.has(link)) { observed.add(link); visible.observe(link); }
-              const rect=link.getBoundingClientRect();
-              if(rect.bottom>=-240 && rect.top<=innerHeight+240) repair(link);
             }
           };
           const schedule=()=>{
             if(pending || !active()) return;
             pending=true; setTimeout(scan,250);
           };
-          new MutationObserver((records)=>{
+          const mutations=new MutationObserver((records)=>{
+            if (!active()) return;
             // YouTube replaces result trees during SPA search. Release detached
             // targets so the observer does not retain earlier keyword results.
             for(const record of records) for(const node of record.removedNodes) {
@@ -57,15 +57,30 @@ object SearchPreviewScript {
               for(const link of detached) { visible.unobserve(link); observed.delete(link); }
             }
             schedule();
-          }).observe(document.documentElement,{childList:true,subtree:true});
+          });
+          const syncObserver=()=>{
+            if(active()) {
+              if(!observing) {
+                mutations.observe(document.documentElement,{childList:true,subtree:true});
+                observing=true;
+              }
+              schedule();
+            } else if(observing) {
+              mutations.disconnect();
+              visible.disconnect();
+              observed=new WeakSet();
+              observing=false;
+            }
+          };
           document.addEventListener('error',event=>{
+            if(!active()) return;
             const link=event.target.closest?.(selector);
             if(link) repair(link);
           },true);
-          document.addEventListener('visibilitychange',schedule);
-          document.addEventListener('yt-navigate-finish',schedule,true);
-          window.addEventListener('popstate',schedule);
-          schedule();
+          document.addEventListener('visibilitychange',syncObserver);
+          document.addEventListener('yt-navigate-finish',syncObserver,true);
+          window.addEventListener('popstate',syncObserver);
+          syncObserver();
         })();
     """.trimIndent()
 }

@@ -14,7 +14,8 @@ class VideoShieldBridge(
     private val onCompatibilityReport: (Boolean, Boolean, Int, Int) -> Unit,
     private val onDownloadRequested: () -> Unit,
     private val onQualitySelected: (String) -> Unit = {},
-    private val onRepeatSelected: (Boolean) -> Unit = {}
+    private val onRepeatSelected: (Boolean) -> Unit = {},
+    private val onPlaybackRateSelected: (Float) -> Unit = {}
 ) {
     private val mainHandler = Handler(Looper.getMainLooper())
 
@@ -40,6 +41,18 @@ class VideoShieldBridge(
     @JavascriptInterface
     fun onRepeatSelected(enabled: Boolean) {
         dispatch { onRepeatSelected.invoke(enabled) }
+    }
+
+    /**
+     * Mirrors a playback-speed selection made in YouTube's own settings sheet.
+     * Keeping this in the native preference store prevents the sticky playback-rate
+     * policy from immediately restoring the previous app-side value.
+     */
+    @JavascriptInterface
+    fun onPlaybackRateSelected(rate: Double) {
+        if (!rate.isFinite()) return
+        val safe = rate.toFloat().coerceIn(0.25f, 4.0f)
+        dispatch { onPlaybackRateSelected.invoke(safe) }
     }
 
     @JavascriptInterface

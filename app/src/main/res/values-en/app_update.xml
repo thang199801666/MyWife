@@ -9,7 +9,7 @@
     <string name="app_update_up_to_date">Already up to date.</string>
     <string name="app_update_incompatible">The new version is not supported on this device.</string>
     <string name="app_update_available">Version %1$s available</string>
-    <string name="app_update_size">%1$d MB • ARM64</string>
+    <string name="app_update_size">%1$d MB</string>
     <string name="app_update_download">Download</string>
     <string name="app_update_downloading">Downloading…</string>
     <string name="app_update_download_failed">Download failed. Retry.</string>
@@ -21,7 +21,7 @@
     <string name="app_update_releases">GitHub</string>
     <string name="app_update_browser_missing">Could not open browser.</string>
     <string name="app_update_startup_title">Update available</string>
-    <string name="app_update_startup_message">Vợ Tui %1$s • ~%2$d MB</string>
+    <string name="app_update_startup_message">%1$s • ~%2$d MB</string>
     <string name="app_update_now">Update</string>
     <string name="app_update_later">Later</string>
 </resources>

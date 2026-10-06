@@ -8,7 +8,9 @@ import java.net.URLEncoder
 import java.security.MessageDigest
 import java.util.Collections
 import java.util.LinkedHashMap
-import java.util.concurrent.Executors
+import java.util.concurrent.ArrayBlockingQueue
+import java.util.concurrent.ThreadPoolExecutor
+import java.util.concurrent.TimeUnit
 
 data class CommunitySegment(
     val startMs: Long,
@@ -24,9 +26,11 @@ data class CommunitySegment(
  * full hash before any segment is exposed to playback code.
  */
 class CommunitySegmentClient {
-    private val executor = Executors.newSingleThreadExecutor { runnable ->
-        Thread(runnable, "YouTooBee-SegmentLookup").apply { isDaemon = true }
-    }
+    private val executor = ThreadPoolExecutor(
+        1, 1, 20L, TimeUnit.SECONDS, ArrayBlockingQueue(2),
+        { runnable -> Thread(runnable, "YouTooBee-SegmentLookup").apply { isDaemon = true } },
+        ThreadPoolExecutor.DiscardOldestPolicy()
+    ).apply { allowCoreThreadTimeOut(true) }
     private val cache = Collections.synchronizedMap(object : LinkedHashMap<String, List<CommunitySegment>>(24, 0.75f, true) {
         override fun removeEldestEntry(eldest: MutableMap.MutableEntry<String, List<CommunitySegment>>?): Boolean = size > 24
     })

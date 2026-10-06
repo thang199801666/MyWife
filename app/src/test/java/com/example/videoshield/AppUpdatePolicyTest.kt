@@ -12,8 +12,7 @@ class AppUpdatePolicyTest {
         assetName = "VoTui-v0.1.2-release-arm64-v8a.apk",
         apkUrl = "https://github.com/thang199801666/MyWife/releases/download/v0.1.2/VoTui-v0.1.2-release-arm64-v8a.apk",
         size = 10L * 1024 * 1024,
-        sha256 = "0".repeat(64),
-        notes = "Test"
+        sha256 = "0".repeat(64)
     )
 
     @Test fun newerCompatibleReleaseIsAvailable() {

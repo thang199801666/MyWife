@@ -18,11 +18,16 @@ import android.os.Handler
 import android.os.Looper
 import java.net.HttpURLConnection
 import java.net.URL
-import java.util.concurrent.Executors
+import java.util.concurrent.ArrayBlockingQueue
+import java.util.concurrent.ThreadPoolExecutor
+import java.util.concurrent.TimeUnit
 
 class PlaybackService : Service() {
     private lateinit var mediaSession: MediaSession
-    private val artworkExecutor = Executors.newSingleThreadExecutor()
+    private val artworkExecutor = ThreadPoolExecutor(
+        1, 1, 15L, TimeUnit.SECONDS, ArrayBlockingQueue(1),
+        ThreadPoolExecutor.DiscardOldestPolicy()
+    ).apply { allowCoreThreadTimeOut(true) }
     private val handler = Handler(Looper.getMainLooper())
     private var isPlaying = false
     private var title = "Vợ Tui"
@@ -34,10 +39,12 @@ class PlaybackService : Service() {
     private var artwork: Bitmap? = null
     private var artworkVideoId = ""
     private var lastPlayerUpdateAt = 0L
+    private var foregroundStarted = false
 
     private val staleSessionCheck = object : Runnable {
         override fun run() {
-            if (isPlaying && lastPlayerUpdateAt > 0L &&
+            if (!isPlaying) return
+            if (lastPlayerUpdateAt > 0L &&
                 System.currentTimeMillis() - lastPlayerUpdateAt >= STALE_PLAYBACK_TIMEOUT_MS
             ) {
                 RuntimeDiagnosticsStore(this@PlaybackService).recordStaleServiceStop()
@@ -47,6 +54,11 @@ class PlaybackService : Service() {
             }
             handler.postDelayed(this, STALE_CHECK_INTERVAL_MS)
         }
+    }
+
+    private fun syncStaleCheck() {
+        handler.removeCallbacks(staleSessionCheck)
+        if (isPlaying) handler.postDelayed(staleSessionCheck, STALE_CHECK_INTERVAL_MS)
     }
 
     override fun onCreate() {
@@ -67,43 +79,81 @@ class PlaybackService : Service() {
             })
             isActive = true
         }
-        handler.postDelayed(staleSessionCheck, STALE_CHECK_INTERVAL_MS)
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        var metadataChanged = !foregroundStarted
+        var notificationChanged = !foregroundStarted
+
         when (intent?.action) {
             ACTION_UPDATE -> {
                 lastPlayerUpdateAt = System.currentTimeMillis()
-                isPlaying = intent.getBooleanExtra(EXTRA_PLAYING, false)
-                title = intent.getStringExtra(EXTRA_TITLE).orEmpty().ifBlank { "YouTube" }
-                channel = intent.getStringExtra(EXTRA_CHANNEL).orEmpty().ifBlank { getString(R.string.app_name) }
-                durationMs = intent.getLongExtra(EXTRA_DURATION_MS, durationMs).coerceAtLeast(0L)
-                positionMs = PlaybackProgressPolicy.normalize(
+
+                val newPlaying = intent.getBooleanExtra(EXTRA_PLAYING, false)
+                val newTitle = intent.getStringExtra(EXTRA_TITLE).orEmpty().ifBlank { "YouTube" }
+                val newChannel = intent.getStringExtra(EXTRA_CHANNEL).orEmpty().ifBlank { getString(R.string.app_name) }
+                val newDuration = intent.getLongExtra(EXTRA_DURATION_MS, durationMs).coerceAtLeast(0L)
+                val newPosition = PlaybackProgressPolicy.normalize(
                     intent.getLongExtra(EXTRA_POSITION_MS, positionMs),
-                    durationMs
+                    newDuration
                 )
-                playbackRate = intent.getFloatExtra(EXTRA_PLAYBACK_RATE, playbackRate).coerceIn(0.25f, 4f)
+                val newRate = intent.getFloatExtra(EXTRA_PLAYBACK_RATE, playbackRate).coerceIn(0.25f, 4f)
                 val newVideoId = intent.getStringExtra(EXTRA_VIDEO_ID).orEmpty().take(64)
+
+                metadataChanged = metadataChanged || newTitle != title || newChannel != channel ||
+                    newDuration != durationMs || (newVideoId.isNotBlank() && newVideoId != videoId)
+                notificationChanged = notificationChanged || metadataChanged || newPlaying != isPlaying ||
+                    kotlin.math.abs(newRate - playbackRate) > 0.01f
+
+                isPlaying = newPlaying
+                title = newTitle
+                channel = newChannel
+                durationMs = newDuration
+                positionMs = newPosition
+                playbackRate = newRate
+
                 if (newVideoId.isNotBlank() && newVideoId != videoId) {
                     videoId = newVideoId
                     artwork = null
                     requestArtwork(newVideoId)
                 }
             }
-            ACTION_PLAY -> { lastPlayerUpdateAt = System.currentTimeMillis(); isPlaying = true; sendCommand(CMD_PLAY) }
-            ACTION_PAUSE -> { isPlaying = false; sendCommand(CMD_PAUSE) }
+            ACTION_PLAY -> {
+                lastPlayerUpdateAt = System.currentTimeMillis()
+                if (!isPlaying) notificationChanged = true
+                isPlaying = true
+                sendCommand(CMD_PLAY)
+            }
+            ACTION_PAUSE -> {
+                if (isPlaying) notificationChanged = true
+                isPlaying = false
+                sendCommand(CMD_PAUSE)
+            }
             ACTION_BACK -> sendCommand(CMD_SEEK_BACK)
             ACTION_FORWARD -> sendCommand(CMD_SEEK_FORWARD)
             ACTION_NEXT -> sendCommand(CMD_QUEUE_NEXT)
-            ACTION_STOP -> { sendCommand(CMD_STOP); stopSelf(); return START_NOT_STICKY }
+            ACTION_STOP -> {
+                sendCommand(CMD_STOP)
+                stopSelf()
+                return START_NOT_STICKY
+            }
             ACTION_TOGGLE -> {
                 isPlaying = !isPlaying
+                notificationChanged = true
                 if (isPlaying) lastPlayerUpdateAt = System.currentTimeMillis()
                 sendCommand(if (isPlaying) CMD_PLAY else CMD_PAUSE)
             }
         }
-        updateSession()
-        startForeground(NOTIFICATION_ID, buildNotification())
+
+        syncStaleCheck()
+        updateSession(metadataChanged)
+
+        if (!foregroundStarted) {
+            startForeground(NOTIFICATION_ID, buildNotification())
+            foregroundStarted = true
+        } else if (notificationChanged) {
+            notifyPlaybackChanged()
+        }
         return START_NOT_STICKY
     }
 
@@ -124,29 +174,32 @@ class PlaybackService : Service() {
     override fun onDestroy() {
         handler.removeCallbacksAndMessages(null)
         artworkExecutor.shutdownNow()
+        foregroundStarted = false
         mediaSession.release()
         super.onDestroy()
     }
 
     override fun onBind(intent: Intent?): IBinder? = null
 
-    private fun updateSession() {
+    private fun updateSession(metadataChanged: Boolean = false) {
         val state = if (isPlaying) PlaybackState.STATE_PLAYING else PlaybackState.STATE_PAUSED
-        mediaSession.setMetadata(
-            MediaMetadata.Builder()
-                .putString(MediaMetadata.METADATA_KEY_TITLE, title)
-                .putString(MediaMetadata.METADATA_KEY_ARTIST, channel)
-                .putString(MediaMetadata.METADATA_KEY_DISPLAY_TITLE, title)
-                .putString(MediaMetadata.METADATA_KEY_DISPLAY_SUBTITLE, channel)
-                .putLong(MediaMetadata.METADATA_KEY_DURATION, durationMs)
-                .apply {
-                    artwork?.let {
-                        putBitmap(MediaMetadata.METADATA_KEY_ART, it)
-                        putBitmap(MediaMetadata.METADATA_KEY_ALBUM_ART, it)
+        if (metadataChanged) {
+            mediaSession.setMetadata(
+                MediaMetadata.Builder()
+                    .putString(MediaMetadata.METADATA_KEY_TITLE, title)
+                    .putString(MediaMetadata.METADATA_KEY_ARTIST, channel)
+                    .putString(MediaMetadata.METADATA_KEY_DISPLAY_TITLE, title)
+                    .putString(MediaMetadata.METADATA_KEY_DISPLAY_SUBTITLE, channel)
+                    .putLong(MediaMetadata.METADATA_KEY_DURATION, durationMs)
+                    .apply {
+                        artwork?.let {
+                            putBitmap(MediaMetadata.METADATA_KEY_ART, it)
+                            putBitmap(MediaMetadata.METADATA_KEY_ALBUM_ART, it)
+                        }
                     }
-                }
-                .build()
-        )
+                    .build()
+            )
+        }
         mediaSession.setPlaybackState(
             PlaybackState.Builder()
                 .setActions(
@@ -157,6 +210,11 @@ class PlaybackService : Service() {
                 .setState(state, positionMs, if (isPlaying) playbackRate else 0f)
                 .build()
         )
+    }
+
+    private fun notifyPlaybackChanged() {
+        val manager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+        manager.notify(NOTIFICATION_ID, buildNotification())
     }
 
     private fun buildNotification(): Notification {
@@ -190,27 +248,26 @@ class PlaybackService : Service() {
     }
 
     private fun requestArtwork(id: String) {
-        if (!id.matches(Regex("[A-Za-z0-9_-]{6,20}")) || artworkVideoId == id) return
+        if (!VIDEO_ID.matches(id) || artworkVideoId == id) return
         artworkVideoId = id
         artworkExecutor.execute {
             val bitmap = try {
-                val connection = URL("https://i.ytimg.com/vi/$id/hqdefault.jpg").openConnection() as HttpURLConnection
+                val connection = URL("https://i.ytimg.com/vi/$id/mqdefault.jpg").openConnection() as HttpURLConnection
                 connection.connectTimeout = 4_000
                 connection.readTimeout = 4_000
                 connection.instanceFollowRedirects = true
                 connection.inputStream.use { input ->
                     BitmapFactory.decodeStream(input, null, BitmapFactory.Options().apply {
-                        // Notification artwork never needs the full 480x360 source bitmap.
-                        // Sampling cuts the retained pixel allocation by roughly 75%.
+                        // Use YouTube's smaller 320x180 notification source and decode it near
+                        // final display size to reduce both network bytes and retained bitmap RAM.
                         inSampleSize = 2
                     })
                 }.also { connection.disconnect() }
             } catch (_: Exception) { null }
             if (bitmap != null && videoId == id) {
                 artwork = bitmap
-                updateSession()
-                val manager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-                manager.notify(NOTIFICATION_ID, buildNotification())
+                updateSession(metadataChanged = true)
+                if (foregroundStarted) notifyPlaybackChanged()
             }
         }
     }
@@ -284,5 +341,6 @@ class PlaybackService : Service() {
         private const val NOTIFICATION_ID = 201
         private const val STALE_CHECK_INTERVAL_MS = 30_000L
         private const val STALE_PLAYBACK_TIMEOUT_MS = 75_000L
+        private val VIDEO_ID = Regex("[A-Za-z0-9_-]{6,20}")
     }
 }

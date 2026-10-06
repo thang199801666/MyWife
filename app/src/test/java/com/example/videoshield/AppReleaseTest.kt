@@ -31,8 +31,14 @@ class AppReleaseTest {
         val parsed = AppRelease.parse(release(), manifest(), "com.example.videoshield")
         assertEquals(41L, parsed.versionCode)
         assertEquals("0.1.0", parsed.versionName)
-        assertEquals("New update", parsed.notes)
         assertTrue(AppRelease.manifestUrl(release()).endsWith("/v0.1.0/update.json"))
+    }
+
+    @Test fun releaseBodyIsNotPartOfAppUpdateMetadata() {
+        val noisy = release().put("body", "internal build diagnostics ".repeat(1000))
+        val parsed = AppRelease.parse(noisy, manifest(), "com.example.videoshield")
+        assertEquals("0.1.0", parsed.versionName)
+        assertEquals(54344788L, parsed.size)
     }
 
     @Test fun refusesDraftsAndPrereleases() {

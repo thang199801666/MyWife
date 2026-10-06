@@ -25,20 +25,19 @@ class WebViewLifecycleCoordinator(
     var webViewPaused: Boolean = false
         private set
 
+    private var resumeGeneration = 0L
+    private var pendingResume: Runnable? = null
+
     fun onActivityResumed() {
         foreground = true
         runtimeDiagnostics.recordForeground()
-        val resume = Runnable { setPaused(false, "activity resumed • ${devicePolicy.profile}") }
-        if (devicePolicy.webViewResumeDelayMs > 0L && webViewPaused) {
-            webView.postDelayed(resume, devicePolicy.webViewResumeDelayMs)
-        } else {
-            resume.run()
-        }
+        scheduleResume()
         updateWakeLock("activity resumed")
     }
 
     fun onActivityPaused() {
         foreground = false
+        cancelPendingResume()
         runtimeDiagnostics.recordBackground()
         if (preferences.memoryHardening && !shouldKeepActiveInBackground()) {
             setPaused(true, "activity background without media session")
@@ -55,6 +54,7 @@ class WebViewLifecycleCoordinator(
             runtimeDiagnostics.recordPowerState(state.powerSaveMode, state.deviceIdleMode, reason)
         }
         if (preferences.memoryHardening && !state.interactive && !foreground && !shouldKeepActiveInBackground()) {
+            cancelPendingResume()
             setPaused(true, "screen off without media session")
         }
         updateWakeLock(reason.ifBlank { "device runtime changed" })
@@ -64,6 +64,7 @@ class WebViewLifecycleCoordinator(
         runtimeDiagnostics.recordTrimMemory(level)
         if (!preferences.memoryHardening || isRendererGone()) return
         if (level >= ComponentCallbacks2.TRIM_MEMORY_UI_HIDDEN && !foreground && !shouldKeepActiveInBackground()) {
+            cancelPendingResume()
             setPaused(true, "trim-memory UI hidden")
         }
         if (level >= ComponentCallbacks2.TRIM_MEMORY_BACKGROUND && !sessionState().playing) {
@@ -76,6 +77,7 @@ class WebViewLifecycleCoordinator(
         if (!preferences.memoryHardening || isRendererGone()) return
         if (!sessionState().playing) {
             if (!foreground && !shouldKeepActiveInBackground()) {
+                cancelPendingResume()
                 setPaused(true, "low-memory callback")
             }
             try { webView.clearCache(false) } catch (_: Exception) {}
@@ -95,13 +97,39 @@ class WebViewLifecycleCoordinator(
         )
     }
 
-    fun release(reason: String) = wakeLock.release(reason)
+    fun release(reason: String) {
+        foreground = false
+        cancelPendingResume()
+        wakeLock.release(reason)
+    }
 
     fun shouldKeepActiveInBackground(): Boolean {
         val session = sessionState()
         return (preferences.backgroundControls && session.hasSession) ||
             isInPictureInPicture() ||
             (preferences.autoPiP && session.playing)
+    }
+
+    private fun scheduleResume() {
+        cancelPendingResume()
+        val generation = ++resumeGeneration
+        val resume = Runnable {
+            pendingResume = null
+            if (generation != resumeGeneration || !foreground || isRendererGone()) return@Runnable
+            setPaused(false, "activity resumed • ${devicePolicy.profile}")
+        }
+        if (devicePolicy.webViewResumeDelayMs > 0L && webViewPaused) {
+            pendingResume = resume
+            webView.postDelayed(resume, devicePolicy.webViewResumeDelayMs)
+        } else {
+            resume.run()
+        }
+    }
+
+    private fun cancelPendingResume() {
+        ++resumeGeneration
+        pendingResume?.let(webView::removeCallbacks)
+        pendingResume = null
     }
 
     private fun setPaused(paused: Boolean, reason: String) {

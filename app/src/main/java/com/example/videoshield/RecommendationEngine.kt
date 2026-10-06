@@ -10,14 +10,16 @@ data class SuggestedVideo(val video: VideoItem, val reason: String, val score: D
 /** Local ranking only: no account, network request or media extraction. */
 object RecommendationEngine {
     private val stopWords = setOf("the", "and", "for", "with", "you", "youtube", "video", "official", "watch", "full", "nhung", "cua", "voi", "cho", "mot", "cac", "trong", "nhat")
-    fun tokens(text: String): Set<String> = Regex("[\\p{L}\\p{N}]{3,24}").findAll(
-        Normalizer.normalize(text.lowercase(Locale.ROOT), Normalizer.Form.NFD).replace(Regex("\\p{M}+"), "")
+    private val tokenRegex = Regex("[\\p{L}\\p{N}]{3,24}")
+    private val combiningMarks = Regex("\\p{M}+")
+    fun tokens(text: String): Set<String> = tokenRegex.findAll(
+        combiningMarks.replace(Normalizer.normalize(text.lowercase(Locale.ROOT), Normalizer.Form.NFD), "")
     ).map { it.value }.filter { it !in stopWords }.take(24).toSet()
 
     fun rank(candidates: List<VideoItem>, evidence: List<InterestEvidence>, subscriptions: Set<String>,
              dismissed: Set<String>, seen: Set<String>, now: Long, limit: Int = 50,
              blockedChannels: Set<String> = emptySet(), focus: VideoItem? = null,
-             searchQueries: List<String> = emptyList()): List<SuggestedVideo> {
+             searchQueries: List<String> = emptyList(), maxPerChannel: Int = 4): List<SuggestedVideo> {
         val channels = mutableMapOf<String, Double>()
         val topics = mutableMapOf<String, Double>()
         evidence.forEach { e ->
@@ -49,15 +51,20 @@ object RecommendationEngine {
         val ranked = candidates.distinctBy { it.videoId }.filter {
             it.videoId !in dismissed && it.videoId !in seen && it.videoId != focus?.videoId && LibraryPolicy.channelKey(it.channel) !in blocked
         }.map { video ->
+            // Tokenizing a title performs Unicode normalization/regex work. Reuse one token
+            // set for topic, search and related scoring instead of normalizing every candidate
+            // three times on each Home recommendation refresh.
+            val videoTokens = tokens(video.title)
             val channel = video.channel.trim().lowercase(Locale.ROOT)
+            val channelKey = LibraryPolicy.channelKey(video.channel)
             val channelScore = (channels[channel] ?: 0.0).coerceAtMost(12.0)
-            val matches = tokens(video.title).filter { (topics[it] ?: 0.0) > 0 }.sortedByDescending { topics[it] }
+            val matches = videoTokens.filter { (topics[it] ?: 0.0) > 0 }.sortedByDescending { topics[it] }
             val topicScore = matches.take(4).sumOf { (topics[it] ?: 0.0).coerceAtMost(3.0) }
-            val searchMatches = tokens(video.title).filter { (searchTopics[it] ?: 0.0) > 0 }.sortedByDescending { searchTopics[it] }
+            val searchMatches = videoTokens.filter { (searchTopics[it] ?: 0.0) > 0 }.sortedByDescending { searchTopics[it] }
             val searchScore = searchMatches.take(4).sumOf { (searchTopics[it] ?: 0.0).coerceAtMost(2.4) }
             val subscription = channel.isNotBlank() && channel in subscribed
-            val relatedTopics = tokens(video.title).intersect(focusTopics)
-            val sameChannel = focusChannel.isNotBlank() && LibraryPolicy.channelKey(video.channel) == focusChannel
+            val relatedTopics = if (focusTopics.isEmpty()) emptySet() else videoTokens.intersect(focusTopics)
+            val sameChannel = focusChannel.isNotBlank() && channelKey == focusChannel
             // A single shared name fragment (e.g. Billie Jean / Billie Eilish)
             // is too weak when the seed title contains several meaningful terms.
             val enoughTopics = relatedTopics.size >= minOf(2, focusTopics.size).coerceAtLeast(1)
@@ -77,7 +84,7 @@ object RecommendationEngine {
         val counts = mutableMapOf<String, Int>()
         val diverse = ranked.filter {
             val key = it.video.channel.trim().lowercase(Locale.ROOT)
-            if (key.isBlank()) true else { val count = counts[key] ?: 0; counts[key] = count + 1; count < 4 }
+            if (key.isBlank()) true else { val count = counts[key] ?: 0; counts[key] = count + 1; count < maxPerChannel.coerceIn(1, 20) }
         }.toMutableList()
         val result = mutableListOf<SuggestedVideo>()
         while (diverse.isNotEmpty() && result.size < limit.coerceIn(1, 100)) {

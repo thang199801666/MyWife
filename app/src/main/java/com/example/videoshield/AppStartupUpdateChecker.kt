@@ -5,7 +5,9 @@ import android.app.AlertDialog
 import android.content.Intent
 import android.os.Build
 import java.lang.ref.WeakReference
-import java.util.concurrent.Executors
+import java.util.concurrent.LinkedBlockingQueue
+import java.util.concurrent.ThreadPoolExecutor
+import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicLong
 import java.util.concurrent.atomic.AtomicReference
@@ -25,9 +27,10 @@ object AppStartupUpdateChecker {
     private val promptedVersionCode = AtomicLong(NO_VERSION)
     private val pendingRelease = AtomicReference<AppRelease?>(null)
     private val currentHost = AtomicReference(WeakReference<Activity>(null))
-    private val worker = Executors.newSingleThreadExecutor { task ->
-        Thread(task, "app-update-check").apply { isDaemon = true }
-    }
+    private val worker = ThreadPoolExecutor(
+        1, 1, 15L, TimeUnit.SECONDS, LinkedBlockingQueue(),
+        { task -> Thread(task, "app-update-check").apply { isDaemon = true } }
+    ).apply { allowCoreThreadTimeOut(true) }
 
     fun check(activity: Activity) {
         currentHost.set(WeakReference(activity))
@@ -68,6 +71,8 @@ object AppStartupUpdateChecker {
 
     private fun showPrompt(activity: Activity, release: AppRelease) {
         val sizeMb = ((release.size + 1024L * 1024L - 1L) / (1024L * 1024L)).coerceAtLeast(1L)
+        // Keep startup update prompts intentionally minimal. Never append release notes,
+        // build/test diagnostics, ABI, signing, versionCode, or other developer metadata.
         val message = activity.getString(
             R.string.app_update_startup_message,
             release.versionName,

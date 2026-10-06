@@ -6,7 +6,7 @@ import android.os.Looper
 /**
  * Conservative foreground-only playback watchdog with deduplicated, back-off recovery.
  *
- * Bridge heartbeats normally arrive roughly every 10 seconds. A missing heartbeat or a
+ * Bridge heartbeats normally arrive roughly every 15 seconds. A missing heartbeat or a
  * main-frame error schedules one bounded recovery. A healthy heartbeat cancels a pending
  * recovery, which avoids reload races when WebView recovers by itself.
  */

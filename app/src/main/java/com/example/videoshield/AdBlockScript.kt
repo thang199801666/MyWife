@@ -3,32 +3,77 @@ package com.example.videoshield
 import org.json.JSONObject
 
 object AdBlockScript {
+    private data class ScriptKey(
+        val enabled: Boolean,
+        val safeMode: Boolean,
+        val bypassAds: Boolean,
+        val shorts: Boolean,
+        val recommendations: Boolean,
+        val comments: Boolean,
+        val endScreen: Boolean,
+        val openInApp: Boolean,
+        val amoled: Boolean,
+        val autoRepeat: Boolean,
+        val playbackSpeed: Float,
+        val backgroundPlayback: Boolean,
+        val preferredQuality: String,
+        val communitySponsorSkip: Boolean,
+        val skipIntrosOutros: Boolean,
+        val ruleVersion: Int,
+        val ruleHash: Int
+    )
+
+    private val scriptCache = object : LinkedHashMap<ScriptKey, String>(4, 0.75f, true) {
+        override fun removeEldestEntry(eldest: MutableMap.MutableEntry<ScriptKey, String>?): Boolean = size > 4
+    }
+
     fun build(
         preferences: ShieldPreferences,
         rules: RulePack,
         pageWhitelisted: Boolean,
         preferredQualityOverride: String? = null
     ): String {
+        val key = ScriptKey(
+            enabled = preferences.shieldEnabled,
+            safeMode = preferences.safeMode,
+            bypassAds = pageWhitelisted,
+            shorts = preferences.blockShorts,
+            recommendations = preferences.blockRecommendations,
+            comments = preferences.blockComments,
+            endScreen = preferences.blockEndScreen,
+            openInApp = preferences.blockOpenInApp,
+            amoled = preferences.amoledTheme,
+            autoRepeat = preferences.autoRepeat,
+            playbackSpeed = preferences.playbackSpeed,
+            backgroundPlayback = preferences.backgroundControls && preferences.screenOffPlayback,
+            preferredQuality = preferredQualityOverride ?: preferences.preferredQuality,
+            communitySponsorSkip = preferences.communitySponsorSkip,
+            skipIntrosOutros = preferences.skipIntrosOutros,
+            ruleVersion = rules.ruleVersion,
+            ruleHash = rules.rawJson.hashCode()
+        )
+        synchronized(scriptCache) { scriptCache[key]?.let { return it } }
+
         val cfg = JSONObject().apply {
-            put("enabled", preferences.shieldEnabled)
-            put("safeMode", preferences.safeMode)
-            put("bypassAds", pageWhitelisted)
-            put("shorts", preferences.blockShorts)
-            put("recommendations", preferences.blockRecommendations)
-            put("comments", preferences.blockComments)
-            put("endScreen", preferences.blockEndScreen)
-            put("openInApp", preferences.blockOpenInApp)
-            put("amoled", preferences.amoledTheme)
-            put("autoRepeat", preferences.autoRepeat)
-            put("playbackSpeed", preferences.playbackSpeed)
-            put("backgroundPlayback", preferences.backgroundControls && preferences.screenOffPlayback)
-            put("preferredQuality", preferredQualityOverride ?: preferences.preferredQuality)
-            put("communitySponsorSkip", preferences.communitySponsorSkip)
-            put("skipIntrosOutros", preferences.skipIntrosOutros)
+            put("enabled", key.enabled)
+            put("safeMode", key.safeMode)
+            put("bypassAds", key.bypassAds)
+            put("shorts", key.shorts)
+            put("recommendations", key.recommendations)
+            put("comments", key.comments)
+            put("endScreen", key.endScreen)
+            put("openInApp", key.openInApp)
+            put("amoled", key.amoled)
+            put("autoRepeat", key.autoRepeat)
+            put("playbackSpeed", key.playbackSpeed)
+            put("backgroundPlayback", key.backgroundPlayback)
+            put("preferredQuality", key.preferredQuality)
+            put("communitySponsorSkip", key.communitySponsorSkip)
+            put("skipIntrosOutros", key.skipIntrosOutros)
         }.toString()
         val ruleJson = rules.domRulesJson()
 
-        return """
+        val script = """
         (() => {
           try {
             window.__videoShieldCfg = $cfg;
@@ -49,6 +94,9 @@ object AdBlockScript {
             let lastTitle = "";
             let lastChannel = "";
             let lastVideoId = "";
+            let channelInfoVideoId = "";
+            let cachedChannelInfo = { name: '', url: '' };
+            let channelInfoAt = 0;
             let lastPlaybackReportAt = 0;
             let lastReportedPosition = 0;
             let lastEndedVideoId = "";
@@ -66,8 +114,22 @@ object AdBlockScript {
             let ratePlayerApiVideo = null;
             let ratePlayerApiValue = NaN;
             let lastRequestedRate = 1;
+            let rateUiInteractionUntil = 0;
+            let rateLastReportedValue = NaN;
             let hiddenSeen = new WeakSet();
             let lastBridgeUpdate = 0;
+            let lastBridgeHref = "";
+            let lastMetadataRetryAt = 0;
+            let lastRateApiVerifyAt = 0;
+            let repeatAutonavVideoId = "";
+            let repeatAutonavAt = 0;
+            let lastQualityPolicyAt = 0;
+            let lastQualityPolicyVideoId = "";
+            let lastQualityPolicyMode = "";
+            let segmentCursor = 0;
+            let audioBoundVideo = null;
+            let originalHiddenGetter = null;
+            let originalVisibilityStateGetter = null;
             let internalErrors = 0;
             let compatibilityTimer = null;
             let lastCompatibilityUrl = "";
@@ -84,6 +146,7 @@ object AdBlockScript {
             let skippedSegmentKeys = new Set();
             let lastSegmentPosition = 0;
             let scanningSweep = false;
+            let sweepVideoCache;
             let mobileSkipCache;
             let observedSweepTimer = null;
             let fallbackSweepTimer = null;
@@ -91,6 +154,9 @@ object AdBlockScript {
             let lastFullDomSweepAt = 0;
             let preloadBoundVideo = null;
             let preloadAttributeObserver = null;
+            let shortsActiveVideo = null;
+            let lastMobileSkipScanAt = 0;
+            let lastMobileSkipResult = null;
 
             const EMPTY = '__VS_EMPTY__';
 
@@ -105,15 +171,36 @@ object AdBlockScript {
               return isShortsRoute() && typeof window.VideoShieldBridge !== 'object';
             }
 
-            function getPlayerVideo() {
+            function resolvePlayerVideo() {
               try {
                 // Shorts keep several adjacent media elements mounted so the next clip can
                 // start immediately. querySelector() returns the first item, not necessarily
                 // the one centered on screen. Pick the visible/playing Shorts video first.
                 if (isShortsRoute()) {
+                  // The capturing `play` listener below tells us which recycler item became
+                  // active. Reusing that element avoids an O(N) geometry walk on every shield
+                  // sweep after a long Shorts session. Only fall back to a DOM scan if YouTube
+                  // replaced the media element without emitting a usable play event.
+                  const cached = shortsActiveVideo;
+                  if (cached && cached.isConnected !== false) {
+                    try {
+                      if (!cached.paused && !cached.ended && cached.readyState >= 1) return cached;
+                      const r = cached.getBoundingClientRect();
+                      const vh = Math.max(1, window.innerHeight || document.documentElement?.clientHeight || 1);
+                      const vw = Math.max(1, window.innerWidth || document.documentElement?.clientWidth || 1);
+                      const visibleWidth = Math.max(0, Math.min(r.right, vw) - Math.max(r.left, 0));
+                      const visibleHeight = Math.max(0, Math.min(r.bottom, vh) - Math.max(r.top, 0));
+                      if (r.width > 1 && r.height > 1 && visibleWidth * visibleHeight >= r.width * r.height * 0.35 &&
+                          Math.abs((r.top + r.bottom) * 0.5 - vh * 0.5) <= vh * 0.7) return cached;
+                    } catch (_) {}
+                  }
+
                   const shortsVideos = Array.from(document.querySelectorAll(
                     'video.video-stream.html5-main-video, video.html5-main-video, video'
                   )).filter(video => video && video.isConnected !== false);
+                  const playing = shortsVideos.find(video => !video.paused && !video.ended && video.readyState >= 1);
+                  if (playing) { shortsActiveVideo = playing; return playing; }
+
                   let best = null;
                   let bestScore = -Infinity;
                   const viewportHeight = Math.max(1, window.innerHeight || document.documentElement?.clientHeight || 1);
@@ -129,12 +216,11 @@ object AdBlockScript {
                       if (visibleRatio <= 0.01) continue;
                       const center = (rect.top + rect.bottom) * 0.5;
                       const centerDistance = Math.abs(center - viewportHeight * 0.5) / viewportHeight;
-                      const score = visibleRatio * 100 + (!video.paused && !video.ended ? 30 : 0) +
-                        (video.readyState >= 2 ? 8 : 0) - centerDistance * 20;
+                      const score = visibleRatio * 100 + (video.readyState >= 2 ? 8 : 0) - centerDistance * 20;
                       if (score > bestScore) { best = video; bestScore = score; }
                     } catch (_) {}
                   }
-                  if (best) return best;
+                  if (best) { shortsActiveVideo = best; return best; }
                 }
 
                 // Normal watch pages have one authoritative html5-main-video.
@@ -160,6 +246,13 @@ object AdBlockScript {
                 internalErrors++;
                 return null;
               }
+            }
+
+            function getPlayerVideo() {
+              if (scanningSweep && sweepVideoCache !== undefined) return sweepVideoCache;
+              const video = resolvePlayerVideo();
+              if (scanningSweep) sweepVideoCache = video;
+              return video;
             }
 
             function releasePreloadPolicy() {
@@ -198,6 +291,116 @@ object AdBlockScript {
               return Number.isFinite(raw) && raw > 0 ? Math.max(0.25, Math.min(4, raw)) : 1;
             }
 
+            function normalizePlaybackRate(value) {
+              const raw = Number(value);
+              if (!Number.isFinite(raw) || raw <= 0) return null;
+              return Math.max(0.25, Math.min(4, raw));
+            }
+
+            function reportPlaybackRateSelection(rate) {
+              const target = normalizePlaybackRate(rate);
+              if (target === null) return;
+              if (Number.isFinite(rateLastReportedValue) && Math.abs(rateLastReportedValue - target) <= 0.001) return;
+              rateLastReportedValue = target;
+              try {
+                if (typeof window.VideoShieldBridge?.onPlaybackRateSelected === 'function') {
+                  window.VideoShieldBridge.onPlaybackRateSelected(target);
+                }
+              } catch (_) { internalErrors++; }
+            }
+
+            function adoptWebsitePlaybackRate(video, rate) {
+              const target = normalizePlaybackRate(rate);
+              if (target === null || !video || isPlayerAd()) return false;
+              try {
+                if (!window.__videoShieldCfg) window.__videoShieldCfg = {};
+                window.__videoShieldCfg.playbackSpeed = target;
+                lastRequestedRate = target;
+                ratePlayerApiVideo = video;
+                ratePlayerApiValue = target;
+                try { video.defaultPlaybackRate = target; } catch (_) {}
+                reportPlaybackRateSelection(target);
+                return true;
+              } catch (_) { internalErrors++; return false; }
+            }
+
+            function playbackRateMenuItem(node) {
+              try {
+                let item = node?.nodeType === 1 ? node : node?.parentElement;
+                for (let depth = 0; item && depth < 9; depth++, item = item.parentElement) {
+                  const candidate = item.matches?.(
+                    '[role="menuitem"],[role="menuitemradio"],[role="menuitemcheckbox"],ytm-menu-item,ytm-menu-service-item-renderer,tp-yt-paper-item,button'
+                  );
+                  if (!candidate) continue;
+                  const label = String(item.getAttribute?.('aria-label') || item.innerText || item.textContent || '')
+                    .replace(/\s+/g, ' ').trim().toLocaleLowerCase();
+                  if (/(playback\s*speed|(^|\s)speed(\s|$)|tốc\s*độ|toc\s*do)/i.test(label)) return item;
+                }
+              } catch (_) {}
+              return null;
+            }
+
+            function playbackRateOptionValue(node) {
+              try {
+                let item = node?.nodeType === 1 ? node : node?.parentElement;
+                for (let depth = 0; item && depth < 7; depth++, item = item.parentElement) {
+                  if (!item.matches?.('[role="menuitem"],[role="menuitemradio"],[role="option"],button,tp-yt-paper-item,ytm-menu-item')) continue;
+                  const label = String(item.getAttribute?.('aria-label') || item.innerText || item.textContent || '')
+                    .replace(/\s+/g, ' ').trim().toLocaleLowerCase();
+                  if (/^(normal|bình thường|binh thuong)$/i.test(label)) return 1;
+                  const match = label.match(/^([0-4](?:[.,][0-9]{1,2})?)\s*(?:x|×)$/i);
+                  if (match) return normalizePlaybackRate(match[1].replace(',', '.'));
+                }
+              } catch (_) {}
+              return null;
+            }
+
+            function settleWebsitePlaybackRate(preferredRate = null) {
+              const video = getPlayerVideo();
+              if (!video || isPlayerAd() || isBrowseShortsSurface()) return false;
+              let target = normalizePlaybackRate(preferredRate);
+              try {
+                const player = playerForVideo(video);
+                const playerRate = player && typeof player.getPlaybackRate === 'function'
+                  ? normalizePlaybackRate(player.getPlaybackRate()) : null;
+                const mediaRate = normalizePlaybackRate(video.playbackRate);
+                if (target === null) {
+                  const configured = configuredPlaybackRate();
+                  const mediaChanged = mediaRate !== null && Math.abs(mediaRate - configured) > 0.01;
+                  const playerChanged = playerRate !== null && Math.abs(playerRate - configured) > 0.01;
+                  // The HTMLMediaElement rate is the final playback cadence. Prefer a
+                  // changed media value over a stale player API value during menu updates.
+                  if (mediaChanged) target = mediaRate;
+                  else if (playerChanged) target = playerRate;
+                  else target = mediaRate !== null ? mediaRate : playerRate;
+                }
+                if (target === null) return false;
+                adoptWebsitePlaybackRate(video, target);
+                // Apply after YouTube's click handler. This is intentionally delayed so
+                // the app never races the settings sheet while it changes renderer state.
+                applyPlaybackRatePolicy(video);
+                schedulePlaybackRateRestore(video, 140);
+                return true;
+              } catch (_) { internalErrors++; return false; }
+            }
+
+            function beginWebsitePlaybackRateInteraction(node) {
+              const optionRate = playbackRateOptionValue(node);
+              rateUiInteractionUntil = Date.now() + 5000;
+              cancelPlaybackRateRestore();
+              if (optionRate !== null) {
+                // Update the app-side target during capture, before YouTube's own click
+                // handler emits ratechange. Otherwise the old sticky target can instantly
+                // pull the new website selection back to 1x.
+                const video = getPlayerVideo();
+                if (video) adoptWebsitePlaybackRate(video, optionRate);
+              }
+              const schedule = (delay) => setTimeout(() => settleWebsitePlaybackRate(optionRate), delay);
+              schedule(optionRate !== null ? 45 : 120);
+              schedule(optionRate !== null ? 220 : 420);
+              schedule(optionRate !== null ? 700 : 900);
+            }
+
             function playerForVideo(video) {
               try {
                 const closest = video?.closest?.('.html5-video-player');
@@ -224,8 +427,17 @@ object AdBlockScript {
               if (!video) return;
               rateChangeHandler = () => {
                 if (video !== getPlayerVideo() || isPlayerAd()) return;
+                const actual = normalizePlaybackRate(video.playbackRate);
                 const target = configuredPlaybackRate();
-                if (Math.abs((Number(video.playbackRate) || 1) - target) > 0.01) {
+                // A website speed-menu selection is a user preference, not a player
+                // reset. Adopt it before the sticky policy has a chance to undo it.
+                if (Date.now() < rateUiInteractionUntil && actual !== null &&
+                    Math.abs(actual - target) > 0.01) {
+                  adoptWebsitePlaybackRate(video, actual);
+                  schedulePlaybackRateRestore(video, 180);
+                  return;
+                }
+                if (actual !== null && Math.abs(actual - target) > 0.01) {
                   ratePlayerApiValue = NaN;
                   schedulePlaybackRateRestore(video, 40);
                 }
@@ -249,15 +461,30 @@ object AdBlockScript {
 
               let applied = false;
               try {
-                const player = playerForVideo(video);
                 const mediaRate = Number(video.playbackRate) || 1;
+                const defaultRate = Number(video.defaultPlaybackRate) || 1;
+                const now = Date.now();
+                const mediaStable = Math.abs(mediaRate - target) <= 0.01 &&
+                  Math.abs(defaultRate - target) <= 0.01;
+                const cachedApiStable = ratePlayerApiVideo === video &&
+                  Number.isFinite(ratePlayerApiValue) &&
+                  Math.abs(ratePlayerApiValue - target) <= 0.01;
+
+                // The HTMLMediaElement is authoritative for cadence. Avoid querying the
+                // heavier YouTube player API on every shield sweep when both media rates
+                // and our last API write are already correct. Re-verify periodically so a
+                // silent internal YouTube reset is still repaired.
+                if (mediaStable && cachedApiStable && now - lastRateApiVerifyAt < 8000) {
+                  return true;
+                }
+
+                const player = playerForVideo(video);
                 let playerRate = NaN;
                 if (player && typeof player.getPlaybackRate === 'function') {
                   try { playerRate = Number(player.getPlaybackRate()); } catch (_) {}
                 }
-                // Do not trust only our cached API value: YouTube can silently reset its
-                // internal player rate after a rendition/SPA transition while reusing the
-                // same <video>. Re-issue the player command whenever either side differs.
+                lastRateApiVerifyAt = now;
+
                 if (player && typeof player.setPlaybackRate === 'function' &&
                     (ratePlayerApiVideo !== video || !Number.isFinite(ratePlayerApiValue) ||
                      Math.abs(ratePlayerApiValue - target) > 0.01 ||
@@ -272,11 +499,11 @@ object AdBlockScript {
                     ratePlayerApiValue = NaN;
                   }
                 }
-                if (Math.abs((Number(video.defaultPlaybackRate) || 1) - target) > 0.01) {
+                if (Math.abs(defaultRate - target) > 0.01) {
                   video.defaultPlaybackRate = target;
                   applied = true;
                 }
-                if (Math.abs((Number(video.playbackRate) || 1) - target) > 0.01) {
+                if (Math.abs(mediaRate - target) > 0.01) {
                   video.playbackRate = target;
                   applied = true;
                 }
@@ -492,9 +719,17 @@ object AdBlockScript {
                   else if (explicit) video.loop = false;
                 }
                 if (effective) {
-                  const player = playerForVideo(video);
-                  if (player && typeof player.setAutonavState === 'function') {
-                    try { player.setAutonavState(1); } catch (_) {}
+                  const videoId = getVideoId();
+                  const now = Date.now();
+                  if (videoId !== repeatAutonavVideoId || now - repeatAutonavAt >= 10000) {
+                    const player = playerForVideo(video);
+                    if (player && typeof player.setAutonavState === 'function') {
+                      try {
+                        player.setAutonavState(1);
+                        repeatAutonavVideoId = videoId;
+                        repeatAutonavAt = now;
+                      } catch (_) {}
+                    }
                   }
                   lastEndedVideoId = '';
                 }
@@ -505,8 +740,19 @@ object AdBlockScript {
               }
             }
 
+            function isActuallyHidden() {
+              try {
+                if (typeof originalHiddenGetter === 'function') return !!originalHiddenGetter.call(document);
+                if (typeof originalVisibilityStateGetter === 'function')
+                  return originalVisibilityStateGetter.call(document) === 'hidden';
+              } catch (_) {}
+              return document.visibilityState === 'hidden';
+            }
+
             // Keep the trusted player page active when background playback is enabled.
             // YouTube otherwise unloads its media on visibility changes, not just pause().
+            // Preserve the original getters separately so our own scheduler can still
+            // recognize the real background state and reduce CPU usage.
             if (typeof window.VideoShieldBridge === 'object') {
               for (const key of ['hidden', 'visibilityState', 'webkitHidden', 'webkitVisibilityState']) {
                 let owner = document;
@@ -514,6 +760,8 @@ object AdBlockScript {
                 while (owner && !(descriptor = Object.getOwnPropertyDescriptor(owner, key))) owner = Object.getPrototypeOf(owner);
                 if (!descriptor || typeof descriptor.get !== 'function') continue;
                 const originalGet = descriptor.get;
+                if (key === 'hidden' && !originalHiddenGetter) originalHiddenGetter = originalGet;
+                if (key === 'visibilityState' && !originalVisibilityStateGetter) originalVisibilityStateGetter = originalGet;
                 try {
                   Object.defineProperty(document, key, { configurable: true, get() {
                     if ((window.__videoShieldCfg || {}).backgroundPlayback) {
@@ -784,9 +1032,22 @@ object AdBlockScript {
                 // a second website countdown from racing it or ignoring the app toggle.
                 if (video.readyState>=1 && typeof window.VideoShieldBridge?.onPlaybackEnded==='function' &&
                     typeof player.setAutonavState==='function' &&
-                    (nativeAutonavVideoId!==videoId || Date.now()-lastNativeAutonavAt>=3000)) {
+                    (nativeAutonavVideoId!==videoId || Date.now()-lastNativeAutonavAt>=5000)) {
                   player.setAutonavState(1); lastNativeAutonavAt=Date.now(); nativeAutonavVideoId=videoId;
                 }
+
+                // Quality inspection is one of the most expensive steady-state tasks on
+                // the watch page because it touches player APIs and buffered ranges.
+                // Playback-rate/repeat/preload remain event-driven above; quality policy
+                // only needs a slower maintenance cadence once the source is established.
+                const qualityNow = Date.now();
+                const qualityInterval = quality === 'adaptive' ? 2000 : 5000;
+                const qualityChanged = lastQualityPolicyVideoId !== videoId || lastQualityPolicyMode !== quality;
+                if (!qualityChanged && qualityNow - lastQualityPolicyAt < qualityInterval) return;
+                lastQualityPolicyAt = qualityNow;
+                lastQualityPolicyVideoId = videoId;
+                lastQualityPolicyMode = quality;
+
                 const rank = q => q === 'highres' ? 100000 : /^hd\d+$/.test(q) ? Number(q.slice(2)) :
                   ({large:480,medium:360,small:240,tiny:144})[q] || 0;
                 const levels = typeof player.getAvailableQualityLevels === 'function' ? player.getAvailableQualityLevels() : [];
@@ -883,16 +1144,34 @@ object AdBlockScript {
             function handleCommunitySegments(video) {
               if (isBrowseShortsSurface() || !video || !communitySkippingEnabled()) return;
               const videoId = getVideoId();
-              if (!videoId || videoId !== segmentVideoId || !Array.isArray(communitySegments)) return;
+              if (!videoId || videoId !== segmentVideoId || !Array.isArray(communitySegments) || !communitySegments.length) return;
               const now = Number(video.currentTime) || 0;
-              // A repeated video or a user rewind must make skipped segments eligible again.
-              if (now < lastSegmentPosition - 1) skippedSegmentKeys.clear();
+
+              // Segments arrive sorted by start time. Keep a rolling cursor instead of
+              // scanning up to 256 entries on every playback sweep. A rewind resets the
+              // cursor; normal forward playback touches only the next few candidates.
+              if (now < lastSegmentPosition - 1) {
+                skippedSegmentKeys.clear();
+                segmentCursor = 0;
+              }
               lastSegmentPosition = now;
-              for (let i = 0; i < communitySegments.length; i++) {
+
+              while (segmentCursor < communitySegments.length) {
+                const candidate = communitySegments[segmentCursor] || {};
+                const candidateEnd = Number(candidate.end);
+                if (!Number.isFinite(candidateEnd) || candidateEnd <= now - 0.03) segmentCursor++;
+                else break;
+              }
+
+              for (let i = segmentCursor; i < communitySegments.length; i++) {
                 const segment = communitySegments[i] || {};
                 const start = Number(segment.start);
                 const end = Number(segment.end);
-                if (!Number.isFinite(start) || !Number.isFinite(end) || end <= start) continue;
+                if (!Number.isFinite(start) || !Number.isFinite(end) || end <= start) {
+                  if (i === segmentCursor) segmentCursor++;
+                  continue;
+                }
+                if (start > now + 0.08) break;
                 const key = start.toFixed(3) + ':' + end.toFixed(3) + ':' + String(segment.category || '');
                 if (skippedSegmentKeys.has(key)) continue;
                 if (now >= Math.max(0, start - 0.08) && now < end - 0.03) {
@@ -902,6 +1181,7 @@ object AdBlockScript {
                       ? Math.min(end + 0.03, Math.max(0, duration - 0.05))
                       : end + 0.03;
                     skippedSegmentKeys.add(key);
+                    segmentCursor = i + 1;
                     lastSegmentPosition = video.currentTime;
                     if (window.VideoShieldBridge) {
                       VideoShieldBridge.onSegmentSkipped(String(segment.category || '').slice(0, 40), Math.round((end - start) * 1000));
@@ -927,6 +1207,7 @@ object AdBlockScript {
                     lastSkipButton = button;
                     lastSkipAt = now;
                     button.click();
+                    sweepVideoCache = undefined;
                     mobileSkipCache = undefined; // The click may synchronously end the ad.
                     if (adState && !adState.counted) {
                       adState.counted = true;
@@ -958,7 +1239,15 @@ object AdBlockScript {
 
             function mobileSkipButton() {
               if (scanningSweep && mobileSkipCache !== undefined) return mobileSkipCache;
+              const now = Date.now();
+              const minInterval = isBrowseShortsSurface() ? 1200 : 650;
+              if (now - lastMobileSkipScanAt < minInterval) {
+                const cached = lastMobileSkipResult;
+                return cached && cached.isConnected !== false ? cached : null;
+              }
               const button = findMobileSkipButton();
+              lastMobileSkipScanAt = now;
+              lastMobileSkipResult = button;
               if (scanningSweep) mobileSkipCache = button;
               return button;
             }
@@ -1046,6 +1335,19 @@ object AdBlockScript {
               return { name: '', url: '' };
             }
 
+            function getChannelInfoCached(videoId, force = false) {
+              const now = Date.now();
+              if (!force && videoId && videoId === channelInfoVideoId && now - channelInfoAt < 30000)
+                return cachedChannelInfo;
+              const info = getChannelInfo();
+              if (videoId) channelInfoVideoId = videoId;
+              channelInfoAt = now;
+              // Keep known metadata through a transient YouTube re-render where the owner
+              // element is briefly absent; refresh again on the next video/navigation.
+              if (info.name || !cachedChannelInfo.name || force) cachedChannelInfo = info;
+              return cachedChannelInfo;
+            }
+
             function getVideoId() {
               try {
                 const u = new URL(location.href);
@@ -1067,18 +1369,30 @@ object AdBlockScript {
               // An unloaded placeholder must not replace the saved content position with zero.
               if (!video || video.readyState < 1) return;
               if (!video.ended) lastEndedVideoId = '';
+
               const playing = !video.paused && !video.ended && video.readyState > 2;
-              const title = (document.title || '').replace(/\s*-\s*YouTube\s*$/, '').trim();
-              const info = getChannelInfo();
-              const channel = info.name || '';
-              const videoId = getVideoId();
-              if (videoId !== lastVideoId) {
-                lastEndedVideoId = "";
-              }
-              const periodic = playing && now - lastPlaybackReportAt >= 10000;
               const position = Number(video.currentTime);
+              const periodic = playing && now - lastPlaybackReportAt >= 15000;
               const pausedSeek = !playing && Number.isFinite(position) && Math.abs(position - lastReportedPosition) >= 0.25;
-              if (playing !== lastPlaying || title !== lastTitle || channel !== lastChannel || videoId !== lastVideoId || periodic || pausedSeek) {
+              const stateChanged = playing !== lastPlaying;
+              const href = String(location.href || '');
+              const routeChanged = href !== lastBridgeHref;
+              const metadataRetry = (!lastTitle || !lastChannel || !lastVideoId) && now - lastMetadataRetryAt >= 2500;
+
+              // Most sweeps only need ad/media policy. Do not repeatedly query document
+              // title, URL parsing and channel DOM while the playing state is unchanged.
+              if (!stateChanged && !periodic && !pausedSeek && !routeChanged && !metadataRetry && !video.ended) return;
+
+              if (routeChanged) lastBridgeHref = href;
+              if (metadataRetry) lastMetadataRetryAt = now;
+              const videoId = (routeChanged || !lastVideoId) ? getVideoId() : lastVideoId;
+              const videoChanged = videoId !== lastVideoId;
+              const title = (document.title || '').replace(/\s*-\s*YouTube\s*$/, '').trim();
+              const info = getChannelInfoCached(videoId, videoChanged || metadataRetry);
+              const channel = info.name || '';
+              if (videoChanged) lastEndedVideoId = "";
+
+              if (stateChanged || title !== lastTitle || channel !== lastChannel || videoChanged || periodic || pausedSeek) {
                 lastPlaying = playing;
                 lastTitle = title;
                 lastChannel = channel;
@@ -1092,14 +1406,16 @@ object AdBlockScript {
                   if (window.VideoShieldBridge) VideoShieldBridge.onPlaybackState(playing, title, channel, info.url || '', videoId, positionMs, durationMs);
                 } catch (_) { internalErrors++; }
               }
-              const player = document.querySelector('.html5-video-player');
-              const showingAd = isPlayerAd();
-              const c = window.__videoShieldCfg || {};
-              if (video.ended && c.autoRepeat && videoId && !showingAd) {
-                restartRepeatedVideo(video);
-              } else if (video.ended && videoId && !showingAd && lastEndedVideoId !== videoId) {
-                lastEndedVideoId = videoId;
-                try { if (window.VideoShieldBridge) VideoShieldBridge.onPlaybackEnded(videoId); } catch (_) { internalErrors++; }
+
+              if (video.ended) {
+                const showingAd = isPlayerAd();
+                const c = window.__videoShieldCfg || {};
+                if (c.autoRepeat && videoId && !showingAd) {
+                  restartRepeatedVideo(video);
+                } else if (videoId && !showingAd && lastEndedVideoId !== videoId) {
+                  lastEndedVideoId = videoId;
+                  try { if (window.VideoShieldBridge) VideoShieldBridge.onPlaybackEnded(videoId); } catch (_) { internalErrors++; }
+                }
               }
             }
 
@@ -1128,10 +1444,14 @@ object AdBlockScript {
               // Only the native playback WebView has this bridge. Browse previews stay quiet.
               if (!video || typeof window.VideoShieldBridge !== 'object' || isPlayerAd()) return;
               try {
-                const player = document.querySelector('.html5-video-player');
+                // The normal steady state is already unmuted at full media volume. Skip
+                // querying YouTube's player object entirely in that hot path.
+                if (audioBoundVideo === video && !video.muted && Math.abs((Number(video.volume) || 0) - 1) < 0.001) return;
+                audioBoundVideo = video;
+                const player = video.closest?.('.html5-video-player') || document.querySelector('.html5-video-player');
                 if (player && typeof player.isMuted === 'function' && player.isMuted() && typeof player.unMute === 'function') player.unMute();
                 if (video.muted) video.muted = false;
-                if (video.volume !== 1) video.volume = 1;
+                if (Math.abs((Number(video.volume) || 0) - 1) >= 0.001) video.volume = 1;
               } catch (_) { internalErrors++; }
             }
 
@@ -1140,12 +1460,19 @@ object AdBlockScript {
                 if (fallbackSweepTimer) clearTimeout(fallbackSweepTimer);
                 const video = getPlayerVideo();
                 const playing = !!(video && !video.paused && !video.ended);
-                const hidden = document.visibilityState === 'hidden';
-                const delay = isBrowseShortsSurface() ? (hidden ? 8000 : 2500) :
-                  playing ? (hidden ? 1800 : 1000) : (hidden ? 8000 : 2500);
+                const hidden = isActuallyHidden();
+                // Shorts already has its own fast media/navigation loop. A dense shield
+                // fallback there wastes CPU as the DOM grows, so use a slower safety pass.
+                const nativePlayer = typeof window.VideoShieldBridge === 'object';
+                const delay = isBrowseShortsSurface() ? (hidden ? 15000 : 5000) :
+                  nativePlayer
+                    ? (playing ? (hidden ? 5000 : 2250) : (hidden ? 15000 : 5000))
+                    : (playing ? (hidden ? 3500 : 1800) : (hidden ? 10000 : 4000));
                 fallbackSweepTimer = setTimeout(() => {
                   fallbackSweepTimer = null;
-                  const fullDom = Date.now() - lastFullDomSweepAt >= (hidden ? 10000 : 5000);
+                  const fullInterval = isBrowseShortsSurface() ? (hidden ? 30000 : 12000) :
+                    nativePlayer ? (hidden ? 20000 : 8000) : (hidden ? 12000 : 6000);
+                  const fullDom = Date.now() - lastFullDomSweepAt >= fullInterval;
                   sweep(fullDom);
                 }, delay);
               } catch (_) { internalErrors++; }
@@ -1154,16 +1481,22 @@ object AdBlockScript {
             function scheduleObservedSweep() {
               if (observedSweepTimer) return;
               const elapsed = Date.now() - lastSweepAt;
-              const delay = Math.max(0, 500 - elapsed);
+              const floor = isBrowseShortsSurface() ? 1600 :
+                (typeof window.VideoShieldBridge === 'object' ? 1000 : 700);
+              const delay = Math.max(0, floor - elapsed);
               observedSweepTimer = setTimeout(() => {
                 observedSweepTimer = null;
-                sweep();
+                // DOM mutations are frequent, especially in Shorts. Keep this pass to
+                // player/media state; the slower fallback owns whole-page ad/annoyance scans.
+                const fullDom = !isBrowseShortsSurface() && Date.now() - lastFullDomSweepAt >= 3000;
+                sweep(fullDom);
               }, delay);
             }
 
             function sweep(fullDom = true) {
               try {
                 scanningSweep = true;
+                sweepVideoCache = undefined;
                 mobileSkipCache = undefined;
                 if (fullDom) {
                   hidePageAds();
@@ -1183,6 +1516,7 @@ object AdBlockScript {
               } catch (_) { internalErrors++; }
               finally {
                 scanningSweep = false;
+                sweepVideoCache = undefined;
                 mobileSkipCache = undefined;
                 lastSweepAt = Date.now();
                 scheduleFallbackSweep();
@@ -1233,18 +1567,32 @@ object AdBlockScript {
                 if (!window.__videoShieldCfg) window.__videoShieldCfg = {};
                 window.__videoShieldCfg.playbackSpeed = target;
                 lastRequestedRate = target;
+                rateUiInteractionUntil = 0;
                 const video = getPlayerVideo();
                 if (!video) return false;
                 const applied = applyPlaybackRatePolicy(video);
                 schedulePlaybackRateRestore(video);
+                // YouTube can replace the media source after the first successful
+                // read-back without emitting a useful ratechange on the old element.
+                // Re-check a few sparse checkpoints; these are one-shot, not polling.
+                for (const delay of [240, 700, 1500]) {
+                  setTimeout(() => {
+                    const media = getPlayerVideo();
+                    if (media && !isPlayerAd() && Math.abs(configuredPlaybackRate() - target) <= 0.01)
+                      applyPlaybackRatePolicy(media);
+                  }, delay);
+                }
                 return applied;
               } catch (_) { internalErrors++; return false; }
             };
             window.__videoShieldSetSegments = (videoId, segments) => {
               try {
                 segmentVideoId = String(videoId || '').slice(0, 64);
-                communitySegments = Array.isArray(segments) ? segments.slice(0, 256) : [];
+                communitySegments = Array.isArray(segments)
+                  ? segments.slice(0, 256).sort((a,b) => (Number(a?.start)||0) - (Number(b?.start)||0))
+                  : [];
                 skippedSegmentKeys = new Set();
+                segmentCursor = 0;
                 lastSegmentPosition = 0;
                 return true;
               } catch (_) { internalErrors++; return false; }
@@ -1278,22 +1626,43 @@ object AdBlockScript {
 
             function startObserver() {
               if (!document.documentElement || window.__videoShieldObserver) return;
-              const observer = new MutationObserver(() => {
-                // YouTube changes inline progress/control styles at display-frame cadence.
-                // Watching style on the entire DOM made the full shield sweep effectively
-                // continuous. Child/class/visibility mutations still catch ad transitions;
-                // a lightweight fallback sweep covers experiments that only touch style.
-                scheduleObservedSweep();
-              });
-              observer.observe(document.documentElement, {
-                subtree: true, childList: true, attributes: true,
-                attributeFilter: ['class', 'hidden', 'aria-hidden']
-              });
-              window.__videoShieldObserver = observer;
-              document.addEventListener('visibilitychange', () => {
+              let shortsMode = isBrowseShortsSurface();
+              const observer = new MutationObserver(() => scheduleObservedSweep());
+              const observe = () => {
+                try {
+                  observer.disconnect();
+                  shortsMode = isBrowseShortsSurface();
+                  // The Shorts recycler and the dedicated watch page both mutate class/aria
+                  // state throughout large subtrees. Observe structural changes globally, but
+                  // on the native player restrict attribute watching to the player element
+                  // where ad state actually changes. Browse pages keep the richer filter.
+                  const nativePlayer = typeof window.VideoShieldBridge === 'object';
+                  if (shortsMode || nativePlayer) {
+                    observer.observe(document.documentElement, {subtree:true, childList:true});
+                    if (nativePlayer) {
+                      const player = document.querySelector('.html5-video-player');
+                      if (player) observer.observe(player, {
+                        attributes:true, attributeFilter:['class','hidden','aria-hidden']
+                      });
+                    }
+                  } else {
+                    observer.observe(document.documentElement, {
+                      subtree:true, childList:true, attributes:true,
+                      attributeFilter:['class','hidden','aria-hidden']
+                    });
+                  }
+                } catch (_) { internalErrors++; }
+              };
+              const syncMode = () => {
+                if (shortsMode !== isBrowseShortsSurface()) observe();
                 scheduleObservedSweep();
                 scheduleFallbackSweep();
-              }, true);
+              };
+              observe();
+              window.__videoShieldObserver = observer;
+              document.addEventListener('visibilitychange', syncMode, true);
+              document.addEventListener('yt-navigate-finish', syncMode, true);
+              window.addEventListener('popstate', syncMode, {passive:true});
             }
 
             // The mobile player pauses on small viewports. In native PiP only, preserve the
@@ -1313,11 +1682,20 @@ object AdBlockScript {
             document.addEventListener('loadstart', event => {
               if (event.target === getPlayerVideo()) applyPreloadPolicy(event.target);
             }, true);
-            document.addEventListener('play', updatePlaybackBridge, true);
+            document.addEventListener('play', event => {
+              if (isShortsRoute() && event.target instanceof HTMLVideoElement) shortsActiveVideo = event.target;
+              updatePlaybackBridge(event);
+            }, true);
             for(const eventName of ['pointerdown','touchstart']) document.addEventListener(eventName,event=>{
               window.__videoShieldExpandPlaybackWanted=false;
               const repeatItem = repeatMenuItem(event.target);
               if (repeatItem) repeatUiInteractionUntil = Date.now() + 1200;
+              const rateItem = playbackRateMenuItem(event.target);
+              const rateOption = playbackRateOptionValue(event.target);
+              if (rateItem || rateOption !== null) {
+                rateUiInteractionUntil = Date.now() + 5000;
+                cancelPlaybackRateRestore();
+              }
               const menu = event.target?.closest?.('.ytp-settings-button,.ytp-menuitem,[role="menuitem"],[role="menuitemradio"],[role="menuitemcheckbox"]');
               if (menu) {
                 if (!qualityPlaybackIntent || qualityPlaybackIntent.id !== getVideoId())
@@ -1327,6 +1705,17 @@ object AdBlockScript {
             document.addEventListener('click', event => {
               const repeatItem = repeatMenuItem(event.target);
               if (repeatItem) beginWebsiteRepeatInteraction(repeatItem);
+
+              const rateItem = playbackRateMenuItem(event.target);
+              const rateOption = playbackRateOptionValue(event.target);
+              if (rateItem || rateOption !== null) {
+                beginWebsitePlaybackRateInteraction(event.target);
+              } else if (Date.now() < rateUiInteractionUntil) {
+                // Some YouTube builds render rate options as generic components with no
+                // semantic role. Read back the actual player rate after the click.
+                setTimeout(() => settleWebsitePlaybackRate(null), 80);
+                setTimeout(() => settleWebsitePlaybackRate(null), 320);
+              }
             }, true);
             document.addEventListener('keydown', cancelQualityPlaybackRestore, true);
             for (const eventName of ['loadedmetadata', 'durationchange', 'canplay', 'playing', 'play', 'volumechange']) {
@@ -1360,6 +1749,7 @@ object AdBlockScript {
             }, true);
             document.addEventListener('yt-navigate-finish', () => {
               lastCompatibilityUrl = '';
+              if (!isShortsRoute()) shortsActiveVideo = null;
               sweep();
               scheduleCompatibility();
             }, true);
@@ -1369,5 +1759,7 @@ object AdBlockScript {
           } catch (_) {}
         })();
         """.trimIndent()
+        synchronized(scriptCache) { scriptCache[key] = script }
+        return script
     }
 }

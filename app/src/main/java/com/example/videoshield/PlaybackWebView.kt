@@ -40,36 +40,18 @@ class PlaybackWebView @JvmOverloads constructor(
     private var boundsRequestPending = false
     private var velocityTracker: VelocityTracker? = null
 
-    private val boundsRefresh = object : Runnable {
-        override fun run() {
-            if (!isAttachedToWindow || !hasWindowFocus()) return
-            val swipeEnabled = canSwipeMinimize?.invoke() == true
-            if (swipeEnabled && visibility == VISIBLE && !touchActive) refreshVideoBounds()
-            postDelayed(this, if (swipeEnabled) 1_500L else 5_000L)
-        }
-    }
+    // Video bounds are only a precision aid for the swipe gesture. They are refreshed
+    // lazily on ACTION_DOWN; focus/attach changes must not wake the renderer just to
+    // measure geometry while the user is passively watching.
 
     // Capture sooner than before; horizontal scrubbing is still protected by direction checks.
     private val captureDistance
         get() = maxOf(ViewConfiguration.get(context).scaledTouchSlop * 2f, 18f * resources.displayMetrics.density)
 
-    override fun onAttachedToWindow() {
-        super.onAttachedToWindow()
-        removeCallbacks(boundsRefresh)
-        post(boundsRefresh)
-    }
-
     override fun onDetachedFromWindow() {
-        removeCallbacks(boundsRefresh)
         cachedVideoBounds = null
         resetSwipe(cancelPreview = true)
         super.onDetachedFromWindow()
-    }
-
-    override fun onWindowFocusChanged(hasWindowFocus: Boolean) {
-        super.onWindowFocusChanged(hasWindowFocus)
-        removeCallbacks(boundsRefresh)
-        if (hasWindowFocus && isAttachedToWindow) post(boundsRefresh)
     }
 
     private fun cachedHit(maxAgeMs: Long = 15_000L): Boolean {
@@ -147,10 +129,16 @@ class PlaybackWebView @JvmOverloads constructor(
             val token = sequence
             if (canSwipeMinimize?.invoke() == true) {
                 // Never make gesture capture depend solely on an asynchronous JS callback.
-                eligible = cachedHit() || nativePlayerFallbackHit()
-                refreshVideoBounds {
+                val fallbackHit = nativePlayerFallbackHit()
+                eligible = cachedHit() || fallbackHit
+                val cacheFresh = cachedUrl == url && cachedWidth == width &&
+                    android.os.SystemClock.elapsedRealtime() - cachedAt <= 15_000L
+                // The native top-player viewport is deterministic for the common gesture path.
+                // Only wake JavaScript geometry when the touch is outside that fallback and an
+                // accurate media hit-test can actually change the decision.
+                if (!cacheFresh && !fallbackHit) refreshVideoBounds {
                     if (token == sequence && touchActive && canSwipeMinimize?.invoke() == true) {
-                        eligible = cachedHit() || eligible || nativePlayerFallbackHit()
+                        eligible = cachedHit() || eligible
                     }
                 }
             }

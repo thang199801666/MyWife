@@ -25,6 +25,13 @@ class ShieldWebViewClient(
     private val navigationInterceptor: (String) -> Boolean = { false }
 ) : WebViewClient() {
     private var injectedUrl: String? = null
+    private var lastReportedUrl: String? = null
+
+    private fun reportUrl(url: String) {
+        if (url == lastReportedUrl) return
+        lastReportedUrl = url
+        onUrlChanged(url)
+    }
 
     override fun shouldInterceptRequest(view: WebView?, request: WebResourceRequest?): WebResourceResponse? {
         val uri = request?.url ?: return null
@@ -42,14 +49,14 @@ class ShieldWebViewClient(
         if (url != null) {
             injectedUrl = null
             onNavigationStarted(url)
-            onUrlChanged(url)
+            reportUrl(url)
         }
     }
 
     override fun onPageFinished(view: WebView?, url: String?) {
         super.onPageFinished(view, url)
         if (url != null) {
-            onUrlChanged(url)
+            reportUrl(url)
             onPageReady(url)
         }
         injectShield(view, url)
@@ -58,7 +65,7 @@ class ShieldWebViewClient(
     override fun doUpdateVisitedHistory(view: WebView?, url: String?, isReload: Boolean) {
         super.doUpdateVisitedHistory(view, url, isReload)
         // pushState/replaceState navigation does not trigger onPageStarted.
-        if (url != null && url == view?.url) onUrlChanged(url)
+        if (url != null && url == view?.url) reportUrl(url)
     }
 
     override fun onPageCommitVisible(view: WebView?, url: String?) {
@@ -170,6 +177,12 @@ class ShieldWebViewClient(
     }
 
     private fun emptyResponse(): WebResourceResponse = WebResourceResponse(
-        "text/plain", "utf-8", ByteArrayInputStream(ByteArray(0))
+        "text/plain", "utf-8", ByteArrayInputStream(EMPTY_BODY)
     )
+
+    companion object {
+        // shouldInterceptRequest is a hot path on watch pages. Reuse the immutable
+        // empty payload instead of allocating a new byte array for every blocked request.
+        private val EMPTY_BODY = ByteArray(0)
+    }
 }
