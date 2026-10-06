@@ -1,0 +1,1 @@
+(() => {const p=document.querySelector('.html5-video-player'); return {share:Array.from(document.querySelectorAll('button,[role="button"]')).filter(n=>/^(share|chia sẻ)$/i.test((n.getAttribute('aria-label')||n.textContent||'').trim())).map(n=>n.parentElement.outerHTML.slice(0,6000)),qualities:p?.getAvailableQualityLevels?.(),current:p?.getPlaybackQuality?.()}})()

@@ -1,0 +1,236 @@
+<resources>
+    <string name="ui_home" formatted="false">Trang chủ</string>
+    <string name="ui_you" formatted="false">Bạn</string>
+    <string name="ui_subscriptions" formatted="false">Kênh đăng ký</string>
+    <string name="ui_search" formatted="false">Tìm kiếm</string>
+    <string name="ui_settings" formatted="false">Cài đặt</string>
+    <string name="ui_back" formatted="false">Quay lại</string>
+    <string name="ui_close" formatted="false">Đóng</string>
+    <string name="ui_close_menu" formatted="false">Đóng menu</string>
+    <string name="ui_cancel" formatted="false">Hủy</string>
+    <string name="ui_save" formatted="false">Lưu</string>
+    <string name="ui_clear" formatted="false">Xóa</string>
+    <string name="ui_done" formatted="false">Xong</string>
+    <string name="ui_retry" formatted="false">Thử lại</string>
+    <string name="ui_play" formatted="false">Phát</string>
+    <string name="ui_pause" formatted="false">Tạm dừng</string>
+    <string name="ui_next" formatted="false">Tiếp theo</string>
+    <string name="ui_stop" formatted="false">Dừng</string>
+    <string name="ui_all" formatted="false">Tất cả</string>
+    <string name="ui_temporary" formatted="false">Lưu tạm</string>
+    <string name="ui_downloads" formatted="false">Nội dung tải xuống</string>
+    <string name="ui_download" formatted="false">Tải xuống</string>
+    <string name="ui_save_to_device" formatted="false">Lưu vào thiết bị</string>
+    <string name="ui_temporary_save" formatted="false">Lưu tạm thời</string>
+    <string name="ui_about" formatted="false">Giới thiệu</string>
+    <string name="ui_for_you" formatted="false">Dành cho bạn</string>
+    <string name="ui_similar" formatted="false">Tương tự</string>
+    <string name="ui_similar_videos" formatted="false">Video tương tự</string>
+    <string name="ui_continue" formatted="false">Xem tiếp</string>
+    <string name="ui_continue_watching" formatted="false">Tiếp tục xem</string>
+    <string name="ui_history" formatted="false">Lịch sử</string>
+    <string name="ui_watch_history" formatted="false">Lịch sử xem</string>
+    <string name="ui_favorites" formatted="false">Yêu thích</string>
+    <string name="ui_queue" formatted="false">Hàng đợi</string>
+    <string name="ui_quick_actions" formatted="false">Thao tác nhanh</string>
+    <string name="ui_library_options" formatted="false">Tùy chọn thư viện</string>
+    <string name="ui_search_library" formatted="false">Tìm trong thư viện</string>
+    <string name="ui_filter_this_list" formatted="false">Lọc danh sách này</string>
+    <string name="ui_search_or_paste_a_youtube_link" formatted="false">Tìm kiếm hoặc dán liên kết YouTube</string>
+    <string name="ui_search_videos" formatted="false">Tìm video</string>
+    <string name="ui_ready" formatted="false">Sẵn sàng</string>
+    <string name="ui_allow" formatted="false">Cho phép</string>
+    <string name="ui_minimize" formatted="false">Thu nhỏ</string>
+    <string name="ui_subscribe" formatted="false">Đăng ký</string>
+    <string name="ui_subscribed" formatted="false">Đã đăng ký</string>
+    <string name="ui_repeat" formatted="false">Lặp lại</string>
+    <string name="ui_sleep" formatted="false">Hẹn giờ</string>
+    <string name="ui_auto" formatted="false">Tự động</string>
+    <string name="ui_highest" formatted="false">Cao nhất</string>
+    <string name="ui_play_all" formatted="false">Phát tất cả</string>
+    <string name="ui_shuffle" formatted="false">Phát ngẫu nhiên</string>
+    <string name="ui_video_thumbnail" formatted="false">Ảnh xem trước video</string>
+    <string name="ui_video_options" formatted="false">Tùy chọn video</string>
+    <string name="ui_collection_cover" formatted="false">Ảnh bìa danh sách</string>
+    <string name="ui_not_interested" formatted="false">Không quan tâm</string>
+    <string name="ui_loading" formatted="false">Đang tải…</string>
+    <string name="ui_nothing_here_yet" formatted="false">Chưa có nội dung</string>
+    <string name="ui_no_matching_titles_or_channels" formatted="false">Không có tiêu đề hoặc kênh phù hợp</string>
+    <string name="ui_enable_local_suggestions_and_watch_history_in_settings" formatted="false">Bật gợi ý cá nhân và lịch sử xem trong Cài đặt.</string>
+    <string name="ui_could_not_load_the_library_reopen_this_tab_to_retry" formatted="false">Không thể tải thư viện. Mở lại mục này để thử lại.</string>
+    <string name="ui_browse_home_or_search_to_discover_videos_nwatch_videos_favorite_t" formatted="false">Khám phá video trên Trang chủ hoặc Tìm kiếm.\nXem video, thêm yêu thích hoặc đăng ký kênh để cải thiện gợi ý.</string>
+    <string name="ui_no_similar_videos_found_yet_nbrowse_home_or_search_to_discover_mo" formatted="false">Chưa tìm thấy video tương tự.\nKhám phá thêm trên Trang chủ hoặc Tìm kiếm.\nNhấn giữ tiêu đề trong lịch sử để tìm video tương tự.</string>
+    <string name="ui_partly_watched_videos_appear_here_nvideos_near_the_end_are_exclud" formatted="false">Video đang xem dở sẽ xuất hiện ở đây.\nVideo gần xem xong sẽ không được hiển thị.</string>
+    <string name="ui_could_not_save_the_change_please_retry" formatted="false">Không thể lưu thay đổi. Vui lòng thử lại.</string>
+    <string name="ui_playback_dismissed" formatted="false">Đã đóng trình phát</string>
+    <string name="ui_no_videos_to_play" formatted="false">Chưa có video để phát</string>
+    <string name="ui_could_not_prepare_playback" formatted="false">Không thể chuẩn bị phát video</string>
+    <string name="ui_could_not_update_queue" formatted="false">Không thể cập nhật hàng đợi</string>
+    <string name="ui_removed_from_queue" formatted="false">Đã xóa khỏi hàng đợi</string>
+    <string name="ui_added_to_queue" formatted="false">Đã thêm vào hàng đợi</string>
+    <string name="ui_queue_is_empty" formatted="false">Hàng đợi trống</string>
+    <string name="ui_improve_your_suggestions" formatted="false">Cải thiện gợi ý</string>
+    <string name="ui_hidden_channels" formatted="false">Kênh đã ẩn</string>
+    <string name="ui_uncheck_channels_to_restore" formatted="false">Bỏ chọn để khôi phục kênh</string>
+    <string name="ui_could_not_load_hidden_channels" formatted="false">Không thể tải các kênh đã ẩn</string>
+    <string name="ui_no_hidden_channels_use_the_beside_a_suggestion_to_hide_a_video_or" formatted="false">Chưa ẩn kênh nào. Dùng nút ✕ cạnh gợi ý để ẩn video hoặc kênh. Khôi phục video chỉ bỏ các ngoại lệ video.</string>
+    <string name="ui_reset_learned_preferences_discovered_videos_and_hidden_suggestion" formatted="false">Đặt lại sở thích đã học, video đã khám phá và gợi ý đã ẩn. Video yêu thích và kênh đăng ký vẫn ảnh hưởng đến gợi ý.</string>
+    <string name="ui_this_removes_the_items_in_this_section_from_your_local_library" formatted="false">Thao tác này xóa nội dung trong mục này khỏi thư viện trên thiết bị.</string>
+    <string name="ui_local_subscription" formatted="false">Kênh đăng ký trên thiết bị</string>
+    <string name="ui_watch_next" formatted="false">Phát tiếp theo</string>
+    <string name="ui_add_to_queue" formatted="false">Thêm vào hàng đợi</string>
+    <string name="ui_remove_from_queue" formatted="false">Xóa khỏi hàng đợi</string>
+    <string name="ui_add_to_favorites" formatted="false">Thêm vào yêu thích</string>
+    <string name="ui_remove_from_favorites" formatted="false">Xóa khỏi yêu thích</string>
+    <string name="ui_remove_from_history" formatted="false">Xóa khỏi lịch sử</string>
+    <string name="ui_find_similar_videos" formatted="false">Tìm video tương tự</string>
+    <string name="ui_play_offline" formatted="false">Phát offline</string>
+    <string name="ui_delete_temporary_file" formatted="false">Xóa file tạm</string>
+    <string name="ui_remove_from_list" formatted="false">Xóa khỏi danh sách</string>
+    <string name="ui_download_again" formatted="false">Tải lại</string>
+    <string name="ui_details" formatted="false">Chi tiết</string>
+    <string name="ui_download_storage_information" formatted="false">Thông tin lưu trữ nội dung tải xuống</string>
+    <string name="ui_offline_storage" formatted="false">Lưu trữ offline</string>
+    <string name="ui_keep_the_file_on_your_device" formatted="false">Giữ nguyên file trên thiết bị</string>
+    <string name="ui_automatically_deleted_30_days_after_download_completes" formatted="false">Tự xóa sau 30 ngày kể từ lúc tải xong</string>
+    <string name="ui_watch_offline_in_the_app_automatically_deleted_after_30_days" formatted="false">Xem offline trong app • Tự xóa sau 30 ngày</string>
+    <string name="ui_choose_a_resolution_from_the_source" formatted="false">Chọn độ phân giải từ nguồn</string>
+    <string name="ui_audio_only_choose_quality" formatted="false">Chỉ âm thanh • Chọn chất lượng</string>
+    <string name="ui_reading_source_quality" formatted="false">Đang lấy chất lượng nguồn…</string>
+    <string name="ui_quality_is_read_from_this_video" formatted="false">Chất lượng được đọc từ clip này.</string>
+    <string name="ui_could_not_read_the_download_source" formatted="false">Chưa lấy được nguồn tải</string>
+    <string name="ui_mp3_quality" formatted="false">Chất lượng MP3</string>
+    <string name="ui_video_quality" formatted="false">Chất lượng video</string>
+    <string name="ui_highest_quality_from_source_file_may_be_larger" formatted="false">Chất lượng cao nhất từ nguồn • File có thể lớn hơn</string>
+    <string name="ui_added_to_downloads" formatted="false">Đã thêm vào Downloads</string>
+    <string name="ui_ready_to_play_offline" formatted="false">Sẵn sàng xem offline</string>
+    <string name="ui_waiting_to_download" formatted="false">Đang chờ tải</string>
+    <string name="ui_processing_and_saving_file" formatted="false">Đang xử lý và lưu file…</string>
+    <string name="ui_expired_download_again_to_watch" formatted="false">Đã hết hạn • Tải lại để xem</string>
+    <string name="ui_cancelled" formatted="false">Đã hủy</string>
+    <string name="ui_save_location_not_selected" formatted="false">Chưa chọn vị trí lưu</string>
+    <string name="ui_download_incomplete_tap_to_retry" formatted="false">Tải chưa hoàn tất • Nhấn để thử lại</string>
+    <string name="ui_temporary_30_days" formatted="false">Lưu tạm • 30 ngày</string>
+    <string name="ui_on_device" formatted="false">Trên thiết bị</string>
+    <string name="ui_no_downloads_yet_n_nopen_a_video_download_to_save_video_or_mp3" formatted="false">Chưa có nội dung tải xuống\n\nMở video → Tải xuống để lưu video hoặc MP3.</string>
+    <string name="ui_nothing_in_this_category_yet_n_nselect_all_to_see_everything" formatted="false">Chưa có nội dung trong mục này\n\nChọn Tất cả để xem tất cả.</string>
+    <string name="ui_mp3_offline_playback" formatted="false">MP3 • Phát offline</string>
+    <string name="ui_this_device_cannot_play_this_file_s_codec_try_another_player_or_d" formatted="false">Thiết bị chưa phát được codec của file này. Có thể dùng trình phát khác hoặc lưu chất lượng thấp hơn.</string>
+    <string name="ui_equalizer_eq" formatted="false">Bộ cân bằng âm thanh (EQ)</string>
+    <string name="ui_enable_eq" formatted="false">Bật EQ</string>
+    <string name="ui_reset" formatted="false">Đặt lại</string>
+    <string name="ui_eq_applies_to_offline_video_mp3_in_downloads_it_does_not_yet_appl" formatted="false">Áp dụng cho video/MP3 offline trong Downloads. EQ chưa áp dụng cho video YouTube online.</string>
+    <string name="ui_use_the_phone_s_media_volume_buttons_boosting_eq_bands_automatica" formatted="false">Âm lượng vẫn dùng phím âm lượng media. Khi tăng dải EQ, app giảm gain tự động để hạn chế méo tiếng.</string>
+    <string name="ui_sleep_timer" formatted="false">Hẹn giờ tắt</string>
+    <string name="ui_sleep_timer_finished" formatted="false">Đã hết thời gian hẹn giờ</string>
+    <string name="ui_sleep_timer_off" formatted="false">Đã tắt hẹn giờ</string>
+    <string name="ui_repeat_enabled" formatted="false">Đã bật lặp lại</string>
+    <string name="ui_repeat_disabled" formatted="false">Đã tắt lặp lại</string>
+    <string name="ui_player_restarted_safely" formatted="false">Đã khởi động lại trình phát</string>
+    <string name="ui_offline_waiting_for_network" formatted="false">Offline • Đang chờ kết nối mạng</string>
+    <string name="ui_offline_playback_recovery_paused" formatted="false">Offline • Tạm dừng khôi phục phát</string>
+    <string name="ui_back_online" formatted="false">Đã kết nối lại mạng</string>
+    <string name="ui_you_re_offline" formatted="false">Bạn đang offline</string>
+    <string name="ui_playback_needs_attention" formatted="false">Cần kiểm tra trình phát</string>
+    <string name="ui_automatic_recovery_could_not_restore_this_page" formatted="false">Không thể tự khôi phục trang này.</string>
+    <string name="ui_renderer_crash_loop_guard_active_tap_retry_to_restart_player" formatted="false">Đã ngăn trình phát bị lỗi lặp lại • Nhấn Thử lại để khởi động lại</string>
+    <string name="ui_mobile_metered" formatted="false">Dữ liệu di động</string>
+    <string name="ui_wi_fi_unmetered" formatted="false">Wi-Fi</string>
+    <string name="ui_enhancements" formatted="false">TÍNH NĂNG NÂNG CAO</string>
+    <string name="ui_apply_enhanced_client_defaults" formatted="false">Áp dụng thiết lập nâng cao mặc định</string>
+    <string name="ui_enhanced_client_defaults_applied" formatted="false">Đã áp dụng thiết lập nâng cao</string>
+    <string name="ui_block_youtube_ads" formatted="false">Chặn quảng cáo YouTube</string>
+    <string name="ui_block_tracking_requests" formatted="false">Chặn yêu cầu theo dõi</string>
+    <string name="ui_safe_mode_disable_network_and_aggressive_player_filtering" formatted="false">Chế độ an toàn — Tắt lọc mạng và lọc trình phát mạnh</string>
+    <string name="ui_distraction_control" formatted="false">KIỂM SOÁT NỘI DUNG</string>
+    <string name="ui_hide_shorts_and_open_shorts_as_normal_videos" formatted="false">Ẩn Shorts và mở Shorts như video thường</string>
+    <string name="ui_hide_related_recommendations" formatted="false">Ẩn video gợi ý liên quan</string>
+    <string name="ui_hide_comments" formatted="false">Ẩn bình luận</string>
+    <string name="ui_hide_end_screen_cards" formatted="false">Ẩn thẻ cuối video</string>
+    <string name="ui_hide_open_in_app_prompts" formatted="false">Ẩn lời nhắc mở bằng app</string>
+    <string name="ui_playback" formatted="false">PHÁT VIDEO</string>
+    <string name="ui_automatically_enter_pip_when_leaving_app" formatted="false">Tự động thu nhỏ PiP khi rời app</string>
+    <string name="ui_lock_screen_notification_controls" formatted="false">Điều khiển trên màn hình khóa và thông báo</string>
+    <string name="ui_player_gestures_swipe_down_to_minimize_fullscreen_seek_brightness" formatted="false">Thao tác vuốt — Vuốt xuống để thu nhỏ; tua, chỉnh độ sáng và âm lượng khi toàn màn hình</string>
+    <string name="ui_on_a_regular_video_page_swipe_down_on_the_video_image_to_minimize" formatted="false">Trên trang video thường, vuốt xuống trên video để thu nhỏ và tiếp tục xem khi duyệt nội dung. Bình luận và Shorts vẫn cuộn bình thường.</string>
+    <string name="ui_swipe_horizontally_to_seek_swipe_vertically_on_the_left_for_brigh" formatted="false">Vuốt ngang để tua. Vuốt dọc bên trái để chỉnh độ sáng, bên phải để chỉnh âm lượng. Vuốt xuống ở giữa để thu nhỏ khỏi toàn màn hình. Chạm hai lần vào một bên để tua.</string>
+    <string name="ui_gesture_sensitivity_1" formatted="false">Độ nhạy thao tác 1×</string>
+    <string name="ui_double_tap_seek_10s" formatted="false">Chạm hai lần để tua 10 giây</string>
+    <string name="ui_amoled_black_theme" formatted="false">Giao diện đen AMOLED</string>
+    <string name="ui_minimal_player_chrome_hide_app_bar_while_watching" formatted="false">Giao diện phát gọn — Ẩn thanh app khi xem</string>
+    <string name="ui_always_repeat_the_current_video" formatted="false">Luôn lặp lại video đang xem</string>
+    <string name="ui_wi_fi_unmetered_quality_auto" formatted="false">Chất lượng Wi-Fi tự động</string>
+    <string name="ui_mobile_metered_quality_auto" formatted="false">Chất lượng dữ liệu di động tự động</string>
+    <string name="ui_community_segment_skip" formatted="false">BỎ QUA ĐOẠN ĐÁNH DẤU BỞI CỘNG ĐỒNG</string>
+    <string name="ui_skip_sponsor_self_promo_and_interaction_segments" formatted="false">Bỏ qua đoạn tài trợ, tự quảng bá và kêu gọi tương tác</string>
+    <string name="ui_skip_community_marked_intros_and_outros" formatted="false">Bỏ qua mở đầu và kết thúc do cộng đồng đánh dấu</string>
+    <string name="ui_reliability" formatted="false">ĐỘ ỔN ĐỊNH</string>
+    <string name="ui_automatically_recover_stalled_foreground_playback" formatted="false">Tự khôi phục khi video đang xem bị đứng</string>
+    <string name="ui_keep_active_playback_reliable_with_screen_off_requires_notificati" formatted="false">Tiếp tục phát ổn định khi tắt màn hình (cần điều khiển thông báo)</string>
+    <string name="ui_adaptive_webview_lifecycle_and_memory_hardening" formatted="false">Tối ưu vòng đời WebView và bộ nhớ</string>
+    <string name="ui_local_library" formatted="false">THƯ VIỆN TRÊN THIẾT BỊ</string>
+    <string name="ui_learn_viewing_habits_locally_and_suggest_videos_in_for_you" formatted="false">Học thói quen xem trên thiết bị và gợi ý trong Dành cho bạn</string>
+    <string name="ui_clear_learned_preferences_and_suggestions" formatted="false">Xóa sở thích đã học và gợi ý</string>
+    <string name="ui_learned_viewing_preferences_cleared" formatted="false">Đã xóa sở thích xem đã học</string>
+    <string name="ui_learning_requires_watch_history_suggestions_use_viewing_time_favo" formatted="false">Cần lịch sử xem để học sở thích. Gợi ý dựa trên thời gian xem, video yêu thích và kênh đăng ký trên thiết bị. Hồ sơ sở thích không được tải lên mạng. Xóa sẽ bỏ dữ liệu đã học, gợi ý và phản hồi; vẫn giữ yêu thích và kênh đăng ký.</string>
+    <string name="ui_remember_watch_history_and_playback_position_locally" formatted="false">Lưu lịch sử xem và vị trí phát trên thiết bị</string>
+    <string name="ui_resume_videos_from_the_last_local_playback_position" formatted="false">Tiếp tục video từ vị trí xem trước đó</string>
+    <string name="ui_automatically_play_the_next_item_in_queue" formatted="false">Tự phát video tiếp theo trong hàng đợi</string>
+    <string name="ui_subscriptions_favorites_queue_and_history_are_stored_only_on_this" formatted="false">Kênh đăng ký, yêu thích, hàng đợi và lịch sử chỉ lưu trên thiết bị, không cần tài khoản Google. Tốc độ phát được chỉnh từ trình phát và ghi nhớ trên thiết bị.</string>
+    <string name="ui_rule_pack" formatted="false">BỘ QUY TẮC</string>
+    <string name="ui_automatically_check_configured_rule_source_every_24_hours" formatted="false">Tự kiểm tra nguồn quy tắc mỗi 24 giờ</string>
+    <string name="ui_check_install_rules" formatted="false">Kiểm tra / cài quy tắc</string>
+    <string name="ui_rollback" formatted="false">Khôi phục</string>
+    <string name="ui_bundled_rules" formatted="false">Quy tắc có sẵn</string>
+    <string name="ui_channel_allowlist" formatted="false">KÊNH NGOẠI LỆ</string>
+    <string name="ui_clear_channel_allowlist" formatted="false">Xóa danh sách kênh ngoại lệ</string>
+    <string name="ui_channel_allowlist_cleared" formatted="false">Đã xóa danh sách kênh ngoại lệ</string>
+    <string name="ui_restored_bundled_rules" formatted="false">Đã khôi phục quy tắc có sẵn</string>
+    <string name="ui_no_previous_rule_pack_is_available" formatted="false">Không có bộ quy tắc trước đó</string>
+    <string name="ui_enter_an_https_rule_pack_url_first" formatted="false">Nhập URL HTTPS của bộ quy tắc trước</string>
+    <string name="ui_updating" formatted="false">Đang cập nhật…</string>
+    <string name="ui_bundled" formatted="false">có sẵn</string>
+    <string name="ui_downloaded" formatted="false">đã tải</string>
+    <string name="ui_lifetime_protection" formatted="false">THỐNG KÊ BẢO VỆ</string>
+    <string name="ui_network_n" formatted="false">Yêu cầu mạng\n</string>
+    <string name="ui_page_ads_n" formatted="false">Quảng cáo trên trang\n</string>
+    <string name="ui_player_skips_n" formatted="false">Quảng cáo đã bỏ qua\n</string>
+    <string name="ui_segment_skips_n" formatted="false">Đoạn đã bỏ qua\n</string>
+    <string name="ui_total_blocked_n" formatted="false">Tổng đã chặn\n</string>
+    <string name="ui_allowed_channels_n" formatted="false">Kênh ngoại lệ\n</string>
+    <string name="ui_playback_recovery" formatted="false">KHÔI PHỤC PHÁT</string>
+    <string name="ui_reset_recovery_diagnostics" formatted="false">Đặt lại thống kê khôi phục</string>
+    <string name="ui_runtime_device" formatted="false">HOẠT ĐỘNG / THIẾT BỊ</string>
+    <string name="ui_run_runtime_database_self_test" formatted="false">Kiểm tra hoạt động / cơ sở dữ liệu</string>
+    <string name="ui_run_release_stress_test" formatted="false">Chạy kiểm tra tải bản release</string>
+    <string name="ui_reset_runtime_diagnostics" formatted="false">Đặt lại thống kê hoạt động</string>
+    <string name="ui_compatibility" formatted="false">TƯƠNG THÍCH</string>
+    <string name="ui_run_local_compatibility_self_test" formatted="false">Kiểm tra tương thích trên thiết bị</string>
+    <string name="ui_reset_compatibility_diagnostics" formatted="false">Đặt lại thống kê tương thích</string>
+    <string name="ui_enter_safe_mode" formatted="false">Bật chế độ an toàn</string>
+    <string name="ui_exit_safe_mode" formatted="false">Tắt chế độ an toàn</string>
+    <string name="ui_playback_filtering_settings" formatted="false">Cài đặt phát và chặn quảng cáo</string>
+    <string name="ui_reset_lifetime_statistics" formatted="false">Đặt lại thống kê bảo vệ</string>
+    <string name="ui_ad_filtering_active" formatted="false">Đang chặn quảng cáo</string>
+    <string name="ui_ad_filtering_disabled" formatted="false">Đã tắt chặn quảng cáo</string>
+    <string name="ui_runtime_self_test_passed" formatted="false">Kiểm tra hoạt động đạt</string>
+    <string name="ui_runtime_self_test_found_a_problem" formatted="false">Kiểm tra hoạt động phát hiện lỗi</string>
+    <string name="ui_running_release_stress_test" formatted="false">Đang kiểm tra tải bản release…</string>
+    <string name="ui_release_stress_test_passed" formatted="false">Kiểm tra tải bản release đạt</string>
+    <string name="ui_release_stress_test_found_a_problem" formatted="false">Kiểm tra tải bản release phát hiện lỗi</string>
+    <string name="ui_compatibility_self_test_passed" formatted="false">Kiểm tra tương thích đạt</string>
+    <string name="ui_compatibility_self_test_found_a_problem" formatted="false">Kiểm tra tương thích phát hiện lỗi</string>
+    <string name="app_name" formatted="false">Vợ Tui</string>
+    <string name="language_title" formatted="false">Ngôn ngữ</string>
+    <string name="language_vi" formatted="false">Tiếng Việt</string>
+    <string name="language_en" formatted="false">English</string>
+    <string name="settings_title" formatted="false">Cài đặt Vợ Tui</string>
+    <string name="dashboard_title" formatted="false">Thống kê Vợ Tui</string>
+    <string name="library_subtitle" formatted="false">Thư viện của bạn trên thiết bị</string>
+    <string name="offline_save_device" formatted="false">Lưu vào Downloads/VoTuibe để giữ lâu dài</string>
+    <string name="offline_keep_file" formatted="false">Lưu tại Downloads/VoTuibe • Giữ file khi xóa khỏi danh sách</string>
+    <string name="community_privacy" formatted="false">Mặc định tắt. Khi bật, Vợ Tui dùng cơ chế k-anonymity tương thích SponsorBlock: chỉ gửi tiền tố SHA-256 ngắn và lọc dữ liệu video phù hợp trên thiết bị. Dữ liệu cộng đồng: SponsorBlock của Ajay Ramachandran, CC BY-NC-SA 4.0.</string>
+    <string name="rules_explanation" formatted="false">Bộ quy tắc được kiểm tra trước khi dùng. Vợ Tui giữ bản trước đó để khôi phục. App có thể tự bật chế độ an toàn nếu trình phát lỗi nhiều lần.</string>
+    <string name="offline_recovery" formatted="false">Vợ Tui đã tạm dừng tự khôi phục. Kết nối lại mạng rồi nhấn Thử lại.</string>
+    <string name="about_body" formatted="false">Vợ Tui giúp bạn xem video, thu nhỏ trình phát, nhận gợi ý theo lịch sử xem và hạn chế quảng cáo. Bạn có thể lưu video hoặc MP3 vào thiết bị, hoặc lưu tạm để xem offline trong 30 ngày.\n\nÂm thanh mặc định được bật và điều chỉnh bằng âm lượng media của điện thoại. Lịch sử xem và sở thích được lưu trên thiết bị.\n\nThis App I wrote for my wife and my unborn child</string>
+</resources>

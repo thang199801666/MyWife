@@ -1,0 +1,1 @@
+JSON.stringify({url:location.href,home:document.getElementById('votuibe-home-recommendations')?.textContent?.slice(0,1800),cards:Array.from(document.querySelectorAll('#votuibe-home-recommendations a')).slice(0,4).map(a=>({href:a.href,title:a.querySelector('h3')?.textContent,image:a.querySelector('img')?.naturalWidth})),bodyTop:document.body.firstElementChild?.id})

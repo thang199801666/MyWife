@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_update_title">Cập nhật Vợ Tui</string>
+    <string name="app_update_check">Kiểm tra cập nhật</string>
+    <string name="app_update_current">Phiên bản hiện tại: %1$s</string>
+    <string name="app_update_checking">Đang kiểm tra bản mới trên GitHub…</string>
+    <string name="app_update_check_failed">Chưa kiểm tra được bản mới. Hãy kiểm tra kết nối rồi thử lại.</string>
+    <string name="app_update_retry">Thử lại</string>
+    <string name="app_update_no_release">Chưa có bản phát hành chính thức trên GitHub.</string>
+    <string name="app_update_up_to_date">Bạn đang dùng phiên bản mới nhất.</string>
+    <string name="app_update_incompatible">Bản mới chưa tương thích với thiết bị này. APK hiện dành cho Android 8 trở lên, chip ARM64/Snapdragon.</string>
+    <string name="app_update_available">Có phiên bản mới: %1$s</string>
+    <string name="app_update_size">Dung lượng: %1$d MB • ARM64</string>
+    <string name="app_update_download">Tải bản cập nhật</string>
+    <string name="app_update_downloading">Đang tải và kiểm tra bản cập nhật…</string>
+    <string name="app_update_download_failed">Chưa tải hoặc xác minh được bản cập nhật. Hãy thử lại.</string>
+    <string name="app_update_ready">Bản cập nhật đã tải và xác minh thành công.</string>
+    <string name="app_update_install">Cài đặt bản cập nhật</string>
+    <string name="app_update_allow_install">Để cập nhật, hãy cho phép Vợ Tui cài ứng dụng từ nguồn này trong cài đặt Android. Sau đó quay lại app để tiếp tục.</string>
+    <string name="app_update_open_settings">Mở cài đặt Android</string>
+    <string name="app_update_install_failed">Chưa mở được trình cài đặt. Bạn có thể tải APK từ trang phát hành.</string>
+    <string name="app_update_releases">Xem trang phát hành GitHub</string>
+    <string name="app_update_browser_missing">Chưa mở được trình duyệt trên thiết bị này.</string>
+</resources>

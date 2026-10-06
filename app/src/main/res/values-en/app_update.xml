@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_update_title">Update Vợ Tui</string>
+    <string name="app_update_check">Check for updates</string>
+    <string name="app_update_current">Installed version: %1$s</string>
+    <string name="app_update_checking">Checking GitHub for a new version…</string>
+    <string name="app_update_check_failed">Could not check for updates. Check your connection and try again.</string>
+    <string name="app_update_retry">Try again</string>
+    <string name="app_update_no_release">No official GitHub release is available yet.</string>
+    <string name="app_update_up_to_date">You are using the latest version.</string>
+    <string name="app_update_incompatible">The latest release is not compatible with this device. The APK currently supports Android 8 or later on ARM64/Snapdragon.</string>
+    <string name="app_update_available">New version available: %1$s</string>
+    <string name="app_update_size">Size: %1$d MB • ARM64</string>
+    <string name="app_update_download">Download update</string>
+    <string name="app_update_downloading">Downloading and verifying the update…</string>
+    <string name="app_update_download_failed">Could not download or verify the update. Please try again.</string>
+    <string name="app_update_ready">The update has been downloaded and verified.</string>
+    <string name="app_update_install">Install update</string>
+    <string name="app_update_allow_install">To update, allow Vợ Tui to install apps from this source in Android settings. Then return to the app to continue.</string>
+    <string name="app_update_open_settings">Open Android settings</string>
+    <string name="app_update_install_failed">Could not open the installer. You can download the APK from the release page.</string>
+    <string name="app_update_releases">View GitHub releases</string>
+    <string name="app_update_browser_missing">Could not open a browser on this device.</string>
+</resources>

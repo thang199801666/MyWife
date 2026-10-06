@@ -1,0 +1,1 @@
+(() => ({url:location.href, title:document.title, ready:document.readyState, text:document.body?.innerText.slice(0,1200),diagnostics:window.__videoShieldDiagnostics?.(),media:(()=>{const v=document.querySelector('video');return v?{error:v.error?.code,network:v.networkState,ready:v.readyState,time:v.currentTime,paused:v.paused}:null})()}))()

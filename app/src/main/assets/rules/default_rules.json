@@ -1,0 +1,83 @@
+{
+  "schemaVersion": 1,
+  "ruleVersion": 300,
+  "name": "YouTooBee Core 2026.10",
+  "network": {
+    "blockedHosts": [
+      "doubleclick.net",
+      "googleadservices.com",
+      "googlesyndication.com",
+      "googletagservices.com",
+      "2mdn.net",
+      "adservice.google.com"
+    ],
+    "blockedPathFragments": [
+      "/pagead/",
+      "/api/stats/ads",
+      "/api/stats/qoe?adformat=",
+      "get_midroll_info",
+      "ad_break",
+      "adunit",
+      "companion_ad"
+    ],
+    "trackerFragments": [
+      "/api/stats/watchtime",
+      "/api/stats/playback",
+      "/ptracking",
+      "/generate_204",
+      "youtubei/v1/log_event"
+    ]
+  },
+  "dom": {
+    "adSelectors": [
+      "#player-ads",
+      ".video-ads",
+      ".ytp-ad-module",
+      ".ytp-ad-overlay-container",
+      ".ytp-ad-text-overlay",
+      "ytd-ad-slot-renderer",
+      "ytd-display-ad-renderer",
+      "ytd-promoted-sparkles-web-renderer",
+      "ytd-promoted-video-renderer",
+      "ytm-ad-slot-renderer",
+      "ytm-companion-ad-renderer",
+      "ytm-promoted-video-renderer",
+      "[data-ad-impressions]",
+      "[class*=\"ad-slot\"]"
+    ],
+    "skipSelectors": [
+      ".ytp-ad-skip-button",
+      ".ytp-ad-skip-button-modern",
+      ".ytp-skip-ad-button",
+      "button.ytp-ad-skip-button-modern",
+      "button[id*=\"skip\"]"
+    ],
+    "annoyances": {
+      "shorts": [
+        "ytm-reel-shelf-renderer",
+        "ytd-reel-shelf-renderer",
+        "ytm-shorts-lockup-view-model",
+        "ytd-rich-section-renderer:has(a[href^=\"/shorts/\"])"
+      ],
+      "recommendations": [
+        "ytm-item-section-renderer[section-identifier=\"related-items\"]",
+        "#related",
+        "ytd-watch-next-secondary-results-renderer"
+      ],
+      "comments": [
+        "ytm-comment-section-renderer",
+        "ytd-comments",
+        "#comments"
+      ],
+      "endScreen": [
+        ".ytp-ce-element",
+        ".ytp-endscreen-content"
+      ],
+      "openInApp": [
+        "ytm-open-in-app-button",
+        "ytm-pivot-bar-item-renderer a[href*=\"intent://\"]",
+        "[class*=\"open-in-app\"]"
+      ]
+    }
+  }
+}

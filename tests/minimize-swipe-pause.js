@@ -1,0 +1,1 @@
+(() => { const video = document.querySelector('video'); if (window.__videoShieldControl) window.__videoShieldControl('pause'); else video?.pause(); return {paused: video?.paused, position: video?.currentTime}; })();

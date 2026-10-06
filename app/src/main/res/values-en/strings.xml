@@ -1,0 +1,236 @@
+<resources>
+    <string name="ui_home" formatted="false">Home</string>
+    <string name="ui_you" formatted="false">You</string>
+    <string name="ui_subscriptions" formatted="false">Subscriptions</string>
+    <string name="ui_search" formatted="false">Search</string>
+    <string name="ui_settings" formatted="false">Settings</string>
+    <string name="ui_back" formatted="false">Back</string>
+    <string name="ui_close" formatted="false">Close</string>
+    <string name="ui_close_menu" formatted="false">Close menu</string>
+    <string name="ui_cancel" formatted="false">Cancel</string>
+    <string name="ui_save" formatted="false">Save</string>
+    <string name="ui_clear" formatted="false">Clear</string>
+    <string name="ui_done" formatted="false">Done</string>
+    <string name="ui_retry" formatted="false">Retry</string>
+    <string name="ui_play" formatted="false">Play</string>
+    <string name="ui_pause" formatted="false">Pause</string>
+    <string name="ui_next" formatted="false">Next</string>
+    <string name="ui_stop" formatted="false">Stop</string>
+    <string name="ui_all" formatted="false">All</string>
+    <string name="ui_temporary" formatted="false">Temporary</string>
+    <string name="ui_downloads" formatted="false">Downloads</string>
+    <string name="ui_download" formatted="false">Download</string>
+    <string name="ui_save_to_device" formatted="false">Save To Device</string>
+    <string name="ui_temporary_save" formatted="false">Temporary Save</string>
+    <string name="ui_about" formatted="false">About</string>
+    <string name="ui_for_you" formatted="false">For you</string>
+    <string name="ui_similar" formatted="false">Similar</string>
+    <string name="ui_similar_videos" formatted="false">Similar videos</string>
+    <string name="ui_continue" formatted="false">Continue</string>
+    <string name="ui_continue_watching" formatted="false">Continue watching</string>
+    <string name="ui_history" formatted="false">History</string>
+    <string name="ui_watch_history" formatted="false">Watch history</string>
+    <string name="ui_favorites" formatted="false">Favorites</string>
+    <string name="ui_queue" formatted="false">Queue</string>
+    <string name="ui_quick_actions" formatted="false">Quick actions</string>
+    <string name="ui_library_options" formatted="false">Library options</string>
+    <string name="ui_search_library" formatted="false">Search library</string>
+    <string name="ui_filter_this_list" formatted="false">Filter this list</string>
+    <string name="ui_search_or_paste_a_youtube_link" formatted="false">Search or paste a YouTube link</string>
+    <string name="ui_search_videos" formatted="false">Search videos</string>
+    <string name="ui_ready" formatted="false">Ready</string>
+    <string name="ui_allow" formatted="false">Allow</string>
+    <string name="ui_minimize" formatted="false">Minimize</string>
+    <string name="ui_subscribe" formatted="false">Subscribe</string>
+    <string name="ui_subscribed" formatted="false">Subscribed</string>
+    <string name="ui_repeat" formatted="false">Repeat</string>
+    <string name="ui_sleep" formatted="false">Sleep</string>
+    <string name="ui_auto" formatted="false">Auto</string>
+    <string name="ui_highest" formatted="false">Highest</string>
+    <string name="ui_play_all" formatted="false">Play all</string>
+    <string name="ui_shuffle" formatted="false">Shuffle</string>
+    <string name="ui_video_thumbnail" formatted="false">Video thumbnail</string>
+    <string name="ui_video_options" formatted="false">Video options</string>
+    <string name="ui_collection_cover" formatted="false">Collection cover</string>
+    <string name="ui_not_interested" formatted="false">Not interested</string>
+    <string name="ui_loading" formatted="false">Loading…</string>
+    <string name="ui_nothing_here_yet" formatted="false">Nothing here yet</string>
+    <string name="ui_no_matching_titles_or_channels" formatted="false">No matching titles or channels</string>
+    <string name="ui_enable_local_suggestions_and_watch_history_in_settings" formatted="false">Enable local suggestions and watch history in Settings.</string>
+    <string name="ui_could_not_load_the_library_reopen_this_tab_to_retry" formatted="false">Could not load the library. Reopen this tab to retry.</string>
+    <string name="ui_browse_home_or_search_to_discover_videos_nwatch_videos_favorite_t" formatted="false">Browse Home or Search to discover videos.\nWatch videos, favorite them or follow channels to improve your suggestions.</string>
+    <string name="ui_no_similar_videos_found_yet_nbrowse_home_or_search_to_discover_mo" formatted="false">No similar videos found yet.\nBrowse Home or Search to discover more videos.\nLong-press a history title to find similar videos.</string>
+    <string name="ui_partly_watched_videos_appear_here_nvideos_near_the_end_are_exclud" formatted="false">Partly watched videos appear here.\nVideos near the end are excluded.</string>
+    <string name="ui_could_not_save_the_change_please_retry" formatted="false">Could not save the change. Please retry.</string>
+    <string name="ui_playback_dismissed" formatted="false">Playback dismissed</string>
+    <string name="ui_no_videos_to_play" formatted="false">No videos to play</string>
+    <string name="ui_could_not_prepare_playback" formatted="false">Could not prepare playback</string>
+    <string name="ui_could_not_update_queue" formatted="false">Could not update Queue</string>
+    <string name="ui_removed_from_queue" formatted="false">Removed from Queue</string>
+    <string name="ui_added_to_queue" formatted="false">Added to Queue</string>
+    <string name="ui_queue_is_empty" formatted="false">Queue is empty</string>
+    <string name="ui_improve_your_suggestions" formatted="false">Improve your suggestions</string>
+    <string name="ui_hidden_channels" formatted="false">Hidden channels</string>
+    <string name="ui_uncheck_channels_to_restore" formatted="false">Uncheck channels to restore</string>
+    <string name="ui_could_not_load_hidden_channels" formatted="false">Could not load hidden channels</string>
+    <string name="ui_no_hidden_channels_use_the_beside_a_suggestion_to_hide_a_video_or" formatted="false">No hidden channels. Use the ✕ beside a suggestion to hide a video or channel. Restore videos removes video exclusions only.</string>
+    <string name="ui_reset_learned_preferences_discovered_videos_and_hidden_suggestion" formatted="false">Reset learned preferences, discovered videos and hidden suggestions. Favorites and followed channels still influence suggestions.</string>
+    <string name="ui_this_removes_the_items_in_this_section_from_your_local_library" formatted="false">This removes the items in this section from your local library.</string>
+    <string name="ui_local_subscription" formatted="false">Local subscription</string>
+    <string name="ui_watch_next" formatted="false">Watch next</string>
+    <string name="ui_add_to_queue" formatted="false">Add to Queue</string>
+    <string name="ui_remove_from_queue" formatted="false">Remove from Queue</string>
+    <string name="ui_add_to_favorites" formatted="false">Add to Favorites</string>
+    <string name="ui_remove_from_favorites" formatted="false">Remove from Favorites</string>
+    <string name="ui_remove_from_history" formatted="false">Remove from History</string>
+    <string name="ui_find_similar_videos" formatted="false">Find similar videos</string>
+    <string name="ui_play_offline" formatted="false">Play offline</string>
+    <string name="ui_delete_temporary_file" formatted="false">Delete temporary file</string>
+    <string name="ui_remove_from_list" formatted="false">Remove from list</string>
+    <string name="ui_download_again" formatted="false">Download again</string>
+    <string name="ui_details" formatted="false">Details</string>
+    <string name="ui_download_storage_information" formatted="false">Download storage information</string>
+    <string name="ui_offline_storage" formatted="false">Offline storage</string>
+    <string name="ui_keep_the_file_on_your_device" formatted="false">Keep the file on your device</string>
+    <string name="ui_automatically_deleted_30_days_after_download_completes" formatted="false">Automatically deleted 30 days after download completes</string>
+    <string name="ui_watch_offline_in_the_app_automatically_deleted_after_30_days" formatted="false">Watch offline in the app • Automatically deleted after 30 days</string>
+    <string name="ui_choose_a_resolution_from_the_source" formatted="false">Choose a resolution from the source</string>
+    <string name="ui_audio_only_choose_quality" formatted="false">Audio only • Choose quality</string>
+    <string name="ui_reading_source_quality" formatted="false">Reading source quality…</string>
+    <string name="ui_quality_is_read_from_this_video" formatted="false">Quality is read from this video.</string>
+    <string name="ui_could_not_read_the_download_source" formatted="false">Could not read the download source</string>
+    <string name="ui_mp3_quality" formatted="false">MP3 quality</string>
+    <string name="ui_video_quality" formatted="false">Video quality</string>
+    <string name="ui_highest_quality_from_source_file_may_be_larger" formatted="false">Highest quality from source • File may be larger</string>
+    <string name="ui_added_to_downloads" formatted="false">Added to Downloads</string>
+    <string name="ui_ready_to_play_offline" formatted="false">Ready to play offline</string>
+    <string name="ui_waiting_to_download" formatted="false">Waiting to download</string>
+    <string name="ui_processing_and_saving_file" formatted="false">Processing and saving file…</string>
+    <string name="ui_expired_download_again_to_watch" formatted="false">Expired • Download again to watch</string>
+    <string name="ui_cancelled" formatted="false">Cancelled</string>
+    <string name="ui_save_location_not_selected" formatted="false">Save location not selected</string>
+    <string name="ui_download_incomplete_tap_to_retry" formatted="false">Download incomplete • Tap to retry</string>
+    <string name="ui_temporary_30_days" formatted="false">Temporary • 30 days</string>
+    <string name="ui_on_device" formatted="false">On device</string>
+    <string name="ui_no_downloads_yet_n_nopen_a_video_download_to_save_video_or_mp3" formatted="false">No downloads yet\n\nOpen a video → Download to save video or MP3.</string>
+    <string name="ui_nothing_in_this_category_yet_n_nselect_all_to_see_everything" formatted="false">Nothing in this category yet\n\nSelect All to see everything.</string>
+    <string name="ui_mp3_offline_playback" formatted="false">MP3 • Offline playback</string>
+    <string name="ui_this_device_cannot_play_this_file_s_codec_try_another_player_or_d" formatted="false">This device cannot play this file\'s codec. Try another player or download a lower quality.</string>
+    <string name="ui_equalizer_eq" formatted="false">Equalizer (EQ)</string>
+    <string name="ui_enable_eq" formatted="false">Enable EQ</string>
+    <string name="ui_reset" formatted="false">Reset</string>
+    <string name="ui_eq_applies_to_offline_video_mp3_in_downloads_it_does_not_yet_appl" formatted="false">EQ applies to offline video/MP3 in Downloads. It does not yet apply to online YouTube playback.</string>
+    <string name="ui_use_the_phone_s_media_volume_buttons_boosting_eq_bands_automatica" formatted="false">Use the phone\'s media volume buttons. Boosting EQ bands automatically reduces gain to limit distortion.</string>
+    <string name="ui_sleep_timer" formatted="false">Sleep timer</string>
+    <string name="ui_sleep_timer_finished" formatted="false">Sleep timer finished</string>
+    <string name="ui_sleep_timer_off" formatted="false">Sleep timer off</string>
+    <string name="ui_repeat_enabled" formatted="false">Repeat enabled</string>
+    <string name="ui_repeat_disabled" formatted="false">Repeat disabled</string>
+    <string name="ui_player_restarted_safely" formatted="false">Player restarted safely</string>
+    <string name="ui_offline_waiting_for_network" formatted="false">Offline • waiting for network</string>
+    <string name="ui_offline_playback_recovery_paused" formatted="false">Offline • playback recovery paused</string>
+    <string name="ui_back_online" formatted="false">Back online</string>
+    <string name="ui_you_re_offline" formatted="false">You\'re offline</string>
+    <string name="ui_playback_needs_attention" formatted="false">Playback needs attention</string>
+    <string name="ui_automatic_recovery_could_not_restore_this_page" formatted="false">Automatic recovery could not restore this page.</string>
+    <string name="ui_renderer_crash_loop_guard_active_tap_retry_to_restart_player" formatted="false">Renderer crash-loop guard active • tap Retry to restart player</string>
+    <string name="ui_mobile_metered" formatted="false">Mobile / metered</string>
+    <string name="ui_wi_fi_unmetered" formatted="false">Wi-Fi / unmetered</string>
+    <string name="ui_enhancements" formatted="false">ENHANCEMENTS</string>
+    <string name="ui_apply_enhanced_client_defaults" formatted="false">Apply enhanced-client defaults</string>
+    <string name="ui_enhanced_client_defaults_applied" formatted="false">Enhanced-client defaults applied</string>
+    <string name="ui_block_youtube_ads" formatted="false">Block YouTube ads</string>
+    <string name="ui_block_tracking_requests" formatted="false">Block tracking requests</string>
+    <string name="ui_safe_mode_disable_network_and_aggressive_player_filtering" formatted="false">Safe mode — disable network and aggressive player filtering</string>
+    <string name="ui_distraction_control" formatted="false">DISTRACTION CONTROL</string>
+    <string name="ui_hide_shorts_and_open_shorts_as_normal_videos" formatted="false">Hide Shorts and open Shorts as normal videos</string>
+    <string name="ui_hide_related_recommendations" formatted="false">Hide related recommendations</string>
+    <string name="ui_hide_comments" formatted="false">Hide comments</string>
+    <string name="ui_hide_end_screen_cards" formatted="false">Hide end-screen cards</string>
+    <string name="ui_hide_open_in_app_prompts" formatted="false">Hide Open in app prompts</string>
+    <string name="ui_playback" formatted="false">PLAYBACK</string>
+    <string name="ui_automatically_enter_pip_when_leaving_app" formatted="false">Automatically enter PiP when leaving app</string>
+    <string name="ui_lock_screen_notification_controls" formatted="false">Lock-screen / notification controls</string>
+    <string name="ui_player_gestures_swipe_down_to_minimize_fullscreen_seek_brightness" formatted="false">Player gestures — swipe down to minimize; fullscreen seek, brightness and volume</string>
+    <string name="ui_on_a_regular_video_page_swipe_down_on_the_video_image_to_minimize" formatted="false">On a regular video page, swipe down on the video image to minimize it and keep watching while browsing. Comments and Shorts keep their normal scrolling.</string>
+    <string name="ui_swipe_horizontally_to_seek_swipe_vertically_on_the_left_for_brigh" formatted="false">Swipe horizontally to seek. Swipe vertically on the left for brightness, on the right for volume. Swipe down in the center to minimize from fullscreen. Double-tap either side to seek.</string>
+    <string name="ui_gesture_sensitivity_1" formatted="false">Gesture sensitivity 1×</string>
+    <string name="ui_double_tap_seek_10s" formatted="false">Double-tap seek 10s</string>
+    <string name="ui_amoled_black_theme" formatted="false">AMOLED black theme</string>
+    <string name="ui_minimal_player_chrome_hide_app_bar_while_watching" formatted="false">Minimal player chrome — hide app bar while watching</string>
+    <string name="ui_always_repeat_the_current_video" formatted="false">Always repeat the current video</string>
+    <string name="ui_wi_fi_unmetered_quality_auto" formatted="false">Wi-Fi / unmetered quality Auto</string>
+    <string name="ui_mobile_metered_quality_auto" formatted="false">Mobile / metered quality Auto</string>
+    <string name="ui_community_segment_skip" formatted="false">COMMUNITY SEGMENT SKIP</string>
+    <string name="ui_skip_sponsor_self_promo_and_interaction_segments" formatted="false">Skip sponsor, self-promo and interaction segments</string>
+    <string name="ui_skip_community_marked_intros_and_outros" formatted="false">Skip community-marked intros and outros</string>
+    <string name="ui_reliability" formatted="false">RELIABILITY</string>
+    <string name="ui_automatically_recover_stalled_foreground_playback" formatted="false">Automatically recover stalled foreground playback</string>
+    <string name="ui_keep_active_playback_reliable_with_screen_off_requires_notificati" formatted="false">Keep active playback reliable with screen off (requires notification controls)</string>
+    <string name="ui_adaptive_webview_lifecycle_and_memory_hardening" formatted="false">Adaptive WebView lifecycle and memory hardening</string>
+    <string name="ui_local_library" formatted="false">LOCAL LIBRARY</string>
+    <string name="ui_learn_viewing_habits_locally_and_suggest_videos_in_for_you" formatted="false">Learn viewing habits locally and suggest videos in For you</string>
+    <string name="ui_clear_learned_preferences_and_suggestions" formatted="false">Clear learned preferences and suggestions</string>
+    <string name="ui_learned_viewing_preferences_cleared" formatted="false">Learned viewing preferences cleared</string>
+    <string name="ui_learning_requires_watch_history_suggestions_use_viewing_time_favo" formatted="false">Learning requires watch history. Suggestions use viewing time, favorites and followed channels on this device. No preference profile is uploaded. Clear removes learned viewing time, suggestions and feedback; favorites and subscriptions stay saved.</string>
+    <string name="ui_remember_watch_history_and_playback_position_locally" formatted="false">Remember watch history and playback position locally</string>
+    <string name="ui_resume_videos_from_the_last_local_playback_position" formatted="false">Resume videos from the last local playback position</string>
+    <string name="ui_automatically_play_the_next_item_in_queue" formatted="false">Automatically play the next item in Queue</string>
+    <string name="ui_subscriptions_favorites_queue_and_history_are_stored_only_on_this" formatted="false">Subscriptions, Favorites, Queue and History are stored only on this device and do not require a Google account. Playback speed is controlled from the player and remembered locally.</string>
+    <string name="ui_rule_pack" formatted="false">RULE PACK</string>
+    <string name="ui_automatically_check_configured_rule_source_every_24_hours" formatted="false">Automatically check configured rule source every 24 hours</string>
+    <string name="ui_check_install_rules" formatted="false">Check / install rules</string>
+    <string name="ui_rollback" formatted="false">Rollback</string>
+    <string name="ui_bundled_rules" formatted="false">Bundled rules</string>
+    <string name="ui_channel_allowlist" formatted="false">CHANNEL ALLOWLIST</string>
+    <string name="ui_clear_channel_allowlist" formatted="false">Clear channel allowlist</string>
+    <string name="ui_channel_allowlist_cleared" formatted="false">Channel allowlist cleared</string>
+    <string name="ui_restored_bundled_rules" formatted="false">Restored bundled rules</string>
+    <string name="ui_no_previous_rule_pack_is_available" formatted="false">No previous rule pack is available</string>
+    <string name="ui_enter_an_https_rule_pack_url_first" formatted="false">Enter an HTTPS rule-pack URL first</string>
+    <string name="ui_updating" formatted="false">Updating…</string>
+    <string name="ui_bundled" formatted="false">bundled</string>
+    <string name="ui_downloaded" formatted="false">downloaded</string>
+    <string name="ui_lifetime_protection" formatted="false">LIFETIME PROTECTION</string>
+    <string name="ui_network_n" formatted="false">Network\n</string>
+    <string name="ui_page_ads_n" formatted="false">Page ads\n</string>
+    <string name="ui_player_skips_n" formatted="false">Player skips\n</string>
+    <string name="ui_segment_skips_n" formatted="false">Segment skips\n</string>
+    <string name="ui_total_blocked_n" formatted="false">Total blocked\n</string>
+    <string name="ui_allowed_channels_n" formatted="false">Allowed channels\n</string>
+    <string name="ui_playback_recovery" formatted="false">PLAYBACK RECOVERY</string>
+    <string name="ui_reset_recovery_diagnostics" formatted="false">Reset recovery diagnostics</string>
+    <string name="ui_runtime_device" formatted="false">RUNTIME / DEVICE</string>
+    <string name="ui_run_runtime_database_self_test" formatted="false">Run runtime / database self-test</string>
+    <string name="ui_run_release_stress_test" formatted="false">Run release stress test</string>
+    <string name="ui_reset_runtime_diagnostics" formatted="false">Reset runtime diagnostics</string>
+    <string name="ui_compatibility" formatted="false">COMPATIBILITY</string>
+    <string name="ui_run_local_compatibility_self_test" formatted="false">Run local compatibility self-test</string>
+    <string name="ui_reset_compatibility_diagnostics" formatted="false">Reset compatibility diagnostics</string>
+    <string name="ui_enter_safe_mode" formatted="false">Enter Safe mode</string>
+    <string name="ui_exit_safe_mode" formatted="false">Exit Safe mode</string>
+    <string name="ui_playback_filtering_settings" formatted="false">Playback &amp; filtering settings</string>
+    <string name="ui_reset_lifetime_statistics" formatted="false">Reset lifetime statistics</string>
+    <string name="ui_ad_filtering_active" formatted="false">Ad filtering active</string>
+    <string name="ui_ad_filtering_disabled" formatted="false">Ad filtering disabled</string>
+    <string name="ui_runtime_self_test_passed" formatted="false">Runtime self-test passed</string>
+    <string name="ui_runtime_self_test_found_a_problem" formatted="false">Runtime self-test found a problem</string>
+    <string name="ui_running_release_stress_test" formatted="false">Running release stress test…</string>
+    <string name="ui_release_stress_test_passed" formatted="false">Release stress test passed</string>
+    <string name="ui_release_stress_test_found_a_problem" formatted="false">Release stress test found a problem</string>
+    <string name="ui_compatibility_self_test_passed" formatted="false">Compatibility self-test passed</string>
+    <string name="ui_compatibility_self_test_found_a_problem" formatted="false">Compatibility self-test found a problem</string>
+    <string name="app_name" formatted="false">Vợ Tui</string>
+    <string name="language_title" formatted="false">Language</string>
+    <string name="language_vi" formatted="false">Tiếng Việt</string>
+    <string name="language_en" formatted="false">English</string>
+    <string name="settings_title" formatted="false">Vợ Tui settings</string>
+    <string name="dashboard_title" formatted="false">Vợ Tui dashboard</string>
+    <string name="library_subtitle" formatted="false">Your library on this device</string>
+    <string name="offline_save_device" formatted="false">Save to Downloads/VoTuibe for permanent storage</string>
+    <string name="offline_keep_file" formatted="false">Saved in Downloads/VoTuibe • Removing the entry keeps the file</string>
+    <string name="community_privacy" formatted="false">Disabled by default. When enabled, Vợ Tui uses the SponsorBlock-compatible k-anonymity endpoint: only a short SHA-256 prefix is sent and matching video data is filtered locally. Community segment data: SponsorBlock by Ajay Ramachandran, CC BY-NC-SA 4.0.</string>
+    <string name="rules_explanation" formatted="false">Rule packs are validated before activation. Vợ Tui keeps the previous pack for rollback. Compatibility Guard can automatically enter Safe mode if repeated player failures are detected.</string>
+    <string name="offline_recovery" formatted="false">Vợ Tui paused automatic recovery. Reconnect to the internet, then Retry.</string>
+    <string name="about_body" formatted="false">Vợ Tui lets you watch videos, minimize the player, receive suggestions from your viewing history and limit ads. Save videos or MP3 to your device, or save temporarily for offline playback for 30 days.\n\nSound is enabled by default and uses the phone’s media volume. Viewing history and preferences are stored on your device.\n\nThis App I wrote for my wife and my unborn child</string>
+</resources>

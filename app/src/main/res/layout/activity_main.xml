@@ -1,0 +1,236 @@
+<?xml version="1.0" encoding="utf-8"?>
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="#000000">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:orientation="vertical">
+
+        <LinearLayout
+            android:id="@+id/topBar"
+            android:layout_width="match_parent"
+            android:layout_height="56dp"
+            android:orientation="horizontal"
+            android:gravity="center_vertical"
+            android:paddingStart="12dp"
+            android:paddingEnd="8dp"
+            android:background="#0E0E0E">
+
+            <Button android:id="@+id/backButton" style="@style/ToolbarButton" android:visibility="gone" android:text="‹" />
+            <Button android:id="@+id/forwardButton" style="@style/ToolbarButton" android:visibility="gone" android:text="›" />
+            <Button android:id="@+id/reloadButton" style="@style/ToolbarButton" android:visibility="gone" android:text="↻" />
+
+            <TextView
+                android:id="@+id/appBrand"
+                android:layout_width="0dp"
+                android:layout_weight="1"
+                android:layout_height="match_parent"
+                android:gravity="center_vertical"
+                android:paddingEnd="10dp"
+                android:text="@string/app_name"
+                android:textColor="#FFFFFF"
+                android:textSize="21sp"
+                android:textStyle="bold" />
+
+            <EditText
+                android:id="@+id/urlInput"
+                android:visibility="gone"
+                android:layout_width="0dp"
+                android:layout_height="40dp"
+                android:layout_weight="1"
+                android:singleLine="true"
+                android:inputType="text"
+                android:imeOptions="actionSearch"
+                android:hint="@string/search_youtube"
+                android:textColor="#F5F5F5"
+                android:textColorHint="#909090"
+                android:textSize="14sp"
+                android:paddingHorizontal="12dp"
+                android:background="@drawable/bg_address" />
+
+            <com.example.videoshield.IconButton android:id="@+id/goButton" style="@style/ToolbarButton" android:layout_width="48dp" android:contentDescription="@string/ui_search"  android:drawableTop="@drawable/ic_search"/>
+            <com.example.videoshield.IconButton android:id="@+id/settingsButton" style="@style/ToolbarButton" android:contentDescription="@string/ui_settings"  android:drawableTop="@drawable/ic_ui_settings"/>
+        </LinearLayout>
+
+        <FrameLayout
+            android:id="@+id/browserContainer"
+            android:layout_width="match_parent"
+            android:layout_height="0dp"
+            android:layout_weight="1">
+
+            <!-- Browse surface remains alive while a video is playing. -->
+            <WebView
+                android:id="@+id/browseWebView"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent" />
+
+            <!-- Dedicated playback surface. It can be expanded or collapsed into a mini-player. -->
+            <com.example.videoshield.PlayerSurfaceLayout
+                android:id="@+id/playerSurface"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:background="#000000"
+                android:visibility="gone">
+
+                <com.example.videoshield.PlaybackWebView
+                    android:id="@+id/webView"
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent" />
+
+                <com.example.videoshield.SwipeDismissLayout
+                    android:id="@+id/miniPlayerChrome"
+                    android:layout_width="match_parent"
+                    android:layout_height="56dp"
+                    android:layout_gravity="bottom"
+                    android:orientation="vertical"
+                    android:background="#171717"
+                    android:visibility="gone">
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="52dp"
+                        android:gravity="center_vertical"
+                        android:orientation="horizontal"
+                        android:paddingStart="12dp"
+                        android:paddingEnd="4dp">
+
+                        <LinearLayout
+                            android:layout_width="0dp"
+                            android:layout_height="match_parent"
+                            android:layout_weight="1"
+                            android:gravity="center_vertical"
+                            android:orientation="vertical">
+                            <TextView
+                                android:id="@+id/miniPlayerTitle"
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:maxLines="1"
+                                android:ellipsize="end"
+                                android:text="@string/playing_video"
+                                android:textColor="#FFFFFF"
+                                android:textSize="13sp"
+                                android:textStyle="bold" />
+                            <TextView
+                                android:id="@+id/miniPlayerChannel"
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:maxLines="1"
+                                android:ellipsize="end"
+                                android:textColor="#BDBDBD"
+                                android:textSize="11sp" />
+                        </LinearLayout>
+
+                        <com.example.videoshield.IconButton android:id="@+id/miniPlayPauseButton" style="@style/MiniPlayerButton" android:contentDescription="@string/play_pause"  android:drawableTop="@drawable/ic_ui_pause"/>
+                        <com.example.videoshield.IconButton android:id="@+id/miniExpandButton" style="@style/MiniPlayerButton" android:contentDescription="@string/expand_player"  android:drawableTop="@drawable/ic_ui_expand"/>
+                        <com.example.videoshield.IconButton android:id="@+id/miniCloseButton" style="@style/MiniPlayerButton" android:contentDescription="@string/close_player"  android:drawableTop="@drawable/ic_ui_close"/>
+                    </LinearLayout>
+
+                    <ProgressBar
+                        android:id="@+id/miniPlayerProgress"
+                        style="@android:style/Widget.ProgressBar.Horizontal"
+                        android:layout_width="match_parent"
+                        android:layout_height="4dp"
+                        android:max="1000"
+                        android:progress="0"
+                        android:indeterminate="false"
+                        android:progressTint="#FF1744"
+                        android:progressBackgroundTint="#505050" />
+                </com.example.videoshield.SwipeDismissLayout>
+
+                <LinearLayout
+                    android:id="@+id/errorOverlay"
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    android:orientation="vertical"
+                    android:gravity="center"
+                    android:padding="28dp"
+                    android:background="#F2000000"
+                    android:clickable="true"
+                    android:focusable="true"
+                    android:visibility="gone">
+
+                    <TextView android:id="@+id/errorTitle" android:layout_width="match_parent" android:layout_height="wrap_content" android:gravity="center" android:text="@string/playback_unavailable" android:textColor="#FFFFFF" android:textSize="22sp" android:textStyle="bold" />
+                    <TextView android:id="@+id/errorMessage" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="10dp" android:gravity="center" android:textColor="#BDBDBD" android:textSize="14sp" android:maxLines="4" />
+                    <LinearLayout android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginTop="18dp" android:orientation="horizontal">
+                        <Button android:id="@+id/errorRetryButton" android:layout_width="wrap_content" android:layout_height="48dp" android:text="@string/ui_retry" />
+                        <Button android:id="@+id/errorHomeButton" android:layout_width="wrap_content" android:layout_height="48dp" android:layout_marginStart="8dp" android:text="@string/close_player" />
+                    </LinearLayout>
+                </LinearLayout>
+            </com.example.videoshield.PlayerSurfaceLayout>
+        </FrameLayout>
+
+        <LinearLayout
+            android:id="@+id/bottomBar"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:background="#0E0E0E">
+
+            <LinearLayout
+                android:id="@+id/playbackStatusRow"
+                android:layout_width="match_parent"
+                android:layout_height="40dp"
+                android:orientation="horizontal"
+                android:gravity="center_vertical"
+                android:paddingHorizontal="12dp">
+
+                <ToggleButton android:id="@+id/filterToggle" android:layout_width="1dp" android:layout_height="1dp" android:visibility="gone" android:textOn="ON" android:textOff="OFF" />
+                <TextView android:id="@+id/statusText" android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1" android:gravity="center_vertical" android:ellipsize="end" android:maxLines="2" android:text="@string/ui_ready" android:textColor="#D8D8D8" android:textSize="11sp" />
+                <Button android:id="@+id/channelButton" style="@style/CompactActionButton" android:visibility="gone" android:text="@string/ui_allow" />
+            </LinearLayout>
+
+            <HorizontalScrollView
+                android:id="@+id/playbackActionStrip"
+                android:layout_width="match_parent"
+                android:layout_height="50dp"
+                android:fillViewport="true"
+                android:scrollbars="none">
+                <LinearLayout android:layout_width="wrap_content" android:layout_height="match_parent" android:orientation="horizontal" android:gravity="center_vertical" android:paddingHorizontal="8dp">
+                    <Button android:id="@+id/minimizePlayerButton" style="@style/ClientActionButton" android:text="@string/ui_minimize" />
+                    <Button android:id="@+id/autoNextButton" style="@style/ClientActionButton" android:text="@string/auto_next_on" />
+                    <Button android:id="@+id/subscribeButton" style="@style/ClientActionButton" android:text="@string/ui_subscribe" android:enabled="false" />
+                    <Button android:id="@+id/favoriteButton" style="@style/ClientActionButton" android:text="@string/ui_save" android:enabled="false" />
+                    <Button android:id="@+id/queueButton" style="@style/ClientActionButton" android:text="@string/ui_queue" android:enabled="false" />
+                    <Button android:id="@+id/speedButton" style="@style/ClientActionButton" android:text="1×" />
+                    <Button android:id="@+id/qualityButton" style="@style/ClientActionButton" android:text="@string/ui_auto" />
+                    <Button android:id="@+id/repeatButton" style="@style/ClientActionButton" android:text="@string/ui_repeat" />
+                    <Button android:id="@+id/sleepButton" style="@style/ClientActionButton" android:text="@string/ui_sleep" />
+                    <Button android:id="@+id/pipButton" style="@style/ClientActionButton" android:text="@string/pip" />
+                </LinearLayout>
+            </HorizontalScrollView>
+
+            <View android:layout_width="match_parent" android:layout_height="1dp" android:background="#242424" />
+
+            <LinearLayout android:layout_width="match_parent" android:layout_height="55dp" android:orientation="horizontal" android:gravity="center">
+                <Button android:id="@+id/navHomeButton" style="@style/BottomNavButton" android:text="@string/ui_home" />
+                <Button android:id="@+id/navShieldButton" style="@style/BottomNavButton" android:text="@string/shorts" />
+                <com.example.videoshield.IconButton android:id="@+id/navCreateButton" style="@style/BottomNavButton" android:contentDescription="@string/ui_quick_actions"  android:drawableTop="@drawable/ic_ui_create"/>
+                <Button android:id="@+id/navSubscriptionsButton" style="@style/BottomNavButton" android:text="@string/ui_subscriptions" />
+                <Button android:id="@+id/navLibraryButton" style="@style/BottomNavButton" android:text="@string/ui_you" />
+            </LinearLayout>
+        </LinearLayout>
+    </LinearLayout>
+
+    <com.example.videoshield.FullscreenGestureLayout
+        android:id="@+id/fullscreenContainer"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:background="#000000"
+        android:visibility="gone">
+        <TextView
+            android:id="@+id/fullscreenGestureFeedback"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="center"
+            android:background="#CC151515"
+            android:paddingHorizontal="18dp"
+            android:paddingVertical="12dp"
+            android:textColor="#FFFFFF"
+            android:textSize="18sp"
+            android:textStyle="bold"
+            android:visibility="gone" />
+    </com.example.videoshield.FullscreenGestureLayout>
+</FrameLayout>

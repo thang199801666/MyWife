@@ -1,0 +1,1 @@
+(() => ({url:location.href,title:document.title,text:document.body?.innerText?.slice(0,1300),state:document.readyState,bridge:typeof window.VideoShieldBridge?.requestDownload,downloadInstaller:typeof window.__voTuibeInstallDownload,errors:window.__videoShieldDiagnostics?.()}))()
