@@ -5,6 +5,8 @@ import android.content.Context
 import android.media.AudioManager
 import android.provider.Settings
 import android.util.AttributeSet
+import android.view.Gravity
+import android.view.HapticFeedbackConstants
 import android.view.MotionEvent
 import android.view.View
 import android.view.ViewConfiguration
@@ -54,7 +56,7 @@ class FullscreenGestureLayout @JvmOverloads constructor(
 
     private val audioManager = context.getSystemService(Context.AUDIO_SERVICE) as AudioManager
     private val baseTouchSlop = ViewConfiguration.get(context).scaledTouchSlop * 2.25f
-    private val doubleTapDistancePx = 72f * resources.displayMetrics.density
+    private val doubleTapDistancePx = resources.getDimension(R.dimen.ui_gesture_double_tap_distance)
 
     private var feedbackView: TextView? = null
     private var mode = Mode.NONE
@@ -71,6 +73,8 @@ class FullscreenGestureLayout @JvmOverloads constructor(
     private var lastTapY = 0f
     private var exitReady = false
     private var ignoreSequence = false
+    private var preserveTransportControls = false
+    private var seekBurst = DoubleTapSeekBurstState()
 
     fun bindFeedback(view: TextView) {
         feedbackView = view
@@ -82,17 +86,36 @@ class FullscreenGestureLayout @JvmOverloads constructor(
         if (event.actionMasked == MotionEvent.ACTION_POINTER_DOWN) {
             ignoreSequence = true
             lastTapAt = 0L
+            seekBurst = DoubleTapSeekBurstState()
             resetGesture()
             return false
         }
-        if (event.actionMasked == MotionEvent.ACTION_DOWN) ignoreSequence = false
+        if (event.actionMasked == MotionEvent.ACTION_DOWN) {
+            ignoreSequence = false
+            if (DoubleTapSeekBurstPolicy.expired(seekBurst, event.eventTime)) {
+                seekBurst = DoubleTapSeekBurstState()
+            }
+        }
         if (ignoreSequence) return false
+        if (event.actionMasked != MotionEvent.ACTION_DOWN && preserveTransportControls) {
+            if (event.actionMasked == MotionEvent.ACTION_UP || event.actionMasked == MotionEvent.ACTION_CANCEL) {
+                preserveTransportControls = false
+            }
+            return false
+        }
 
         when (event.actionMasked) {
             MotionEvent.ACTION_DOWN -> {
                 downX = event.x
                 downY = event.y
                 mode = Mode.NONE
+                val transportGuard = resources.getDimension(R.dimen.ui_fullscreen_transport_guard)
+                preserveTransportControls = PlayerTouchPolicy.inTransportStrip(downY, height.toFloat(), transportGuard)
+                if (preserveTransportControls) {
+                    lastTapAt = 0L
+                    seekBurst = DoubleTapSeekBurstState()
+                    return false
+                }
                 basePositionMs = callback?.currentPositionMs()?.coerceAtLeast(0L) ?: 0L
                 durationMs = callback?.currentDurationMs()?.coerceAtLeast(0L) ?: 0L
                 previewPositionMs = basePositionMs
@@ -100,15 +123,31 @@ class FullscreenGestureLayout @JvmOverloads constructor(
                 initialVolume = audioManager.getStreamVolume(AudioManager.STREAM_MUSIC)
                 maxVolume = max(1, audioManager.getStreamMaxVolume(AudioManager.STREAM_MUSIC))
 
+                val direction = DoubleTapSeekBurstPolicy.directionForX(event.x, width.toFloat())
+                if (durationMs > 0L && direction != 0 &&
+                    DoubleTapSeekBurstPolicy.canContinue(seekBurst, direction, event.eventTime)
+                ) {
+                    seekBurst = DoubleTapSeekBurstPolicy.extend(seekBurst, doubleTapSeekSeconds, event.eventTime)
+                    previewPositionMs = DoubleTapSeekBurstPolicy.targetPositionMs(seekBurst, durationMs)
+                    mode = Mode.DOUBLE_TAP
+                    showSeekBurstFeedback(direction)
+                    performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP)
+                    lastTapAt = 0L
+                    parent?.requestDisallowInterceptTouchEvent(true)
+                    return true
+                }
+                if (seekBurst.active && direction != seekBurst.direction) {
+                    seekBurst = DoubleTapSeekBurstState()
+                }
+
                 val elapsed = event.eventTime - lastTapAt
                 val close = abs(event.x - lastTapX) <= doubleTapDistancePx && abs(event.y - lastTapY) <= doubleTapDistancePx
-                val sideTap = event.x < width * 0.35f || event.x > width * 0.65f
-                if (sideTap && durationMs > 0L && elapsed in 40L..DOUBLE_TAP_TIMEOUT_MS && close) {
+                if (direction != 0 && durationMs > 0L && elapsed in 40L..DOUBLE_TAP_TIMEOUT_MS && close) {
                     mode = Mode.DOUBLE_TAP
-                    val delta = doubleTapSeekSeconds * 1000L * if (event.x < width / 2f) -1 else 1
-                    previewPositionMs = (basePositionMs + delta).coerceIn(0L, max(0L, durationMs - 250L))
-                    val sign = if (delta >= 0) "+" else "−"
-                    showFeedback("$sign${doubleTapSeekSeconds}s  •  ${formatTime(previewPositionMs)}")
+                    seekBurst = DoubleTapSeekBurstPolicy.start(basePositionMs, direction, doubleTapSeekSeconds, event.eventTime)
+                    previewPositionMs = DoubleTapSeekBurstPolicy.targetPositionMs(seekBurst, durationMs)
+                    showSeekBurstFeedback(direction)
+                    performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP)
                     lastTapAt = 0L
                     parent?.requestDisallowInterceptTouchEvent(true)
                     return true
@@ -125,6 +164,7 @@ class FullscreenGestureLayout @JvmOverloads constructor(
                 val threshold = baseTouchSlop / sensitivity
                 if (max(ax, ay) < threshold) return false
                 lastTapAt = 0L
+                seekBurst = DoubleTapSeekBurstState()
 
                 val strongDownwardExit = dy > threshold * 1.35f && ay > ax * 1.20f &&
                     (downY < height * 0.42f || dy > threshold * 2.6f)
@@ -162,6 +202,7 @@ class FullscreenGestureLayout @JvmOverloads constructor(
         if (event.actionMasked == MotionEvent.ACTION_POINTER_DOWN) {
             ignoreSequence = true
             lastTapAt = 0L
+            seekBurst = DoubleTapSeekBurstState()
             finishGesture()
             return true
         }
@@ -171,9 +212,10 @@ class FullscreenGestureLayout @JvmOverloads constructor(
             MotionEvent.ACTION_MOVE -> if (mode != Mode.DOUBLE_TAP) updateGesture(event)
             MotionEvent.ACTION_UP -> {
                 if (mode == Mode.EXIT) updateGesture(event)
-                if (mode == Mode.SEEK || mode == Mode.DOUBLE_TAP) callback?.seekToMs(previewPositionMs)
-                val shouldExit = mode == Mode.EXIT && exitReady
-                finishGesture(cancelExitPreview = !shouldExit)
+                val completedMode = mode
+                if (completedMode == Mode.SEEK || completedMode == Mode.DOUBLE_TAP) callback?.seekToMs(previewPositionMs)
+                val shouldExit = completedMode == Mode.EXIT && exitReady
+                finishGesture(cancelExitPreview = !shouldExit, preserveSeekBurst = completedMode == Mode.DOUBLE_TAP)
                 if (shouldExit) callback?.exitFullscreen()
             }
             MotionEvent.ACTION_CANCEL -> finishGesture(cancelExitPreview = true)
@@ -217,7 +259,9 @@ class FullscreenGestureLayout @JvmOverloads constructor(
 
             Mode.EXIT -> {
                 val distance = dy.coerceAtLeast(0f)
-                exitReady = distance >= max(64f * resources.displayMetrics.density, heightSafe * 0.18f)
+                val wasReady = exitReady
+                exitReady = distance >= max(resources.getDimension(R.dimen.ui_fullscreen_exit_threshold), heightSafe * 0.18f)
+                if (!wasReady && exitReady) performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP)
                 callback?.previewExit(distance)
                 showFeedback(context.getString(if (exitReady) R.string.release_minimize else R.string.swipe_minimize))
             }
@@ -238,8 +282,25 @@ class FullscreenGestureLayout @JvmOverloads constructor(
         }
     }
 
-    private fun showFeedback(text: String) {
+    private fun showSeekBurstFeedback(direction: Int) {
+        val seconds = abs(seekBurst.accumulatedMs) / 1_000L
+        val sign = if (direction > 0) "+" else "−"
+        showFeedback("$sign${seconds}s  •  ${formatTime(previewPositionMs)}", direction)
+    }
+
+    private fun showFeedback(text: String, side: Int = 0) {
         feedbackView?.apply {
+            val params = (layoutParams as? FrameLayout.LayoutParams)
+                ?: FrameLayout.LayoutParams(FrameLayout.LayoutParams.WRAP_CONTENT, FrameLayout.LayoutParams.WRAP_CONTENT)
+            val edge = resources.getDimensionPixelSize(R.dimen.ui_gesture_feedback_edge)
+            params.gravity = when {
+                side < 0 -> Gravity.START or Gravity.CENTER_VERTICAL
+                side > 0 -> Gravity.END or Gravity.CENTER_VERTICAL
+                else -> Gravity.CENTER
+            }
+            params.marginStart = if (side < 0) edge else 0
+            params.marginEnd = if (side > 0) edge else 0
+            layoutParams = params
             animate().cancel()
             alpha = 1f
             visibility = View.VISIBLE
@@ -247,7 +308,7 @@ class FullscreenGestureLayout @JvmOverloads constructor(
         }
     }
 
-    private fun finishGesture(cancelExitPreview: Boolean = true) {
+    private fun finishGesture(cancelExitPreview: Boolean = true, preserveSeekBurst: Boolean = false) {
         feedbackView?.apply {
             animate().cancel()
             animate().alpha(0f).setStartDelay(450L).setDuration(180L).withEndAction {
@@ -256,14 +317,16 @@ class FullscreenGestureLayout @JvmOverloads constructor(
             }.start()
         }
         if (cancelExitPreview && mode == Mode.EXIT) callback?.cancelExitPreview()
-        resetGesture(keepFeedback = true)
+        resetGesture(keepFeedback = true, preserveSeekBurst = preserveSeekBurst)
     }
 
-    private fun resetGesture(keepFeedback: Boolean = false) {
+    private fun resetGesture(keepFeedback: Boolean = false, preserveSeekBurst: Boolean = false) {
         if (mode == Mode.EXIT && !keepFeedback) callback?.cancelExitPreview()
         mode = Mode.NONE
         exitReady = false
+        preserveTransportControls = false
         lastTapAt = 0L
+        if (!preserveSeekBurst) seekBurst = DoubleTapSeekBurstState()
         parent?.requestDisallowInterceptTouchEvent(false)
         if (!keepFeedback) {
             feedbackView?.animate()?.cancel()

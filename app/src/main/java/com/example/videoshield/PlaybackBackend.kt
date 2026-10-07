@@ -5,15 +5,7 @@ package com.example.videoshield
  * UI, gestures, queue, PiP and MediaSession commands depend on this contract rather than
  * knowing whether playback is currently hosted by WebView or a future native engine.
  */
-interface PlaybackBackend {
-    fun play()
-    fun pause()
-    fun toggle()
-    fun seekBack()
-    fun seekForward()
-    fun seekToMs(positionMs: Long)
-    fun setRepeatEnabled(enabled: Boolean)
-    fun setPlaybackRate(rate: Float)
+interface PlaybackBackend : PlaybackCommandSink {
     fun setCommunitySegments(videoId: String, segments: List<CommunitySegment>)
     fun clearCommunitySegments()
 }

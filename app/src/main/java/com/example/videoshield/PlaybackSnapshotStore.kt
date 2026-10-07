@@ -84,6 +84,16 @@ class PlaybackSnapshotStore(context: Context) {
         prefs.edit().clear().apply()
     }
 
+    fun observe(onChanged: () -> Unit): AutoCloseable {
+        // Every committed snapshot writes updated_at, so one key is enough to represent the
+        // whole atomic editor update instead of dispatching once for every changed field.
+        val listener = android.content.SharedPreferences.OnSharedPreferenceChangeListener { _, key ->
+            if (key == null || key == "updated_at") onChanged()
+        }
+        prefs.registerOnSharedPreferenceChangeListener(listener)
+        return AutoCloseable { prefs.unregisterOnSharedPreferenceChangeListener(listener) }
+    }
+
     fun get(): PlaybackSnapshot = PlaybackSnapshot(
         playing = prefs.getBoolean("playing", false),
         title = prefs.getString("title", "").orEmpty(),

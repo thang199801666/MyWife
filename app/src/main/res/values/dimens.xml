@@ -1,0 +1,64 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Shared spacing scale. Keep semantic component dimensions below aligned to this grid. -->
+    <dimen name="ui_space_xxs">2dp</dimen>
+    <dimen name="ui_space_xs">4dp</dimen>
+    <dimen name="ui_space_sm">6dp</dimen>
+    <dimen name="ui_space_md">8dp</dimen>
+    <dimen name="ui_space_lg">12dp</dimen>
+    <dimen name="ui_space_xl">16dp</dimen>
+    <dimen name="ui_space_2xl">20dp</dimen>
+    <dimen name="ui_space_3xl">24dp</dimen>
+
+    <!-- Core YouTube-like chrome metrics. -->
+    <dimen name="ui_top_bar_height">56dp</dimen>
+    <dimen name="ui_bottom_nav_height">56dp</dimen>
+    <dimen name="ui_bottom_nav_elevation">8dp</dimen>
+    <dimen name="ui_feed_bottom_inset">64dp</dimen>
+    <dimen name="ui_toolbar_button_size">48dp</dimen>
+    <dimen name="ui_action_height">36dp</dimen>
+    <dimen name="ui_touch_target">44dp</dimen>
+    <dimen name="ui_search_field_height">40dp</dimen>
+    <dimen name="ui_filter_rail_height">44dp</dimen>
+    <dimen name="ui_gesture_feedback_edge">36dp</dimen>
+    <dimen name="ui_gesture_double_tap_distance">72dp</dimen>
+    <dimen name="ui_fullscreen_transport_guard">72dp</dimen>
+    <dimen name="ui_fullscreen_exit_threshold">64dp</dimen>
+
+    <!-- Shape system. -->
+    <dimen name="ui_radius_thumbnail_small">6dp</dimen>
+    <dimen name="ui_radius_chip">10dp</dimen>
+    <dimen name="ui_radius_card">12dp</dimen>
+    <dimen name="ui_radius_pill">18dp</dimen>
+    <dimen name="ui_radius_large_pill">24dp</dimen>
+    <dimen name="ui_radius_input">20dp</dimen>
+
+    <!-- Bottom sheets / menus. -->
+    <dimen name="ui_sheet_corner_radius">24dp</dimen>
+    <dimen name="ui_sheet_handle_width">36dp</dimen>
+    <dimen name="ui_sheet_handle_height">4dp</dimen>
+    <dimen name="ui_sheet_row_min_height">56dp</dimen>
+    <dimen name="ui_sheet_icon_size">24dp</dimen>
+    <dimen name="ui_sheet_close_size">48dp</dimen>
+    <dimen name="ui_sheet_horizontal_padding">20dp</dimen>
+    <dimen name="ui_chip_horizontal_padding">10dp</dimen>
+
+    <!-- Floating mini-player. -->
+    <dimen name="ui_mini_player_width">228dp</dimen>
+    <dimen name="ui_mini_player_min_width">128dp</dimen>
+    <dimen name="ui_mini_player_margin">12dp</dimen>
+    <dimen name="ui_mini_player_elevation">12dp</dimen>
+    <dimen name="ui_mini_player_drag_travel_min">180dp</dimen>
+    <dimen name="ui_mini_player_drag_x">10dp</dimen>
+
+    <!-- You / Library hub. -->
+    <dimen name="ui_library_page_padding">16dp</dimen>
+    <dimen name="ui_library_video_card_width">184dp</dimen>
+    <dimen name="ui_library_video_card_height">104dp</dimen>
+    <dimen name="ui_library_collection_width">176dp</dimen>
+    <dimen name="ui_library_collection_height">99dp</dimen>
+    <dimen name="ui_library_card_gap">12dp</dimen>
+    <dimen name="ui_library_shortcut_min_height">58dp</dimen>
+    <dimen name="ui_library_progress_height">3dp</dimen>
+    <dimen name="ui_library_section_header_height">40dp</dimen>
+</resources>

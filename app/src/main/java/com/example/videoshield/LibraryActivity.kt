@@ -17,6 +17,7 @@ import android.widget.Button
 import android.widget.LinearLayout
 import android.widget.ListView
 import android.widget.ProgressBar
+import android.widget.ScrollView
 import android.widget.TextView
 import android.widget.Toast
 import android.widget.EditText
@@ -35,8 +36,13 @@ class LibraryActivity : LocalizedActivity() {
     private lateinit var empty: TextView
     private lateinit var title: TextView
     private lateinit var nowPlaying: TextView
+    private lateinit var nowPlayingThumbnail: ImageView
     private lateinit var nowPlayingProgress: ProgressBar
     private lateinit var miniPlayerBar: SwipeDismissLayout
+    private lateinit var playPauseButton: IconButton
+    private lateinit var seekBackButton: Button
+    private lateinit var seekForwardButton: Button
+    private lateinit var stopPlaybackButton: Button
     private var mode: String = MODE_HISTORY
     private var relatedVideo: VideoItem? = null
     private val libraryTasks = SerialTaskQueue("library-screen", 20L)
@@ -51,18 +57,42 @@ class LibraryActivity : LocalizedActivity() {
     private lateinit var collectionActions: LinearLayout
     private lateinit var collectionHeader: LinearLayout
     private var actionSheet: android.app.Dialog? = null
+    private var renderedNowPlayingVideoId = ""
+    private lateinit var offlineStore: OfflineStore
+    private lateinit var overviewScroll: ScrollView
+    private lateinit var overviewContent: LinearLayout
+    private lateinit var overviewController: YouLibraryOverviewController
+    private lateinit var modeTabs: View
+    private lateinit var profileHeader: View
+    private lateinit var hubTitle: TextView
+    private var overviewScrollY = 0
+    private var snapshotObservation: AutoCloseable? = null
+    private var cachedPlaybackSnapshot: PlaybackSnapshot? = null
 
     private val miniPlayerHandler = Handler(Looper.getMainLooper())
     private val searchFilter = Runnable { if (!isDestroyed && !isFinishing) displayRows() }
     private val miniPlayerTicker = object : Runnable {
         override fun run() {
-            val playing = refreshNowPlaying()
-            miniPlayerHandler.postDelayed(this, if (playing) 1_000L else 3_000L)
+            if (isDestroyed || isFinishing) return
+            val snapshot = cachedPlaybackSnapshot ?: snapshotStore.get().also { cachedPlaybackSnapshot = it }
+            if (refreshNowPlaying(snapshot)) miniPlayerHandler.postDelayed(this, 1_000L)
         }
+    }
+    private val snapshotChanged = Runnable {
+        if (isDestroyed || isFinishing) return@Runnable
+        cachedPlaybackSnapshot = snapshotStore.get()
+        miniPlayerHandler.removeCallbacks(miniPlayerTicker)
+        if (refreshNowPlaying(cachedPlaybackSnapshot!!)) miniPlayerHandler.postDelayed(miniPlayerTicker, 1_000L)
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
+            onBackInvokedDispatcher.registerOnBackInvokedCallback(
+                android.window.OnBackInvokedDispatcher.PRIORITY_DEFAULT,
+                android.window.OnBackInvokedCallback { handleLibraryBack() }
+            )
+        }
         volumeControlStream = android.media.AudioManager.STREAM_MUSIC
         setContentView(R.layout.activity_library)
         SystemBarInsets.install(this)
@@ -70,13 +100,38 @@ class LibraryActivity : LocalizedActivity() {
         store = LibraryStore(this)
         snapshotStore = PlaybackSnapshotStore(this)
         searchHistoryStore = SearchHistoryStore(this)
+        offlineStore = OfflineStore(this)
         list = findViewById(R.id.libraryList)
         empty = findViewById(R.id.libraryEmpty)
         title = findViewById(R.id.libraryTitle)
+        hubTitle = findViewById(R.id.libraryHubTitle)
+        modeTabs = findViewById(R.id.libraryModeTabs)
+        profileHeader = findViewById(R.id.libraryProfileHeader)
+        overviewScroll = findViewById(R.id.libraryOverviewScroll)
+        overviewContent = findViewById(R.id.libraryOverviewContent)
         search = findViewById(R.id.librarySearch)
         adapter = LibraryAdapter(emptyList())
         list.addHeaderView(createCollectionHeader(), null, false)
         list.adapter = adapter
+        overviewController = YouLibraryOverviewController(
+            activity = this,
+            root = overviewContent,
+            thumbnails = thumbnails,
+            onOpenVideo = { openUrl(it.url) },
+            onOpenSection = { section ->
+                overviewScrollY = overviewScroll.scrollY
+                mode = when (section) {
+                    YouLibraryOverviewController.Section.HISTORY -> MODE_HISTORY
+                    YouLibraryOverviewController.Section.CONTINUE -> MODE_CONTINUE
+                    YouLibraryOverviewController.Section.WATCH_LATER -> MODE_FAVORITES
+                    YouLibraryOverviewController.Section.QUEUE -> MODE_QUEUE
+                    YouLibraryOverviewController.Section.SUBSCRIPTIONS -> MODE_SUBSCRIPTIONS
+                }
+                search.setText("")
+                refresh()
+            },
+            onOpenDownloads = { startActivity(Intent(this, DownloadsActivity::class.java)) }
+        )
         search.addTextChangedListener(object : TextWatcher {
             override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) = Unit
             override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {
@@ -86,11 +141,17 @@ class LibraryActivity : LocalizedActivity() {
             override fun afterTextChanged(s: Editable?) = Unit
         })
         nowPlaying = findViewById(R.id.nowPlayingText)
+        nowPlayingThumbnail = findViewById(R.id.nowPlayingThumbnail)
         nowPlayingProgress = findViewById(R.id.nowPlayingProgress)
         miniPlayerBar = findViewById(R.id.miniPlayerBar)
+        playPauseButton = findViewById(R.id.playPauseButton)
+        seekBackButton = findViewById(R.id.seekBackButton)
+        seekForwardButton = findViewById(R.id.seekForwardButton)
+        stopPlaybackButton = findViewById(R.id.stopPlaybackButton)
         applyThemeSurface()
 
-        mode = savedInstanceState?.getString(EXTRA_MODE) ?: intent.getStringExtra(EXTRA_MODE) ?: MODE_HISTORY
+        mode = savedInstanceState?.getString(EXTRA_MODE) ?: intent.getStringExtra(EXTRA_MODE) ?: MODE_OVERVIEW
+        overviewScrollY = savedInstanceState?.getInt("overview_scroll_y") ?: 0
         savedInstanceState?.getString("related_id")?.let { id ->
             relatedVideo = VideoItem(id, savedInstanceState.getString("related_title").orEmpty(),
                 savedInstanceState.getString("related_channel").orEmpty(), "https://m.youtube.com/watch?v=$id", 0L)
@@ -105,13 +166,20 @@ class LibraryActivity : LocalizedActivity() {
         }
         findViewById<Button>(R.id.continueTab).setOnClickListener { mode = MODE_CONTINUE; refresh() }
         findViewById<Button>(R.id.recommendationControlsButton).setOnClickListener {
-            val options = mutableListOf(getString(R.string.tune_recommendations), getString(R.string.ui_settings))
-            if (mode != MODE_RELATED) options += getString(R.string.clear_list)
-            AlertDialog.Builder(this).setItems(options.toTypedArray()) { _, index -> when (index) {
-                0 -> showRecommendationControls()
-                1 -> startActivity(Intent(this, SettingsActivity::class.java))
-                else -> clearCurrent()
-            } }.show()
+            if (mode == MODE_OVERVIEW) {
+                val options = arrayOf(getString(R.string.ui_settings), getString(R.string.ui_about))
+                AlertDialog.Builder(this).setItems(options) { _, index ->
+                    if (index == 0) startActivity(Intent(this, SettingsActivity::class.java)) else showAbout()
+                }.show()
+            } else {
+                val options = mutableListOf(getString(R.string.tune_recommendations), getString(R.string.ui_settings))
+                if (mode != MODE_RELATED) options += getString(R.string.clear_list)
+                AlertDialog.Builder(this).setItems(options.toTypedArray()) { _, index -> when (index) {
+                    0 -> showRecommendationControls()
+                    1 -> startActivity(Intent(this, SettingsActivity::class.java))
+                    else -> clearCurrent()
+                } }.show()
+            }
         }
         findViewById<Button>(R.id.librarySearchToggle).setOnClickListener {
             search.visibility = if (search.visibility == View.VISIBLE) View.GONE else View.VISIBLE
@@ -120,29 +188,33 @@ class LibraryActivity : LocalizedActivity() {
         findViewById<Button>(R.id.navHomeButton).setOnClickListener { openUrl(YouTubeRoute.HOME_URL) }
         findViewById<Button>(R.id.navShieldButton).setOnClickListener { openUrl(YouTubeRoute.SHORTS_URL) }
         findViewById<Button>(R.id.navSubscriptionsButton).setOnClickListener { openUrl(YouTubeRoute.SUBSCRIPTIONS_URL) }
-        findViewById<Button>(R.id.navLibraryButton).setOnClickListener { mode = MODE_HISTORY; refresh() }
+        findViewById<Button>(R.id.navLibraryButton).setOnClickListener { mode = MODE_OVERVIEW; search.setText(""); refresh() }
         findViewById<Button>(R.id.navCreateButton).setOnClickListener {
             actionSheet?.dismiss()
             actionSheet=ActionSheet.show(this,getString(R.string.your_library),listOf(
                 ActionSheet.Action(getString(R.string.ui_for_you),getString(R.string.history_suggestions),R.drawable.ic_nav_home),
                 ActionSheet.Action(getString(R.string.ui_queue),getString(R.string.next_videos),R.drawable.ic_ui_queue),
-                ActionSheet.Action(getString(R.string.ui_favorites),getString(R.string.favorite_videos),R.drawable.ic_ui_bookmark)
+                ActionSheet.Action(getString(R.string.ui_watch_later),getString(R.string.ui_watch_later_videos),R.drawable.ic_ui_bookmark)
             )) { index ->
                 mode = listOf(MODE_FOR_YOU, MODE_QUEUE, MODE_FAVORITES)[index]; refresh()
             }
         }
         findViewById<Button>(R.id.historyTab).setOnClickListener { mode = MODE_HISTORY; refresh() }
-        findViewById<Button>(R.id.aboutButton).setOnClickListener { showAbout() }
+        findViewById<Button>(R.id.settingsButton).setOnClickListener { startActivity(Intent(this, SettingsActivity::class.java)) }
         findViewById<Button>(R.id.downloadsButton).setOnClickListener { startActivity(Intent(this,DownloadsActivity::class.java)) }
         findViewById<Button>(R.id.eqButton).setOnClickListener { EqDialog.show(this) }
         findViewById<Button>(R.id.favoritesTab).setOnClickListener { mode = MODE_FAVORITES; refresh() }
         findViewById<Button>(R.id.queueTab).setOnClickListener { mode = MODE_QUEUE; refresh() }
         findViewById<Button>(R.id.subscriptionsTab).setOnClickListener { mode = MODE_SUBSCRIPTIONS; refresh() }
-        findViewById<Button>(R.id.closeLibraryButton).setOnClickListener { finish() }
-        findViewById<Button>(R.id.playPauseButton).setOnClickListener { sendPlaybackCommand(PlaybackService.CMD_PLAY_PAUSE) }
-        findViewById<Button>(R.id.seekBackButton).setOnClickListener { sendPlaybackCommand(PlaybackService.CMD_SEEK_BACK) }
-        findViewById<Button>(R.id.seekForwardButton).setOnClickListener { sendPlaybackCommand(PlaybackService.CMD_SEEK_FORWARD) }
-        findViewById<Button>(R.id.stopPlaybackButton).setOnClickListener { dismissPlayback() }
+        findViewById<Button>(R.id.closeLibraryButton).setOnClickListener {
+            if (mode == MODE_OVERVIEW) finish() else { mode = MODE_OVERVIEW; search.setText(""); refresh() }
+        }
+        playPauseButton.setOnClickListener { sendPlaybackCommand(PlaybackService.CMD_PLAY_PAUSE) }
+        seekBackButton.setOnClickListener { sendPlaybackCommand(PlaybackService.CMD_SEEK_BACK) }
+        seekForwardButton.setOnClickListener { sendPlaybackCommand(PlaybackService.CMD_SEEK_FORWARD) }
+        stopPlaybackButton.setOnClickListener { dismissPlayback() }
+        nowPlayingThumbnail.setOnClickListener { finish() }
+        nowPlaying.setOnClickListener { finish() }
         findViewById<Button>(R.id.clearLibraryButton).setOnClickListener { clearCurrent() }
 
         miniPlayerBar.onDismiss = {
@@ -154,13 +226,21 @@ class LibraryActivity : LocalizedActivity() {
     override fun onResume() {
         super.onResume()
         applyThemeSurface()
-        miniPlayerHandler.removeCallbacks(miniPlayerTicker)
-        miniPlayerHandler.post(miniPlayerTicker)
+        snapshotObservation?.close()
+        snapshotObservation = snapshotStore.observe {
+            miniPlayerHandler.removeCallbacks(snapshotChanged)
+            miniPlayerHandler.post(snapshotChanged)
+        }
+        miniPlayerHandler.removeCallbacks(snapshotChanged)
+        miniPlayerHandler.post(snapshotChanged)
         refresh()
     }
 
     override fun onPause() {
+        snapshotObservation?.close()
+        snapshotObservation = null
         miniPlayerHandler.removeCallbacks(searchFilter)
+        miniPlayerHandler.removeCallbacks(snapshotChanged)
         miniPlayerHandler.removeCallbacks(miniPlayerTicker)
         super.onPause()
     }
@@ -168,6 +248,9 @@ class LibraryActivity : LocalizedActivity() {
     override fun onTrimMemory(level: Int) {
         super.onTrimMemory(level)
         thumbnails.trimMemory(level)
+        if (level >= android.content.ComponentCallbacks2.TRIM_MEMORY_UI_HIDDEN && ::overviewController.isInitialized) {
+            overviewController.clear()
+        }
     }
 
     private fun applyThemeSurface() {
@@ -175,35 +258,49 @@ class LibraryActivity : LocalizedActivity() {
         findViewById<View>(R.id.libraryRoot).setBackgroundColor(AppTheme.background(this))
         findViewById<View>(R.id.libraryTopBar).setBackgroundColor(AppTheme.surface(this))
         miniPlayerBar.setBackgroundColor(AppTheme.surface(this))
+        findViewById<Button>(R.id.navLibraryButton).apply {
+            setCompoundDrawablesWithIntrinsicBounds(0, R.drawable.ic_nav_you_filled, 0, 0)
+            compoundDrawableTintList = android.content.res.ColorStateList.valueOf(AppTheme.primary(this@LibraryActivity))
+            setTextColor(AppTheme.primary(this@LibraryActivity))
+        }
     }
 
     private fun dismissPlayback() {
         sendPlaybackCommand(PlaybackService.CMD_STOP)
         snapshotStore.clear()
-        refreshNowPlaying()
+        cachedPlaybackSnapshot = snapshotStore.get()
+        refreshNowPlaying(cachedPlaybackSnapshot!!)
     }
 
-    private fun refreshNowPlaying(): Boolean {
-        val s = snapshotStore.get()
+    private fun refreshNowPlaying(s: PlaybackSnapshot): Boolean {
         val hasMedia = s.title.isNotBlank() && s.url.isNotBlank()
         miniPlayerBar.visibility = if (hasMedia) View.VISIBLE else View.GONE
-        if (!hasMedia) return false
+        if (!hasMedia) {
+            if (renderedNowPlayingVideoId.isNotEmpty()) {
+                renderedNowPlayingVideoId = ""
+                nowPlayingThumbnail.setImageDrawable(null)
+                nowPlayingThumbnail.tag = null
+            }
+            return false
+        }
 
         val position = s.predictedPositionMs()
         val time = if (s.durationMs > 0L) " • ${formatTime(position)} / ${formatTime(s.durationMs)}" else ""
         val summary = "${s.title}$time\n${s.channel}"
         if (nowPlaying.text.toString() != summary) nowPlaying.text = summary
         // Returning reveals the existing player without reloading its URL.
-        nowPlaying.setOnClickListener { finish() }
-
-        findViewById<IconButton>(R.id.playPauseButton).apply {
+        if (renderedNowPlayingVideoId != s.videoId) {
+            renderedNowPlayingVideoId = s.videoId
+            thumbnails.bind(nowPlayingThumbnail, s.videoId)
+        }
+        playPauseButton.apply {
             isEnabled = true
             setIcon(if (s.playing) R.drawable.ic_ui_pause else R.drawable.ic_ui_play)
             contentDescription = if (s.playing) getString(R.string.ui_pause) else getString(R.string.ui_play)
         }
-        findViewById<Button>(R.id.seekBackButton).isEnabled = true
-        findViewById<Button>(R.id.seekForwardButton).isEnabled = true
-        findViewById<Button>(R.id.stopPlaybackButton).isEnabled = true
+        seekBackButton.isEnabled = true
+        seekForwardButton.isEnabled = true
+        stopPlaybackButton.isEnabled = true
 
         val progress = if (s.durationMs > 0L) {
             ((position.coerceIn(0L, s.durationMs) * 1000L) / s.durationMs).toInt().coerceIn(0, 1000)
@@ -212,18 +309,73 @@ class LibraryActivity : LocalizedActivity() {
         return s.playing
     }
 
+    private fun updateChrome(selected: String) {
+        val overview = selected == MODE_OVERVIEW
+        hubTitle.visibility = if (overview) View.VISIBLE else View.GONE
+        title.visibility = if (overview) View.GONE else View.VISIBLE
+        findViewById<Button>(R.id.closeLibraryButton).visibility = if (overview) View.GONE else View.VISIBLE
+        findViewById<Button>(R.id.librarySearchToggle).visibility = if (overview) View.GONE else View.VISIBLE
+        profileHeader.visibility = if (overview) View.VISIBLE else View.GONE
+        findViewById<View>(R.id.libraryShortcuts).visibility = if (overview) View.VISIBLE else View.GONE
+        modeTabs.visibility = if (overview) View.GONE else View.VISIBLE
+        if (overview && search.visibility == View.VISIBLE) { search.visibility = View.GONE; search.setText("") }
+    }
+
+    private fun refreshOverview(generation: Int) {
+        overviewScroll.visibility = View.VISIBLE
+        if (overviewContent.childCount == 0) overviewController.showLoading()
+        else overviewScrollY = overviewScroll.scrollY
+        libraryTasks.executeLatest(OVERVIEW_TASK) {
+            val result = runCatching {
+                val counts = store.overviewCounts()
+                YouLibraryOverviewController.Snapshot(
+                    history = store.history(8),
+                    continueWatching = store.continueWatching(8),
+                    watchLater = store.favorites(8),
+                    queue = store.queue(8),
+                    historyCount = counts.history,
+                    watchLaterCount = counts.favorites,
+                    queueCount = counts.queue,
+                    subscriptionCount = counts.subscriptions,
+                    downloadCount = offlineStore.count()
+                )
+            }
+            runOnUiThread {
+                if (isDestroyed || isFinishing || generation != refreshGeneration || mode != MODE_OVERVIEW) return@runOnUiThread
+                result.onSuccess {
+                    overviewController.render(it)
+                    overviewScroll.post { if (!isDestroyed && mode == MODE_OVERVIEW) overviewScroll.scrollTo(0, overviewScrollY) }
+                }.onFailure {
+                    if (overviewContent.childCount == 0) {
+                        empty.text = getString(R.string.ui_could_not_load_the_library_reopen_this_tab_to_retry)
+                        empty.visibility = View.VISIBLE
+                    }
+                }
+            }
+        }
+    }
+
     private fun refresh() {
         val generation = ++refreshGeneration
         val selected = mode
+        updateChrome(selected)
         loadedRows = emptyList()
         adapter.replace(emptyList())
         list.visibility = View.GONE
+        empty.visibility = View.GONE
+        if (selected == MODE_OVERVIEW) {
+            libraryTasks.cancelPending(REFRESH_TASK)
+            refreshOverview(generation)
+            return
+        }
+        libraryTasks.cancelPending(OVERVIEW_TASK)
+        overviewScroll.visibility = View.GONE
         empty.visibility = View.VISIBLE
         title.text = when (selected) {
             MODE_RELATED -> getString(R.string.ui_similar_videos)
             MODE_FOR_YOU -> getString(R.string.ui_for_you)
             MODE_CONTINUE -> getString(R.string.ui_continue_watching)
-            MODE_FAVORITES -> getString(R.string.ui_favorites)
+            MODE_FAVORITES -> getString(R.string.ui_watch_later)
             MODE_QUEUE -> getString(R.string.ui_queue)
             MODE_SUBSCRIPTIONS -> getString(R.string.ui_subscriptions)
             else -> getString(R.string.ui_watch_history)
@@ -258,7 +410,7 @@ class LibraryActivity : LocalizedActivity() {
                     MODE_FOR_YOU -> store.recommendations(since, searchQueries = recentSearches).map { LibraryRow.Suggestion(it) }
                     MODE_CONTINUE -> {
                         val favorites = store.favoriteIds()
-                        store.history(1000).filter(LibraryPolicy::canResume).map { LibraryRow.Video(it, it.videoId in favorites, false) }
+                        store.continueWatching(500).map { LibraryRow.Video(it, it.videoId in favorites, false) }
                     }
                     MODE_FAVORITES -> store.favorites().map { LibraryRow.Video(it, true, false) }
                     MODE_QUEUE -> {
@@ -286,6 +438,7 @@ class LibraryActivity : LocalizedActivity() {
 
     private fun displayRows() {
         miniPlayerHandler.removeCallbacks(searchFilter)
+        overviewScroll.visibility = View.GONE
         val query = search.text.toString()
         val rows = loadedRows.filter { row ->
             when (row) {
@@ -314,7 +467,7 @@ class LibraryActivity : LocalizedActivity() {
         collectionHeader.background = if(playlist) GradientDrawable(GradientDrawable.Orientation.TL_BR,
             if (AppTheme.isLight(this)) intArrayOf(Color.rgb(236,228,247),Color.rgb(224,234,247)) else intArrayOf(Color.rgb(65,39,70),Color.rgb(26,37,51))).apply { cornerRadius=dp(16).toFloat() }
             else android.graphics.drawable.ColorDrawable(Color.TRANSPARENT)
-        collectionActions.visibility = if (mode == MODE_SUBSCRIPTIONS) View.GONE else View.VISIBLE
+        collectionActions.visibility = if (playlist) View.VISIBLE else View.GONE
         thumbnails.bind(collectionImage, if(playlist) first else "")
         empty.visibility = if (rows.isEmpty()) View.VISIBLE else View.GONE
         list.visibility = if (rows.isEmpty()) View.GONE else View.VISIBLE
@@ -362,7 +515,7 @@ class LibraryActivity : LocalizedActivity() {
                         MODE_FAVORITES -> store.clearFavorites()
                         MODE_QUEUE -> store.clearQueue()
                         MODE_SUBSCRIPTIONS -> store.clearSubscriptions()
-                        MODE_CONTINUE -> store.history(1000).filter(LibraryPolicy::canResume).forEach { store.removeHistory(it.videoId) }
+                        MODE_CONTINUE -> store.continueWatching(1000).forEach { store.removeHistory(it.videoId) }
                         else -> { store.clearHistory(); store.clearPersonalization() }
                     }
                 }
@@ -500,12 +653,12 @@ class LibraryActivity : LocalizedActivity() {
             val root = LinearLayout(this@LibraryActivity).apply {
                 orientation = LinearLayout.HORIZONTAL
                 gravity = Gravity.CENTER_VERTICAL
-                setPadding(dp(16), dp(10), dp(10), dp(10))
+                setPadding(dp(12), dp(8), dp(8), dp(8))
             }
             val thumbnail = ImageView(this@LibraryActivity).apply {
-                layoutParams = LinearLayout.LayoutParams(dp(120), dp(68)).apply { marginEnd = dp(12) }
+                layoutParams = LinearLayout.LayoutParams(dp(128), dp(72)).apply { marginEnd = dp(12) }
                 scaleType = ImageView.ScaleType.CENTER_CROP
-                background = GradientDrawable().apply { setColor(AppTheme.control(this@LibraryActivity)); cornerRadius = dp(8).toFloat() }
+                background = GradientDrawable().apply { setColor(AppTheme.control(this@LibraryActivity)); cornerRadius = dp(10).toFloat() }
                 clipToOutline = true
                 contentDescription = getString(R.string.ui_video_thumbnail)
             }
@@ -556,11 +709,9 @@ class LibraryActivity : LocalizedActivity() {
             holder.thumbnail.visibility = if (row is LibraryRow.Channel) View.GONE else View.VISIBLE
             val thumbnailId = when (row) { is LibraryRow.Video -> row.item.videoId; is LibraryRow.Suggestion -> row.item.video.videoId; else -> "" }
             thumbnails.bind(holder.thumbnail, thumbnailId)
-            root.setBackgroundColor(if (AppTheme.isLight(this@LibraryActivity)) {
-                if (position % 2 == 0) AppTheme.background(this@LibraryActivity) else Color.rgb(246, 247, 249)
-            } else {
-                if (position % 2 == 0) AppTheme.background(this@LibraryActivity) else Color.rgb(8, 8, 8)
-            })
+            // YouTube lists use a continuous surface; alternating zebra rows make the
+            // library look desktop-like and create unnecessary visual noise.
+            root.setBackgroundColor(AppTheme.background(this@LibraryActivity))
             when (row) {
                 is LibraryRow.Suggestion -> {
                     text.text = row.item.video.title; text.maxLines = 2
@@ -589,7 +740,7 @@ class LibraryActivity : LocalizedActivity() {
             val buttons = (0 until actions.childCount).mapNotNull { actions.getChildAt(it) as? Button }.filter { it.isEnabled }
             if (buttons.isNotEmpty()) {
                 val labels = buttons.map { when (it.text.toString()) {
-                    "+Q" -> getString(R.string.add_queue); "NEXT", getString(R.string.ui_next) -> getString(R.string.play_next); "☆" -> getString(R.string.save_favorites); "★" -> getString(R.string.remove_favorites)
+                    "+Q" -> getString(R.string.add_queue); "NEXT", getString(R.string.ui_next) -> getString(R.string.play_next); "☆" -> getString(R.string.ui_save_watch_later); "★" -> getString(R.string.ui_remove_watch_later)
                     "↑" -> getString(R.string.move_up); "↓" -> getString(R.string.move_down); "✕" -> if (row is LibraryRow.Suggestion) getString(R.string.ui_not_interested) else getString(R.string.remove)
                     else -> it.text.toString()
                 } }.toMutableList()
@@ -605,10 +756,10 @@ class LibraryActivity : LocalizedActivity() {
                         actionSheet=ActionSheet.show(this@LibraryActivity,text.text.toString(),labels.map { label ->
                             ActionSheet.Action(label,icon=when {
                                 label in setOf(getString(R.string.add_queue),getString(R.string.play_next)) -> R.drawable.ic_ui_queue
-                                label in setOf(getString(R.string.save_favorites),getString(R.string.remove_favorites)) -> R.drawable.ic_ui_bookmark
+                                label in setOf(getString(R.string.ui_save_watch_later),getString(R.string.ui_remove_watch_later)) -> R.drawable.ic_ui_bookmark
                                 label == getString(R.string.ui_find_similar_videos) -> R.drawable.ic_search
                                 else -> R.drawable.ic_ui_more
-                            },danger=label in setOf(getString(R.string.remove),getString(R.string.ui_not_interested),getString(R.string.remove_favorites)))
+                            },danger=label in setOf(getString(R.string.remove),getString(R.string.ui_not_interested),getString(R.string.ui_remove_watch_later)))
                         }) { index ->
                             if (index < buttons.size) buttons[index].performClick() else text.performLongClick()
                         }
@@ -728,8 +879,26 @@ class LibraryActivity : LocalizedActivity() {
 
     private fun dp(value: Int): Int = (value * resources.displayMetrics.density).toInt()
 
+    @Deprecated("Deprecated in Android; retained for the Activity base class used by this project")
+    @android.annotation.SuppressLint("GestureBackNavigation") // API < 33 fallback; newer devices use the registered callback.
+    override fun onBackPressed() {
+        handleLibraryBack()
+    }
+
+    private fun handleLibraryBack() {
+        if (mode != MODE_OVERVIEW) {
+            overviewScrollY = overviewScroll.scrollY
+            mode = MODE_OVERVIEW
+            search.setText("")
+            refresh()
+        } else {
+            finish()
+        }
+    }
+
     override fun onSaveInstanceState(outState: Bundle) {
         outState.putString(EXTRA_MODE, mode)
+        outState.putInt("overview_scroll_y", if (::overviewScroll.isInitialized) overviewScroll.scrollY else overviewScrollY)
         relatedVideo?.let {
             outState.putString("related_id", it.videoId)
             outState.putString("related_title", it.title)
@@ -739,19 +908,28 @@ class LibraryActivity : LocalizedActivity() {
     }
 
     override fun onDestroy() {
+        snapshotObservation?.close()
+        snapshotObservation = null
+        cachedPlaybackSnapshot = null
+        miniPlayerHandler.removeCallbacks(snapshotChanged)
+        miniPlayerHandler.removeCallbacks(miniPlayerTicker)
         actionSheet?.dismiss()
         EqDialog.dismiss(this)
         miniPlayerHandler.removeCallbacks(searchFilter)
         thumbnails.close()
         ++refreshGeneration
         libraryTasks.cancelPending(REFRESH_TASK)
+        libraryTasks.cancelPending(OVERVIEW_TASK)
+        if (::overviewController.isInitialized) overviewController.clear()
         libraryTasks.shutdownAfter { store.close() }
         super.onDestroy()
     }
 
     companion object {
         private const val REFRESH_TASK = "library-refresh"
+        private const val OVERVIEW_TASK = "library-overview"
         const val EXTRA_MODE = "mode"
+        const val MODE_OVERVIEW = "overview"
         const val MODE_CONTINUE = "continue"
         const val MODE_HISTORY = "history"
         const val MODE_FOR_YOU = "for_you"

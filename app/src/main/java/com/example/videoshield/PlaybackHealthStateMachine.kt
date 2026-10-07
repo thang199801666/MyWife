@@ -51,10 +51,11 @@ class PlaybackHealthStateMachine(
         }
     }
 
-    fun heartbeat(playing: Boolean, videoId: String) {
+    fun heartbeat(playing: Boolean, videoId: String, buffering: Boolean = false) {
         if (!online) return
         if (videoId.isNotBlank()) {
-            transition(PlaybackHealthState.HEALTHY, if (playing) "Playback active" else "Player ready")
+            if (playing && buffering) transition(PlaybackHealthState.STALLED, "Buffering")
+            else transition(PlaybackHealthState.HEALTHY, if (playing) "Playback active" else "Player ready")
         }
     }
 

@@ -27,7 +27,7 @@ class SleepTimerController(
                 return
             }
             onTick()
-            handler.postDelayed(this, minOf(30_000L, remaining.coerceAtLeast(1_000L)))
+            handler.postDelayed(this, nextWakeDelayMs(remaining))
         }
     }
 
@@ -63,4 +63,7 @@ class SleepTimerController(
     fun dispose() {
         handler.removeCallbacks(ticker)
     }
+
+    internal fun nextWakeDelayMs(remainingMs: Long): Long =
+        WakeSchedulingPolicy.sleepTimerDelayMs(remainingMs)
 }

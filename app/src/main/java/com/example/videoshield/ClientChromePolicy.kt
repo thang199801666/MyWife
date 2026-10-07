@@ -27,7 +27,12 @@ object ClientChromePolicy {
             )
         }
         return ClientChromeState(
-            showAppBar = !(minimalPlaybackChrome && route.isNativePlayback),
+            // Shorts already render their own top overlay. Keeping the native app bar above it
+            // duplicates chrome and shortens the vertical video viewport, so enter an immersive
+            // browse presentation for the entire Shorts route. This changes only on route
+            // transitions (not while idling/auto-hiding) and therefore avoids frame-cadence relayout.
+            showAppBar = route.destination != YouTubeDestination.SHORTS &&
+                !(minimalPlaybackChrome && route.isNativePlayback),
             showPlaybackActions = route.isNativePlayback,
             navSelection = route.destination,
             searchHint = if (route.destination == YouTubeDestination.SEARCH && route.query.isNotBlank()) {

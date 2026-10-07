@@ -7,14 +7,14 @@
         <item name="android:layout_width">0dp</item>
         <item name="android:layout_weight">1</item>
         <item name="android:layout_height">64dp</item>
-        <item name="android:layout_marginHorizontal">4dp</item>
+        <item name="android:layout_marginHorizontal">@dimen/ui_space_xs</item>
         <item name="android:minWidth">0dp</item>
         <item name="android:minHeight">0dp</item>
         <item name="android:textColor">?attr/appTextPrimary</item>
         <item name="android:textSize">12sp</item>
         <item name="android:textAllCaps">false</item>
-        <item name="android:drawablePadding">6dp</item>
-        <item name="android:padding">6dp</item>
+        <item name="android:drawablePadding">@dimen/ui_space_sm</item>
+        <item name="android:padding">@dimen/ui_space_sm</item>
         <item name="android:background">@drawable/bg_action</item>
             <item name="android:drawableTint">?attr/appIconColor</item>
     </style>
@@ -26,25 +26,26 @@
     <style name="AppThemeBlackBase" parent="android:style/Theme.Material.NoActionBar">
         <item name="android:fontFamily">sans</item>
         <item name="android:windowLightStatusBar">false</item>
-        <item name="android:statusBarColor">#000000</item>
-        <item name="android:navigationBarColor">#000000</item>
+        <item name="android:statusBarColor">#0F0F0F</item>
+        <item name="android:navigationBarColor">#0F0F0F</item>
         <item name="android:colorAccent">#FF3358</item>
-        <item name="android:windowBackground">#000000</item>
-        <item name="appBackground">#000000</item>
-        <item name="appSurface">#0E0E0E</item>
-        <item name="appSurfaceElevated">#171717</item>
+        <item name="android:windowBackground">#0F0F0F</item>
+        <item name="appBackground">#0F0F0F</item>
+        <item name="appSurface">#0F0F0F</item>
+        <item name="appSurfaceElevated">#212121</item>
         <item name="appControlSurface">#272727</item>
-        <item name="appInputSurface">#24272E</item>
-        <item name="appDivider">#242424</item>
+        <item name="appInputSurface">#272727</item>
+        <item name="appDivider">#2A2A2A</item>
         <item name="appTextPrimary">#FFFFFF</item>
-        <item name="appTextSecondary">#C7CBD4</item>
-        <item name="appTextTertiary">#8B919D</item>
-        <item name="appBorder">#343842</item>
+        <item name="appTextSecondary">#AAAAAA</item>
+        <item name="appTextTertiary">#8A8A8A</item>
+        <item name="appBorder">#3A3A3A</item>
         <item name="appIconColor">#FFFFFF</item>
-        <item name="appRipple">#40FFFFFF</item>
+        <item name="appRipple">#26FFFFFF</item>
         <item name="appSectionAccent">#64B5F6</item>
         <item name="appSelectedSurface">#FFFFFF</item>
         <item name="appSelectedText">#111318</item>
+        <item name="appProgressAccent">#FF0033</item>
     </style>
 
     <style name="AppThemeLightBase" parent="android:style/Theme.Material.Light.NoActionBar">
@@ -56,29 +57,32 @@
         <item name="android:windowBackground">#FFFFFF</item>
         <item name="appBackground">#FFFFFF</item>
         <item name="appSurface">#FFFFFF</item>
-        <item name="appSurfaceElevated">#F3F4F6</item>
-        <item name="appControlSurface">#ECEFF3</item>
-        <item name="appInputSurface">#F1F3F6</item>
-        <item name="appDivider">#D9DDE3</item>
+        <item name="appSurfaceElevated">#F2F2F2</item>
+        <item name="appControlSurface">#F2F2F2</item>
+        <item name="appInputSurface">#F2F2F2</item>
+        <item name="appDivider">#E5E5E5</item>
         <item name="appTextPrimary">#111318</item>
-        <item name="appTextSecondary">#4F5662</item>
-        <item name="appTextTertiary">#747B86</item>
-        <item name="appBorder">#D8DDE5</item>
+        <item name="appTextSecondary">#606060</item>
+        <item name="appTextTertiary">#757575</item>
+        <item name="appBorder">#DADADA</item>
         <item name="appIconColor">#20242B</item>
         <item name="appRipple">#1F000000</item>
         <item name="appSectionAccent">#1565C0</item>
         <item name="appSelectedSurface">#111318</item>
         <item name="appSelectedText">#FFFFFF</item>
+        <item name="appProgressAccent">#FF0033</item>
     </style>
 
     <style name="ToolbarButton" parent="android:style/Widget.Material.Button.Borderless">
-        <item name="android:layout_width">48dp</item>
-        <item name="android:layout_height">48dp</item>
+        <item name="android:stateListAnimator">@animator/ui_press_scale</item>
+        <item name="android:layout_width">@dimen/ui_toolbar_button_size</item>
+        <item name="android:layout_height">@dimen/ui_toolbar_button_size</item>
         <item name="android:minWidth">0dp</item>
         <item name="android:minHeight">0dp</item>
         <item name="android:textColor">?attr/appTextPrimary</item>
-        <item name="android:textSize">22sp</item>
+        <item name="android:textSize">20sp</item>
         <item name="android:padding">0dp</item>
+        <item name="android:background">?android:attr/selectableItemBackgroundBorderless</item>
     </style>
 
     <style name="BottomActionButton" parent="android:style/Widget.Material.Button.Borderless">
@@ -126,30 +130,36 @@
     </style>
 
     <style name="BottomNavButton" parent="android:style/Widget.Material.Button.Borderless">
+        <item name="android:stateListAnimator">@animator/ui_press_scale</item>
         <item name="android:layout_width">0dp</item>
         <item name="android:layout_weight">1</item>
         <item name="android:layout_height">match_parent</item>
         <item name="android:minWidth">0dp</item>
         <item name="android:minHeight">0dp</item>
         <item name="android:textColor">?attr/appTextSecondary</item>
-        <item name="android:textSize">11sp</item>
-        <item name="android:drawablePadding">3dp</item>
-        <item name="android:paddingTop">5dp</item>
-        <item name="android:paddingBottom">3dp</item>
+        <item name="android:textSize">10sp</item>
+        <item name="android:fontFamily">sans-serif-medium</item>
+        <item name="android:drawablePadding">1dp</item>
+        <item name="android:paddingTop">3dp</item>
+        <item name="android:paddingBottom">1dp</item>
         <item name="android:paddingStart">2dp</item>
         <item name="android:paddingEnd">2dp</item>
         <item name="android:textAllCaps">false</item>
-            <item name="android:drawableTint">?attr/appIconColor</item>
+        <item name="android:drawableTint">?attr/appIconColor</item>
+        <item name="android:background">?android:attr/selectableItemBackgroundBorderless</item>
     </style>
 
     <style name="LibraryTabButton" parent="android:style/Widget.Material.Button.Borderless">
+        <item name="android:stateListAnimator">@animator/ui_press_scale</item>
         <item name="android:background">@drawable/bg_chip</item>
-        <item name="android:layout_marginHorizontal">4dp</item>
+        <item name="android:layout_marginHorizontal">@dimen/ui_space_xs</item>
         <item name="android:layout_width">0dp</item>
         <item name="android:layout_weight">1</item>
-        <item name="android:layout_height">44dp</item>
+        <item name="android:layout_height">@dimen/ui_action_height</item>
+        <item name="android:minHeight">0dp</item>
         <item name="android:textColor">?attr/appTextSecondary</item>
         <item name="android:textSize">12sp</item>
+        <item name="android:fontFamily">sans-serif-medium</item>
         <item name="android:textAllCaps">false</item>
     </style>
 
@@ -172,27 +182,97 @@
     </style>
 
     <style name="ClientActionButton" parent="android:style/Widget.Material.Button.Borderless">
+        <item name="android:stateListAnimator">@animator/ui_press_scale</item>
         <item name="android:layout_width">wrap_content</item>
-        <item name="android:layout_height">36dp</item>
+        <item name="android:layout_height">@dimen/ui_action_height</item>
         <item name="android:minWidth">0dp</item>
         <item name="android:minHeight">0dp</item>
         <item name="android:textColor">?attr/appTextPrimary</item>
-        <item name="android:textSize">12sp</item>
+        <item name="android:textSize">13sp</item>
+        <item name="android:fontFamily">sans-serif-medium</item>
         <item name="android:textAllCaps">false</item>
-        <item name="android:paddingHorizontal">12dp</item>
-        <item name="android:layout_marginHorizontal">4dp</item>
+        <item name="android:paddingHorizontal">@dimen/ui_space_lg</item>
+        <item name="android:layout_marginHorizontal">@dimen/ui_space_xs</item>
+        <item name="android:background">@drawable/bg_action</item>
+        <item name="android:drawableTint">?attr/appIconColor</item>
+        <item name="android:drawablePadding">@dimen/ui_space_sm</item>
+    </style>
+
+    <style name="ClientActionIconButton" parent="android:style/Widget.Material.Button.Borderless">
+        <item name="android:stateListAnimator">@animator/ui_press_scale</item>
+        <item name="android:layout_width">36dp</item>
+        <item name="android:layout_height">@dimen/ui_action_height</item>
+        <item name="android:minWidth">0dp</item>
+        <item name="android:minHeight">0dp</item>
+        <item name="android:layout_marginHorizontal">@dimen/ui_space_xs</item>
+        <item name="android:padding">0dp</item>
         <item name="android:background">@drawable/bg_action</item>
     </style>
 
     <style name="MiniPlayerButton" parent="android:style/Widget.Material.Button.Borderless">
-        <item name="android:layout_width">44dp</item>
-        <item name="android:layout_height">44dp</item>
+        <item name="android:stateListAnimator">@animator/ui_press_scale</item>
+        <item name="android:layout_width">@dimen/ui_toolbar_button_size</item>
+        <item name="android:layout_height">@dimen/ui_toolbar_button_size</item>
         <item name="android:minWidth">0dp</item>
         <item name="android:minHeight">0dp</item>
         <item name="android:textColor">?attr/appTextPrimary</item>
         <item name="android:textSize">19sp</item>
         <item name="android:textAllCaps">false</item>
         <item name="android:padding">0dp</item>
+    </style>
+
+    <style name="MiniPlayerOverlayButton" parent="android:style/Widget.Material.Button.Borderless">
+        <item name="android:stateListAnimator">@animator/ui_press_scale</item>
+        <item name="android:layout_width">38dp</item>
+        <item name="android:layout_height">38dp</item>
+        <item name="android:minWidth">0dp</item>
+        <item name="android:minHeight">0dp</item>
+        <item name="android:padding">7dp</item>
+        <item name="android:background">@drawable/bg_mini_control</item>
+    </style>
+
+
+    <style name="YouTextSectionTitle" parent="android:style/TextAppearance.Material.Title">
+        <item name="android:textColor">?attr/appTextPrimary</item>
+        <item name="android:textSize">20sp</item>
+        <item name="android:fontFamily">sans-serif-medium</item>
+        <item name="android:textStyle">bold</item>
+    </style>
+
+    <style name="YouTextCardTitle" parent="android:style/TextAppearance.Material.Body1">
+        <item name="android:textColor">?attr/appTextPrimary</item>
+        <item name="android:textSize">14sp</item>
+        <item name="android:fontFamily">sans-serif-medium</item>
+        <item name="android:textStyle">bold</item>
+    </style>
+
+    <style name="YouTextShortcutTitle" parent="android:style/TextAppearance.Material.Body1">
+        <item name="android:textColor">?attr/appTextPrimary</item>
+        <item name="android:textSize">15sp</item>
+        <item name="android:fontFamily">sans-serif-medium</item>
+        <item name="android:textStyle">bold</item>
+    </style>
+
+    <style name="YouTextMetadata" parent="android:style/TextAppearance.Material.Caption">
+        <item name="android:textColor">?attr/appTextSecondary</item>
+        <item name="android:textSize">12sp</item>
+    </style>
+
+    <style name="YouTextViewAll" parent="android:style/TextAppearance.Material.Body1">
+        <item name="android:textColor">?attr/appTextPrimary</item>
+        <item name="android:textSize">13sp</item>
+        <item name="android:fontFamily">sans-serif-medium</item>
+        <item name="android:textStyle">bold</item>
+    </style>
+
+    <style name="YouTextActionTitle" parent="android:style/TextAppearance.Material.Body1">
+        <item name="android:textColor">?attr/appTextPrimary</item>
+        <item name="android:textSize">16sp</item>
+    </style>
+
+    <style name="YouTextSupporting" parent="android:style/TextAppearance.Material.Body1">
+        <item name="android:textColor">?attr/appTextSecondary</item>
+        <item name="android:textSize">13sp</item>
     </style>
 
 </resources>

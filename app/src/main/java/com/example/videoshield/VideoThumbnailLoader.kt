@@ -35,7 +35,7 @@ class VideoThumbnailLoader {
         view.tag = videoId
         if (!sameVideo) view.setImageDrawable(null)
         if (!validVideoId.matches(videoId) || closed) return
-        cache.get(videoId)?.let { view.setImageBitmap(it); return }
+        synchronized(cache) { cache.get(videoId) }?.let { view.setImageBitmap(it); return }
         // A cover and several recycled rows may request the same image together.
         // Keep one download and weak subscribers, so queued work cannot retain views.
         synchronized(requests) {
@@ -77,7 +77,7 @@ class VideoThumbnailLoader {
             // Cache before releasing the in-flight key so another bind cannot
             // start a duplicate request between completion and UI delivery.
             val subscribers = synchronized(requests) {
-                if (bitmap != null && !closed && requestGeneration == generation) cache.put(videoId, bitmap)
+                if (bitmap != null && !closed && requestGeneration == generation) synchronized(cache) { cache.put(videoId, bitmap) }
                 requests.remove(videoId).orEmpty()
             }
             if (bitmap != null && !closed && requestGeneration == generation) main.post {
@@ -97,14 +97,16 @@ class VideoThumbnailLoader {
             generation++
             worker.queue.clear()
             worker.purge()
-            synchronized(requests) { requests.clear(); cache.evictAll() }
+            synchronized(requests) { requests.clear() }
+            synchronized(cache) { cache.evictAll() }
             return
         }
         if (level >= ComponentCallbacks2.TRIM_MEMORY_RUNNING_LOW) {
             generation++
             worker.queue.clear()
             worker.purge()
-            synchronized(requests) { requests.clear(); cache.trimToSize(512 * 1024) }
+            synchronized(requests) { requests.clear() }
+            synchronized(cache) { cache.trimToSize(512 * 1024) }
         }
     }
 
@@ -112,7 +114,8 @@ class VideoThumbnailLoader {
         closed = true
         generation++
         worker.shutdownNow()
-        synchronized(requests) { requests.clear(); cache.evictAll() }
+        synchronized(requests) { requests.clear() }
+        synchronized(cache) { cache.evictAll() }
         main.removeCallbacksAndMessages(null)
     }
 }

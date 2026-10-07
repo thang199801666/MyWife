@@ -2,11 +2,12 @@ package com.example.videoshield
 
 import android.os.Handler
 import android.os.Looper
+import android.os.SystemClock
 
 /**
  * Conservative foreground-only playback watchdog with deduplicated, back-off recovery.
  *
- * Bridge heartbeats normally arrive roughly every 15 seconds. A missing heartbeat or a
+ * Bridge heartbeats normally arrive roughly every 18-20 seconds. A missing heartbeat or a
  * main-frame error schedules one bounded recovery. A healthy heartbeat cancels a pending
  * recovery, which avoids reload races when WebView recovers by itself.
  */
@@ -29,7 +30,7 @@ class PlaybackRecoveryController(
 
     private val watchdog = Runnable {
         if (!active || !enabled() || !expectedPlaying) return@Runnable
-        val elapsed = System.currentTimeMillis() - lastHeartbeatAt
+        val elapsed = SystemClock.elapsedRealtime() - lastHeartbeatAt
         if (elapsed >= WATCHDOG_TIMEOUT_MS) {
             expectedPlaying = false
             scheduleRecovery("Player heartbeat stopped", WATCHDOG_RECOVERY_DELAY_MS)
@@ -47,7 +48,7 @@ class PlaybackRecoveryController(
             return@Runnable
         }
         attempts++
-        lastRecoveryAt = System.currentTimeMillis()
+        lastRecoveryAt = SystemClock.elapsedRealtime()
         expectedPlaying = false
         stableProgressAt = 0L
         onRecover(reason, attempts)
@@ -71,7 +72,7 @@ class PlaybackRecoveryController(
     }
 
     fun heartbeat(playing: Boolean, positionMs: Long) {
-        val now = System.currentTimeMillis()
+        val now = SystemClock.elapsedRealtime()
         lastHeartbeatAt = now
         expectedPlaying = playing
 
@@ -101,6 +102,11 @@ class PlaybackRecoveryController(
         scheduleRecovery(reason, MAIN_FRAME_RETRY_DELAY_MS)
     }
 
+    /** Request one bounded recovery through the same deduplicated/back-off path as page errors. */
+    fun requestRecovery(reason: String, delayMs: Long = 0L) {
+        scheduleRecovery(reason.ifBlank { "Playback recovery requested" }, delayMs.coerceAtLeast(0L))
+    }
+
     fun resetAttempts() {
         attempts = 0
         exhaustedNotified = false
@@ -128,7 +134,7 @@ class PlaybackRecoveryController(
         if (pendingRecoveryReason != null) return
         pendingRecoveryReason = reason
 
-        val sinceLast = System.currentTimeMillis() - lastRecoveryAt
+        val sinceLast = SystemClock.elapsedRealtime() - lastRecoveryAt
         val minimumGapRemaining = if (lastRecoveryAt <= 0L) 0L else (MIN_RECOVERY_GAP_MS - sinceLast).coerceAtLeast(0L)
         val attemptBackoff = attempts * ATTEMPT_BACKOFF_MS
         val baseDelay = maxOf(requestedDelayMs, minimumGapRemaining, attemptBackoff)

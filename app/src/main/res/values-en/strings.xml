@@ -31,6 +31,14 @@
     <string name="ui_continue" formatted="false">Continue</string>
     <string name="ui_continue_watching" formatted="false">Continue watching</string>
     <string name="ui_history" formatted="false">History</string>
+    <string name="ui_watch_later" formatted="false">Watch later</string>
+    <string name="ui_save_watch_later" formatted="false">Save to Watch later</string>
+    <string name="ui_remove_watch_later" formatted="false">Remove from Watch later</string>
+    <string name="ui_watch_later_videos" formatted="false">Videos saved for later</string>
+    <string name="ui_playlists" formatted="false">Playlists</string>
+    <string name="ui_view_all" formatted="false">View all</string>
+    <string name="ui_items_count">%1$d items</string>
+    <string name="ui_channels_count">%1$d channels</string>
     <string name="ui_watch_history" formatted="false">Watch history</string>
     <string name="ui_favorites" formatted="false">Favorites</string>
     <string name="ui_queue" formatted="false">Queue</string>
@@ -53,6 +61,7 @@
     <string name="ui_shuffle" formatted="false">Shuffle</string>
     <string name="ui_video_thumbnail" formatted="false">Video thumbnail</string>
     <string name="ui_video_options" formatted="false">Video options</string>
+    <string name="ui_more" formatted="false">More</string>
     <string name="ui_collection_cover" formatted="false">Collection cover</string>
     <string name="ui_not_interested" formatted="false">Not interested</string>
     <string name="ui_loading" formatted="false">Loading…</string>
@@ -271,6 +280,7 @@
     <string name="diag_release_stress">Release stability test %1$s: %2$s</string>
     <string name="diag_last_event">Last event: %1$s</string>
     <string name="diag_renderer_guard">Renderer exits %1$d/%2$d • guard %3$s</string>
+    <string name="diag_renderer_guard_detail">Renderer crashes %1$d • memory reclaims %2$d • guard %3$s</string>
     <string name="diag_window_age"> • window age %1$d s</string>
     <string name="safe_reason_renderer_guard" formatted="false">Renderer crash-loop protection is active; automatic playback reload recovery is temporarily paused.</string>
     <string name="safe_reason_compatibility_guard" formatted="false">Compatibility guard triggered</string>
@@ -279,4 +289,18 @@
     <string name="safe_reason_player_not_detected" formatted="false">player not detected</string>
     <string name="safe_reason_script_errors">script errors: %1$d</string>
     <string name="previous_rules_restored" formatted="false">Previous rules restored.</string>
+    <string name="inactivity_setting_enabled">Warn after a long period without interaction</string>
+    <string name="inactivity_setting_timeout">Warn after %1$d minutes</string>
+    <string name="inactivity_setting_timeout_30">Warn after 30 minutes</string>
+    <string name="inactivity_setting_description">While a video or Short is playing, Vợ Tui checks for interaction. If you do not confirm within 30 seconds, playback pauses and the app allows the screen to turn off.</string>
+    <string name="inactivity_warning_title">Still watching?</string>
+    <string name="inactivity_warning_message">No recent interaction. Playback will pause in %1$d seconds.</string>
+    <string name="inactivity_still_watching">Still watching</string>
+    <string name="inactivity_stop_now">Stop now</string>
+    <string name="inactivity_paused">Playback paused because there was no interaction.</string>
+    <string name="ui_seek_video">Drag to seek video</string>
+    <string name="ui_playback_speed" formatted="false">Playback speed</string>
+    <string name="ui_shorts_auto_hide_controls">Auto-hide Shorts controls while playing</string>
+    <string name="ui_shorts_auto_hide_controls_description">Optional. When enabled, Shorts overlay text and controls fade after a short idle period; touch the screen to reveal them again. YouTube’s native Clear Screen mode remains untouched.</string>
+    <string name="ui_browse_renderer_recovery_paused">Browse recovery paused • choose a tab to retry</string>
 </resources>

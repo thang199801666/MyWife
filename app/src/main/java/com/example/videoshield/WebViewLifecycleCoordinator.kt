@@ -9,14 +9,15 @@ import android.webkit.WebView
  * This prevents Activity callbacks from independently making conflicting decisions.
  */
 class WebViewLifecycleCoordinator(
-    private val webView: WebView,
+    private var webView: WebView,
     private val preferences: ShieldPreferences,
     private val runtimeDiagnostics: RuntimeDiagnosticsStore,
     private val wakeLock: PlaybackWakeLockController,
     private val devicePolicy: DeviceCompatibilityPolicy,
     private val sessionState: () -> PlaybackSessionState,
     private val isInPictureInPicture: () -> Boolean,
-    private val isRendererGone: () -> Boolean
+    private val isRendererGone: () -> Boolean,
+    private val rendererActive: () -> Boolean = { true }
 ) {
     var foreground: Boolean = false
         private set
@@ -28,10 +29,36 @@ class WebViewLifecycleCoordinator(
     private var resumeGeneration = 0L
     private var pendingResume: Runnable? = null
 
+
+    /**
+     * Swap the renderer host without rebuilding playback/session state. Pending callbacks are
+     * detached from the dead view first, then the new view inherits the coordinator's current
+     * foreground/background policy.
+     */
+    fun rebindWebView(newWebView: WebView, reason: String) {
+        cancelPendingResume()
+        webView = newWebView
+        webViewPaused = false
+        if (foreground) {
+            scheduleResume()
+        } else if (preferences.memoryHardening && !shouldKeepActiveInBackground()) {
+            setPaused(true, "$reason • background")
+        }
+        runtimeDiagnostics.recordWebViewLifecycle(webViewPaused, "$reason • rebound")
+        updateWakeLock(reason)
+    }
+
+    /** Renderer loss releases process-bound work but deliberately preserves Activity foreground state. */
+    fun onRendererGone(reason: String) {
+        cancelPendingResume()
+        webViewPaused = false
+        wakeLock.release(reason)
+    }
+
     fun onActivityResumed() {
         foreground = true
         runtimeDiagnostics.recordForeground()
-        scheduleResume()
+        if (rendererActive()) scheduleResume() else cancelPendingResume()
         updateWakeLock("activity resumed")
     }
 
@@ -39,7 +66,7 @@ class WebViewLifecycleCoordinator(
         foreground = false
         cancelPendingResume()
         runtimeDiagnostics.recordBackground()
-        if (preferences.memoryHardening && !shouldKeepActiveInBackground()) {
+        if (rendererActive() && preferences.memoryHardening && !shouldKeepActiveInBackground()) {
             setPaused(true, "activity background without media session")
         }
         updateWakeLock("activity paused")
@@ -53,7 +80,7 @@ class WebViewLifecycleCoordinator(
         } else if (previous.powerSaveMode != state.powerSaveMode || previous.deviceIdleMode != state.deviceIdleMode) {
             runtimeDiagnostics.recordPowerState(state.powerSaveMode, state.deviceIdleMode, reason)
         }
-        if (preferences.memoryHardening && !state.interactive && !foreground && !shouldKeepActiveInBackground()) {
+        if (rendererActive() && preferences.memoryHardening && !state.interactive && !foreground && !shouldKeepActiveInBackground()) {
             cancelPendingResume()
             setPaused(true, "screen off without media session")
         }
@@ -62,7 +89,7 @@ class WebViewLifecycleCoordinator(
 
     fun onTrimMemory(level: Int) {
         runtimeDiagnostics.recordTrimMemory(level)
-        if (!preferences.memoryHardening || isRendererGone()) return
+        if (!preferences.memoryHardening || isRendererGone() || !rendererActive()) return
         if (level >= ComponentCallbacks2.TRIM_MEMORY_UI_HIDDEN && !foreground && !shouldKeepActiveInBackground()) {
             cancelPendingResume()
             setPaused(true, "trim-memory UI hidden")
@@ -74,15 +101,38 @@ class WebViewLifecycleCoordinator(
 
     fun onLowMemory() {
         runtimeDiagnostics.recordLowMemory()
-        if (!preferences.memoryHardening || isRendererGone()) return
+        if (!preferences.memoryHardening || isRendererGone() || !rendererActive()) return
         if (!sessionState().playing) {
             if (!foreground && !shouldKeepActiveInBackground()) {
                 cancelPendingResume()
                 setPaused(true, "low-memory callback")
             }
-            try { webView.clearCache(false) } catch (_: Exception) {}
+            // The Activity's PlayerMediaRetentionPolicy owns paused-player memory-cache
+            // eviction so active/PiP media can never be cleared by a generic lifecycle path.
             try { CookieManager.getInstance().flush() } catch (_: Exception) {}
         }
+    }
+
+    /**
+     * After the paused-session grace period, allow Chromium to park the Watch renderer even when
+     * background media controls are enabled. Native session state stays alive and a later media
+     * command explicitly wakes the renderer before dispatching into JavaScript.
+     */
+    fun trimPausedBackgroundSession(reason: String): Boolean {
+        if (!preferences.memoryHardening || isRendererGone() || !rendererActive()) return false
+        val session = sessionState()
+        if (session.playing || session.buffering || isInPictureInPicture()) return false
+        cancelPendingResume()
+        setPaused(true, reason)
+        return webViewPaused
+    }
+
+    /** Wake a renderer parked by paused-session trimming before Play/Seek/Rate/Repeat commands. */
+    fun resumeForPlaybackCommand(reason: String) {
+        if (isRendererGone() || !rendererActive()) return
+        cancelPendingResume()
+        setPaused(false, reason)
+        updateWakeLock(reason)
     }
 
     fun updateWakeLock(reason: String) {
@@ -112,6 +162,7 @@ class WebViewLifecycleCoordinator(
 
     private fun scheduleResume() {
         cancelPendingResume()
+        if (!rendererActive() || isRendererGone()) return
         val generation = ++resumeGeneration
         val resume = Runnable {
             pendingResume = null
@@ -133,7 +184,7 @@ class WebViewLifecycleCoordinator(
     }
 
     private fun setPaused(paused: Boolean, reason: String) {
-        if (isRendererGone() || webViewPaused == paused) return
+        if (!rendererActive() || isRendererGone() || webViewPaused == paused) return
         try {
             if (paused) webView.onPause() else webView.onResume()
             webViewPaused = paused

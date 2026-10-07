@@ -19,9 +19,10 @@ class ShieldWebViewClient(
     private val onUrlChanged: (String) -> Unit,
     private val onNavigationStarted: (String) -> Unit,
     private val onPageReady: (String) -> Unit,
+    private val onPageCommitVisible: (String) -> Unit = {},
     private val onMainFrameError: (String) -> Unit,
     private val onNavigationBlocked: (target: String, reason: String) -> Unit,
-    private val onRendererGone: (didCrash: Boolean) -> Unit,
+    private val onRendererGone: (RendererExitSnapshot) -> Unit,
     private val navigationInterceptor: (String) -> Boolean = { false }
 ) : WebViewClient() {
     private var injectedUrl: String? = null
@@ -71,6 +72,7 @@ class ShieldWebViewClient(
     override fun onPageCommitVisible(view: WebView?, url: String?) {
         super.onPageCommitVisible(view, url)
         injectShield(view, url)
+        if (url != null) onPageCommitVisible(url)
     }
 
     private fun injectShield(view: WebView?, url: String?) {
@@ -96,16 +98,22 @@ class ShieldWebViewClient(
     }
 
     override fun onRenderProcessGone(view: WebView?, detail: RenderProcessGoneDetail?): Boolean {
-        val didCrash = detail?.didCrash() == true
-        // Android requires the dead WebView instance to be removed and destroyed
-        // before the app continues after renderer termination.
+        val snapshot = RendererExitSnapshot(
+            didCrash = detail?.didCrash() == true,
+            // url/scrollY are View-side state and remain useful even after the renderer process
+            // has disappeared. Capture them before Android requires the dead WebView to be destroyed.
+            url = runCatching { view?.url.orEmpty() }.getOrDefault(""),
+            scrollY = runCatching { view?.scrollY ?: 0 }.getOrDefault(0).coerceAtLeast(0)
+        )
+        // Android requires the dead WebView instance to be removed and destroyed before the app
+        // continues. No JavaScript or renderer-backed operation is attempted after this point.
         try {
             view?.let {
                 (it.parent as? ViewGroup)?.removeView(it)
                 it.destroy()
             }
         } catch (_: Exception) {}
-        onRendererGone(didCrash)
+        onRendererGone(snapshot)
         return true
     }
 

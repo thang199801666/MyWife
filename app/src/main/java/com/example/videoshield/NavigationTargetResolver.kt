@@ -1,7 +1,6 @@
 package com.example.videoshield
 
 import java.net.URI
-import java.net.URLEncoder
 
 /**
  * Pure input resolver for the address bar and shared-text entry points.
@@ -17,10 +16,9 @@ object NavigationTargetResolver {
         if (isHttpUrl(value)) return value
         if (looksLikeHost(value)) return "https://$value"
 
-        // Video results give each keyword match a title and thumbnail rather than
-        // placing channel/music panels ahead of the clips.
-        return "https://m.youtube.com/results?search_query=" + URLEncoder.encode(value, "UTF-8") +
-            "&sp=EgIQAQ%3D%3D"
+        // Match YouTube's default search surface: start unfiltered, then let the
+        // dedicated search chips narrow to Videos / Shorts / Channels / Playlists.
+        return SearchFilterPolicy.buildUrl(value, SearchFilterState())
     }
 
     fun extractFirstHttpUrl(text: String?): String? {

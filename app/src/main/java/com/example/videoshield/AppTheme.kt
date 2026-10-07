@@ -65,4 +65,5 @@ object AppTheme {
     fun divider(context: Context) = color(context, R.attr.appDivider)
     fun selectedSurface(context: Context) = color(context, R.attr.appSelectedSurface)
     fun selectedText(context: Context) = color(context, R.attr.appSelectedText)
+    fun progressAccent(context: Context) = color(context, R.attr.appProgressAccent)
 }

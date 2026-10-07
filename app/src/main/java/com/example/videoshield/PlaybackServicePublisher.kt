@@ -13,6 +13,7 @@ class PlaybackServicePublisher(context: Context) {
     private val appContext = context.applicationContext
     private var lastPublishedAt = 0L
     private var lastPlaying = false
+    private var lastBuffering = false
     private var lastTitle = ""
     private var lastChannel = ""
     private var lastVideoId = ""
@@ -24,6 +25,7 @@ class PlaybackServicePublisher(context: Context) {
         enabled: Boolean,
         hasSession: Boolean,
         playing: Boolean,
+        buffering: Boolean,
         title: String,
         channel: String,
         videoId: String,
@@ -44,11 +46,12 @@ class PlaybackServicePublisher(context: Context) {
         val safePosition = PlaybackProgressPolicy.normalize(positionMs, safeDuration)
         val safeRate = playbackRate.coerceIn(0.25f, 4f)
         val now = SystemClock.elapsedRealtime()
-        val structuralChange = playing != lastPlaying || title != lastTitle || channel != lastChannel ||
+        val structuralChange = playing != lastPlaying || buffering != lastBuffering || title != lastTitle || channel != lastChannel ||
             videoId != lastVideoId || safeDuration != lastDurationMs || kotlin.math.abs(safeRate - lastPlaybackRate) > 0.01f
         if (!structuralChange && now - lastPublishedAt < POSITION_PUBLISH_INTERVAL_MS) return
         lastPublishedAt = now
         lastPlaying = playing
+        lastBuffering = buffering
         lastTitle = title
         lastChannel = channel
         lastVideoId = videoId
@@ -57,6 +60,7 @@ class PlaybackServicePublisher(context: Context) {
         val intent = Intent(appContext, PlaybackService::class.java).apply {
             action = PlaybackService.ACTION_UPDATE
             putExtra(PlaybackService.EXTRA_PLAYING, playing)
+            putExtra(PlaybackService.EXTRA_BUFFERING, buffering)
             putExtra(PlaybackService.EXTRA_TITLE, title)
             putExtra(PlaybackService.EXTRA_CHANNEL, channel)
             putExtra(PlaybackService.EXTRA_VIDEO_ID, videoId)
@@ -71,6 +75,8 @@ class PlaybackServicePublisher(context: Context) {
 
     fun stop() {
         lastPublishedAt = 0L
+        lastPlaying = false
+        lastBuffering = false
         lastVideoId = ""
         stopSent = true
         // Explicit stops must always cross the process boundary: this publisher may have

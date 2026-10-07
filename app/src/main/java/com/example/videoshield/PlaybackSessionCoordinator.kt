@@ -3,6 +3,7 @@ package com.example.videoshield
 /** Immutable snapshot of the playback session owned by the native shell. */
 data class PlaybackSessionState(
     val playing: Boolean = false,
+    val buffering: Boolean = false,
     val hasSession: Boolean = false,
     val title: String = "",
     val channel: String = "",
@@ -10,7 +11,9 @@ data class PlaybackSessionState(
     val videoId: String = "",
     val positionMs: Long = 0L,
     val durationMs: Long = 0L,
-    val positionReportedAt: Long = 0L
+    val positionReportedAt: Long = 0L,
+    val playbackRate: Float = 1f,
+    val repeatEnabled: Boolean = false
 )
 
 data class PlaybackSessionDelta(
@@ -18,7 +21,14 @@ data class PlaybackSessionDelta(
     val current: PlaybackSessionState,
     val videoChanged: Boolean,
     val channelChanged: Boolean
-)
+) {
+    val playingChanged: Boolean get() = previous.playing != current.playing
+    val bufferingChanged: Boolean get() = previous.buffering != current.buffering
+    val playbackStateChanged: Boolean get() = playingChanged || bufferingChanged
+    val presentationChanged: Boolean get() =
+        videoChanged || channelChanged || playbackStateChanged ||
+            previous.title != current.title || previous.durationMs != current.durationMs
+}
 
 /**
  * Owns session state, persisted recovery snapshot and foreground-service publication.
@@ -32,21 +42,42 @@ class PlaybackSessionCoordinator(
     var state: PlaybackSessionState = PlaybackSessionState()
         private set
 
-    fun onNavigationStarted() {
-        state = state.copy(
-            playing = false,
-            title = "",
-            channel = "",
-            channelUrl = "",
-            videoId = "",
-            positionMs = 0L,
-            durationMs = 0L,
-            positionReportedAt = 0L
-        )
+    fun onNavigationStarted(targetVideoId: String = "") {
+        val previous = state
+        when (PlaybackContinuityPolicy.onNavigationStarted(
+            hasSession = previous.hasSession,
+            playing = previous.playing,
+            currentVideoId = previous.videoId,
+            targetVideoId = targetVideoId
+        )) {
+            PlaybackNavigationDisposition.HOLD_SESSION -> {
+                // Preserve title/video/play intent until the replacement media element reports.
+                // Buffering freezes predicted progress and maps MediaSession to STATE_BUFFERING
+                // instead of publishing a fake pause during a normal Watch transition.
+                state = previous.copy(
+                    buffering = previous.playing,
+                    positionReportedAt = now()
+                )
+            }
+            PlaybackNavigationDisposition.CLEAR -> {
+                state = previous.copy(
+                    playing = false,
+                    buffering = false,
+                    title = "",
+                    channel = "",
+                    channelUrl = "",
+                    videoId = "",
+                    positionMs = 0L,
+                    durationMs = 0L,
+                    positionReportedAt = 0L
+                )
+            }
+        }
     }
 
     fun acceptBridgeUpdate(
         playing: Boolean,
+        buffering: Boolean,
         title: String,
         channel: String,
         channelUrl: String,
@@ -60,6 +91,7 @@ class PlaybackSessionCoordinator(
         val normalizedPosition = PlaybackProgressPolicy.normalize(positionMs, normalizedDuration)
         val current = PlaybackSessionState(
             playing = playing,
+            buffering = playing && buffering,
             hasSession = previous.hasSession || playing || videoId.isNotBlank(),
             title = title.take(240),
             channel = channel.take(180),
@@ -67,7 +99,9 @@ class PlaybackSessionCoordinator(
             videoId = videoId.take(64),
             positionMs = normalizedPosition,
             durationMs = normalizedDuration,
-            positionReportedAt = now()
+            positionReportedAt = now(),
+            playbackRate = previous.playbackRate,
+            repeatEnabled = previous.repeatEnabled
         )
         state = current
         snapshotStore.update(
@@ -94,37 +128,53 @@ class PlaybackSessionCoordinator(
         )
     }
 
-    fun estimatedPositionMs(playbackRate: Float = 1f, at: Long = now()): Long {
+    fun setPlaybackRate(rate: Float) {
+        state = state.copy(playbackRate = rate.coerceIn(0.25f, 4f))
+    }
+
+    fun setRepeatEnabled(enabled: Boolean) {
+        state = state.copy(repeatEnabled = enabled)
+    }
+
+    fun syncControls(playbackRate: Float, repeatEnabled: Boolean) {
+        state = state.copy(
+            playbackRate = playbackRate.coerceIn(0.25f, 4f),
+            repeatEnabled = repeatEnabled
+        )
+    }
+
+    fun estimatedPositionMs(at: Long = now()): Long {
         val current = state
         return PlaybackProgressPolicy.predict(
             positionMs = current.positionMs,
             durationMs = current.durationMs,
             reportedAtMs = current.positionReportedAt,
             nowMs = at,
-            playing = current.playing,
-            playbackRate = playbackRate
+            playing = current.playing && !current.buffering,
+            playbackRate = current.playbackRate
         )
     }
 
-    fun publish(backgroundControls: Boolean, playbackRate: Float) {
+    fun publish(backgroundControls: Boolean) {
         val current = state
         servicePublisher.publish(
             enabled = backgroundControls,
             hasSession = current.hasSession,
             playing = current.playing,
+            buffering = current.buffering,
             title = current.title,
             channel = current.channel,
             videoId = current.videoId,
             positionMs = current.positionMs,
             durationMs = current.durationMs,
-            playbackRate = playbackRate
+            playbackRate = current.playbackRate
         )
     }
 
     fun stopService() = servicePublisher.stop()
 
     fun stop(clearSnapshot: Boolean = true) {
-        state = state.copy(playing = false, hasSession = false)
+        state = state.copy(playing = false, buffering = false, hasSession = false)
         if (clearSnapshot) snapshotStore.clear() else snapshotStore.markStopped()
         servicePublisher.stop()
     }

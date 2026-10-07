@@ -143,4 +143,29 @@
     <string name="download_error_destination_select" formatted="false">Hãy chọn vị trí lưu tệp trên thiết bị.</string>
     <string name="download_error_already_running" formatted="false">Tác vụ tải xuống này đang chạy.</string>
     <string name="download_error_reset_partial" formatted="false">Không thể đặt lại dữ liệu tải xuống dở dang.</string>
+
+    <string name="search_filter_all">Tất cả</string>
+    <string name="search_filter_videos">Video</string>
+    <string name="search_filter_channels">Kênh</string>
+    <string name="search_filter_playlists">Danh sách phát</string>
+    <string name="search_filters">Bộ lọc</string>
+    <string name="search_filter_type">Loại nội dung</string>
+    <string name="search_prioritize">Ưu tiên</string>
+    <string name="search_priority_relevance">Liên quan</string>
+    <string name="search_priority_newest">Mới nhất</string>
+    <string name="search_priority_popularity">Phổ biến</string>
+    <string name="search_upload_date">Ngày tải lên</string>
+    <string name="search_upload_any">Mọi lúc</string>
+    <string name="search_upload_today">Hôm nay</string>
+    <string name="search_upload_week">Tuần này</string>
+    <string name="search_upload_month">Tháng này</string>
+    <string name="search_upload_year">Năm nay</string>
+    <string name="search_duration">Thời lượng</string>
+    <string name="search_duration_any">Mọi thời lượng</string>
+    <string name="search_duration_under_3">Dưới 3 phút</string>
+    <string name="search_duration_3_20">3–20 phút</string>
+    <string name="search_duration_over_20">Trên 20 phút</string>
+    <string name="search_reset_filters">Đặt lại bộ lọc</string>
+    <string name="search_remove_history">Xóa %1$s khỏi lịch sử tìm kiếm</string>
+    <string name="search_fill_suggestion">Điền gợi ý %1$s</string>
 </resources>

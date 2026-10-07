@@ -1,4 +1,4 @@
-# Vợ Tui v0.1.7 — Base
+# Vợ Tui v0.1.57 — Base
 
 [Tải bản mới nhất](https://github.com/thang199801666/MyWife/releases/latest) ·
 [Source code](https://github.com/thang199801666/MyWife)
@@ -7,6 +7,9 @@ This is the base release series, numbered **0.x** while the app is still under
 development. Earlier 1.x entries below record development iterations, not a
 production 1.0 release. Android versionCode remains monotonic so existing installs
 can update without removing their data.
+
+Version 0.1.57 adds native search filters and a library overview, updates app
+chrome and player gestures, and extends playback and memory-management policies.
 
 Version 0.1.7 reconciles YouTube's paused player state with still-playing media
 after returning from the mini-player, restoring the website Play/Pause control.

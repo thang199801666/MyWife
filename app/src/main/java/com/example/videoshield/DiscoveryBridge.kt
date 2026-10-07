@@ -5,18 +5,25 @@ import android.os.Looper
 import android.webkit.JavascriptInterface
 import org.json.JSONArray
 
-class DiscoveryBridge(private val allowed: () -> Boolean, private val accept: (String) -> Unit) {
+class DiscoveryBridge(private val allowed: () -> Boolean, private val accept: (String) -> Unit) : AutoCloseable {
     private val main = Handler(Looper.getMainLooper())
+    @Volatile private var closed = false
     private var lastPayloadHash = 0
     @JavascriptInterface fun candidates(json: String?) {
-        if (json == null || json.length > 60_000) return
+        if (closed || json == null || json.length > 60_000) return
         main.post {
+            if (closed) return@post
             val hash = json.hashCode()
             if (allowed() && hash != lastPayloadHash) {
                 lastPayloadHash = hash
                 accept(json)
             }
         }
+    }
+
+    override fun close() {
+        closed = true
+        main.removeCallbacksAndMessages(null)
     }
     companion object {
         private val VIDEO_ID = Regex("^[A-Za-z0-9_-]{11}$")
@@ -44,7 +51,7 @@ object DiscoveryScript {
             (location.pathname==='/' || location.pathname==='') &&
             typeof window.YouTooBeeDiscovery === 'object';
           function collect() {
-            if (!active()) return;
+            if (!active()) return false;
             const cards = document.querySelectorAll('ytm-video-with-context-renderer,ytm-compact-video-renderer,ytm-rich-item-renderer,ytd-rich-item-renderer,ytd-compact-video-renderer');
             const rows = []; const seen = new Set();
             for (const card of Array.from(cards).slice(0,240)) {
@@ -64,20 +71,23 @@ object DiscoveryScript {
               seen.add(id); if(rows.length>=100) break;
             }
             const key=rows.map(row=>row.id).join(',');
-            if(!rows.length || key===lastPayloadKey) return;
+            if(!rows.length || key===lastPayloadKey) return false;
             const since=Date.now()-lastSentAt;
-            if(since<12000) { scheduleCollect(12000-since); return; }
+            if(since<12000) { scheduleCollect(12000-since); return false; }
             const payload=JSON.stringify(rows);
             if(payload.length<=60000) {
               lastPayloadKey=key;
               lastSentAt=Date.now();
               window.YouTooBeeDiscovery.candidates(payload);
+              return true;
             }
+            return false;
           }
           // Event-driven collection. Attach the high-frequency scroll listener only while
           // Home is actually active; Shorts/search scrolling should not execute discovery code.
           let collectTimer=0, fallbackTimer=0, lastPayloadKey='', lastSentAt=0, scrollBound=false;
-          const onScroll=()=>scheduleCollect(1000);
+          let fallbackDelay=45000;
+          const onScroll=()=>{ fallbackDelay=45000; scheduleCollect(1000); };
           const scheduleCollect=(delay=1000)=>{
             if (!active()) return;
             clearTimeout(collectTimer);
@@ -87,13 +97,19 @@ object DiscoveryScript {
             clearTimeout(fallbackTimer);
             fallbackTimer=0;
             if(!active()) return;
-            fallbackTimer=setTimeout(()=>{ fallbackTimer=0; collect(); scheduleFallback(); },45000);
+            const delay=fallbackDelay;
+            fallbackTimer=setTimeout(()=>{
+              fallbackTimer=0;
+              const changed=collect();
+              fallbackDelay=changed ? 45000 : Math.min(180000, Math.round(fallbackDelay*1.6));
+              scheduleFallback();
+            },delay);
           };
           const sync=()=>{
             const enabled=active();
             if(enabled && !scrollBound) { addEventListener('scroll',onScroll,{passive:true}); scrollBound=true; }
             else if(!enabled && scrollBound) { removeEventListener('scroll',onScroll); scrollBound=false; }
-            if(enabled) { scheduleCollect(700); scheduleFallback(); }
+            if(enabled) { fallbackDelay=45000; scheduleCollect(700); scheduleFallback(); }
             else { clearTimeout(collectTimer); clearTimeout(fallbackTimer); collectTimer=0; fallbackTimer=0; }
           };
           addEventListener('yt-navigate-finish',sync,{passive:true});

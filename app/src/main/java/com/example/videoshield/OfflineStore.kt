@@ -17,10 +17,10 @@ data class OfflineDownload(
 /**
  * Small durable download store backed by one AtomicFile per job.
  *
- * Download progress is updated frequently and the Downloads screen polls while work is active.
- * Re-reading/parsing every JSON file on every refresh used to turn that into continuous disk I/O.
- * Keep a process-local snapshot and update it only after a durable write succeeds. A process restart
- * naturally rebuilds the snapshot once from disk, so persistence semantics stay unchanged.
+ * Download progress is updated frequently. Keep a process-local snapshot and notify in-process
+ * observers only after a durable metadata change; this lets the Downloads screen remain fully
+ * event-driven instead of polling storage. A process restart naturally rebuilds the snapshot once
+ * from disk, so persistence semantics stay unchanged.
  */
 class OfflineStore(context: Context) {
     private val root = File(context.filesDir, "offline").apply { mkdirs() }
@@ -33,13 +33,22 @@ class OfflineStore(context: Context) {
         return File(files, id).apply { mkdirs() }
     }
 
-    fun put(job: OfflineDownload) = synchronized(lock) {
-        require(ID_PATTERN.matches(job.id))
-        putLocked(job)
+    fun put(job: OfflineDownload) {
+        synchronized(lock) {
+            require(ID_PATTERN.matches(job.id))
+            putLocked(job)
+        }
+        notifyObservers()
     }
 
     fun all(): List<OfflineDownload> = synchronized(lock) {
         snapshotLocked().values.sortedByDescending { it.createdAt }
+    }
+
+    /** Count without sorting rows or parsing every record when Downloads has not been opened yet. */
+    fun count(): Int = synchronized(lock) {
+        if (cachedRecordsPath == recordsPath && cacheLoaded) processCache.size
+        else records.listFiles().orEmpty().count { it.extension == "json" }
     }
 
     fun get(id: String): OfflineDownload? = synchronized(lock) {
@@ -51,22 +60,36 @@ class OfflineStore(context: Context) {
         clearFilesLocked(id)
     }
 
-    fun remove(id: String) = synchronized(lock) {
-        if (!ID_PATTERN.matches(id)) return@synchronized
-        clearFilesLocked(id)
-        File(records, "$id.json").delete()
-        snapshotLocked().remove(id)
-        Unit
+    fun remove(id: String) {
+        val changed = synchronized(lock) {
+            if (!ID_PATTERN.matches(id)) return@synchronized false
+            clearFilesLocked(id)
+            val deleted = File(records, "$id.json").delete()
+            val removed = snapshotLocked().remove(id) != null
+            deleted || removed
+        }
+        if (changed) notifyObservers()
     }
 
-    fun cleanup(now: Long = System.currentTimeMillis()) = synchronized(lock) {
-        val expired = snapshotLocked().values.filter {
-            it.temporary && it.status == "completed" && DownloadPolicy.expired(it.completedAt, now)
+    fun cleanup(now: Long = System.currentTimeMillis()) {
+        val changed = synchronized(lock) {
+            val expired = snapshotLocked().values.filter {
+                it.temporary && it.status == "completed" && DownloadPolicy.expired(it.completedAt, now)
+            }
+            expired.forEach { job ->
+                clearFilesLocked(job.id)
+                putLocked(job.copy(status = "expired", uri = ""))
+            }
+            expired.isNotEmpty()
         }
-        expired.forEach { job ->
-            clearFilesLocked(job.id)
-            putLocked(job.copy(status = "expired", uri = ""))
-        }
+        if (changed) notifyObservers()
+    }
+
+    /** Process-local change observation. DownloadService and DownloadsActivity share the same
+     * process, so UI refreshes can be event-driven instead of polling storage every few seconds. */
+    fun observe(onChanged: () -> Unit): AutoCloseable {
+        observers.add(onChanged)
+        return AutoCloseable { observers.remove(onChanged) }
     }
 
     private fun putLocked(job: OfflineDownload) {
@@ -109,6 +132,10 @@ class OfflineStore(context: Context) {
         return processCache
     }
 
+    private fun notifyObservers() {
+        observers.forEach { observer -> runCatching { observer() } }
+    }
+
     private fun clearFilesLocked(id: String) {
         require(ID_PATTERN.matches(id))
         val directory = File(files, id)
@@ -120,6 +147,7 @@ class OfflineStore(context: Context) {
         private val lock = Any()
         private val ID_PATTERN = Regex("[a-f0-9-]{36}")
         private val processCache = LinkedHashMap<String, OfflineDownload>()
+        private val observers = java.util.concurrent.CopyOnWriteArraySet<() -> Unit>()
         private var cachedRecordsPath: String? = null
         private var cacheLoaded = false
     }

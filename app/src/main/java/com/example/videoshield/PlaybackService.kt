@@ -16,6 +16,7 @@ import android.os.Build
 import android.os.IBinder
 import android.os.Handler
 import android.os.Looper
+import android.os.SystemClock
 import java.net.HttpURLConnection
 import java.net.URL
 import java.util.concurrent.ArrayBlockingQueue
@@ -30,6 +31,7 @@ class PlaybackService : Service() {
     ).apply { allowCoreThreadTimeOut(true) }
     private val handler = Handler(Looper.getMainLooper())
     private var isPlaying = false
+    private var buffering = false
     private var title = "Vợ Tui"
     private var channel = "YouTube"
     private var videoId = ""
@@ -38,27 +40,38 @@ class PlaybackService : Service() {
     private var playbackRate = 1f
     private var artwork: Bitmap? = null
     private var artworkVideoId = ""
-    private var lastPlayerUpdateAt = 0L
+    private var lastPlayerUpdateElapsed = 0L
     private var foregroundStarted = false
 
     private val staleSessionCheck = object : Runnable {
         override fun run() {
-            if (!isPlaying) return
-            if (lastPlayerUpdateAt > 0L &&
-                System.currentTimeMillis() - lastPlayerUpdateAt >= STALE_PLAYBACK_TIMEOUT_MS
-            ) {
+            if (!isPlaying || lastPlayerUpdateElapsed <= 0L) return
+            val remaining = WakeSchedulingPolicy.staleDeadlineDelayMs(
+                lastPlayerUpdateElapsed, SystemClock.elapsedRealtime(), STALE_PLAYBACK_TIMEOUT_MS
+            ) ?: return
+            if (remaining <= 0L) {
                 RuntimeDiagnosticsStore(this@PlaybackService).recordStaleServiceStop()
                 sendCommand(CMD_STOP)
                 stopSelf()
                 return
             }
-            handler.postDelayed(this, STALE_CHECK_INTERVAL_MS)
+            // The callback can run a little early after scheduler jitter. Re-arm only for the
+            // exact remaining deadline instead of returning to a fixed polling loop.
+            handler.postDelayed(this, remaining)
         }
+    }
+
+    private fun markPlayerUpdate() {
+        lastPlayerUpdateElapsed = SystemClock.elapsedRealtime()
     }
 
     private fun syncStaleCheck() {
         handler.removeCallbacks(staleSessionCheck)
-        if (isPlaying) handler.postDelayed(staleSessionCheck, STALE_CHECK_INTERVAL_MS)
+        if (!isPlaying || lastPlayerUpdateElapsed <= 0L) return
+        val delay = WakeSchedulingPolicy.staleDeadlineDelayMs(
+            lastPlayerUpdateElapsed, SystemClock.elapsedRealtime(), STALE_PLAYBACK_TIMEOUT_MS
+        ) ?: return
+        handler.postDelayed(staleSessionCheck, delay.coerceAtLeast(1L))
     }
 
     override fun onCreate() {
@@ -87,9 +100,10 @@ class PlaybackService : Service() {
 
         when (intent?.action) {
             ACTION_UPDATE -> {
-                lastPlayerUpdateAt = System.currentTimeMillis()
+                markPlayerUpdate()
 
                 val newPlaying = intent.getBooleanExtra(EXTRA_PLAYING, false)
+                val newBuffering = newPlaying && intent.getBooleanExtra(EXTRA_BUFFERING, false)
                 val newTitle = intent.getStringExtra(EXTRA_TITLE).orEmpty().ifBlank { "YouTube" }
                 val newChannel = intent.getStringExtra(EXTRA_CHANNEL).orEmpty().ifBlank { getString(R.string.app_name) }
                 val newDuration = intent.getLongExtra(EXTRA_DURATION_MS, durationMs).coerceAtLeast(0L)
@@ -103,9 +117,10 @@ class PlaybackService : Service() {
                 metadataChanged = metadataChanged || newTitle != title || newChannel != channel ||
                     newDuration != durationMs || (newVideoId.isNotBlank() && newVideoId != videoId)
                 notificationChanged = notificationChanged || metadataChanged || newPlaying != isPlaying ||
-                    kotlin.math.abs(newRate - playbackRate) > 0.01f
+                    newBuffering != buffering || kotlin.math.abs(newRate - playbackRate) > 0.01f
 
                 isPlaying = newPlaying
+                buffering = newBuffering
                 title = newTitle
                 channel = newChannel
                 durationMs = newDuration
@@ -119,14 +134,16 @@ class PlaybackService : Service() {
                 }
             }
             ACTION_PLAY -> {
-                lastPlayerUpdateAt = System.currentTimeMillis()
+                markPlayerUpdate()
                 if (!isPlaying) notificationChanged = true
                 isPlaying = true
+                buffering = false
                 sendCommand(CMD_PLAY)
             }
             ACTION_PAUSE -> {
                 if (isPlaying) notificationChanged = true
                 isPlaying = false
+                buffering = false
                 sendCommand(CMD_PAUSE)
             }
             ACTION_BACK -> sendCommand(CMD_SEEK_BACK)
@@ -139,8 +156,9 @@ class PlaybackService : Service() {
             }
             ACTION_TOGGLE -> {
                 isPlaying = !isPlaying
+                buffering = false
                 notificationChanged = true
-                if (isPlaying) lastPlayerUpdateAt = System.currentTimeMillis()
+                if (isPlaying) markPlayerUpdate()
                 sendCommand(if (isPlaying) CMD_PLAY else CMD_PAUSE)
             }
         }
@@ -171,6 +189,22 @@ class PlaybackService : Service() {
         super.onTaskRemoved(rootIntent)
     }
 
+    override fun onTrimMemory(level: Int) {
+        super.onTrimMemory(level)
+        val tier = MemoryPressurePolicy.fromTrimLevel(level)
+        if (!tier.atLeast(MemoryPressureTier.LOW)) return
+
+        // Notification artwork is entirely reproducible and should never compete with the
+        // active media renderer. Drop queued artwork work and the retained bitmap first.
+        artworkExecutor.queue.clear()
+        artworkExecutor.purge()
+        if (artwork != null) {
+            artwork = null
+            updateSession(metadataChanged = true)
+            if (foregroundStarted) notifyPlaybackChanged()
+        }
+    }
+
     override fun onDestroy() {
         handler.removeCallbacksAndMessages(null)
         artworkExecutor.shutdownNow()
@@ -182,7 +216,11 @@ class PlaybackService : Service() {
     override fun onBind(intent: Intent?): IBinder? = null
 
     private fun updateSession(metadataChanged: Boolean = false) {
-        val state = if (isPlaying) PlaybackState.STATE_PLAYING else PlaybackState.STATE_PAUSED
+        val state = when {
+            isPlaying && buffering -> PlaybackState.STATE_BUFFERING
+            isPlaying -> PlaybackState.STATE_PLAYING
+            else -> PlaybackState.STATE_PAUSED
+        }
         if (metadataChanged) {
             mediaSession.setMetadata(
                 MediaMetadata.Builder()
@@ -207,7 +245,7 @@ class PlaybackService : Service() {
                         PlaybackState.ACTION_FAST_FORWARD or PlaybackState.ACTION_REWIND or
                         PlaybackState.ACTION_SKIP_TO_NEXT or PlaybackState.ACTION_SEEK_TO or PlaybackState.ACTION_STOP
                 )
-                .setState(state, positionMs, if (isPlaying) playbackRate else 0f)
+                .setState(state, positionMs, if (isPlaying && !buffering) playbackRate else 0f)
                 .build()
         )
     }
@@ -251,23 +289,37 @@ class PlaybackService : Service() {
         if (!VIDEO_ID.matches(id) || artworkVideoId == id) return
         artworkVideoId = id
         artworkExecutor.execute {
-            val bitmap = try {
+            val bitmap = runCatching {
                 val connection = URL("https://i.ytimg.com/vi/$id/mqdefault.jpg").openConnection() as HttpURLConnection
-                connection.connectTimeout = 4_000
-                connection.readTimeout = 4_000
-                connection.instanceFollowRedirects = true
-                connection.inputStream.use { input ->
-                    BitmapFactory.decodeStream(input, null, BitmapFactory.Options().apply {
-                        // Use YouTube's smaller 320x180 notification source and decode it near
-                        // final display size to reduce both network bytes and retained bitmap RAM.
-                        inSampleSize = 2
-                    })
-                }.also { connection.disconnect() }
-            } catch (_: Exception) { null }
-            if (bitmap != null && videoId == id) {
-                artwork = bitmap
-                updateSession(metadataChanged = true)
-                if (foregroundStarted) notifyPlaybackChanged()
+                try {
+                    connection.connectTimeout = 4_000
+                    connection.readTimeout = 4_000
+                    connection.instanceFollowRedirects = true
+                    if (connection.responseCode != HttpURLConnection.HTTP_OK) return@runCatching null
+                    if (connection.contentLengthLong > 512L * 1024L) return@runCatching null
+                    connection.inputStream.use { input ->
+                        BitmapFactory.decodeStream(input, null, BitmapFactory.Options().apply {
+                            // Notification art is small; RGB_565 + sampling keeps the retained
+                            // bitmap around ~30 KiB instead of allocating a full ARGB frame.
+                            inSampleSize = 2
+                            inPreferredConfig = Bitmap.Config.RGB_565
+                            inDither = true
+                        })
+                    }
+                } finally {
+                    connection.disconnect()
+                }
+            }.getOrNull()
+            if (bitmap != null) {
+                // Service fields and MediaSession/notification publication are owned by the
+                // main thread. A stale artwork download is simply dropped after a fast skip.
+                handler.post {
+                    if (videoId == id) {
+                        artwork = bitmap
+                        updateSession(metadataChanged = true)
+                        if (foregroundStarted) notifyPlaybackChanged()
+                    }
+                }
             }
         }
     }
@@ -323,23 +375,23 @@ class PlaybackService : Service() {
         const val ACTION_COMMAND = "com.example.videoshield.playback.COMMAND"
         const val EXTRA_COMMAND = "command"
         const val EXTRA_PLAYING = "playing"
+        const val EXTRA_BUFFERING = "buffering"
         const val EXTRA_TITLE = "title"
         const val EXTRA_CHANNEL = "channel"
         const val EXTRA_VIDEO_ID = "video_id"
         const val EXTRA_POSITION_MS = "position_ms"
         const val EXTRA_DURATION_MS = "duration_ms"
         const val EXTRA_PLAYBACK_RATE = "playback_rate"
-        const val CMD_PLAY = "play"
-        const val CMD_PAUSE = "pause"
-        const val CMD_SEEK_BACK = "seekBack"
-        const val CMD_SEEK_FORWARD = "seekForward"
-        const val CMD_SEEK_TO = "seekTo"
-        const val CMD_QUEUE_NEXT = "queueNext"
-        const val CMD_STOP = "stop"
-        const val CMD_PLAY_PAUSE = "playPause"
+        const val CMD_PLAY = PlaybackCommandIds.PLAY
+        const val CMD_PAUSE = PlaybackCommandIds.PAUSE
+        const val CMD_SEEK_BACK = PlaybackCommandIds.SEEK_BACK
+        const val CMD_SEEK_FORWARD = PlaybackCommandIds.SEEK_FORWARD
+        const val CMD_SEEK_TO = PlaybackCommandIds.SEEK_TO
+        const val CMD_QUEUE_NEXT = PlaybackCommandIds.QUEUE_NEXT
+        const val CMD_STOP = PlaybackCommandIds.STOP
+        const val CMD_PLAY_PAUSE = PlaybackCommandIds.PLAY_PAUSE
         private const val CHANNEL_ID = "videoshield_playback"
         private const val NOTIFICATION_ID = 201
-        private const val STALE_CHECK_INTERVAL_MS = 30_000L
         private const val STALE_PLAYBACK_TIMEOUT_MS = 75_000L
         private val VIDEO_ID = Regex("[A-Za-z0-9_-]{6,20}")
     }

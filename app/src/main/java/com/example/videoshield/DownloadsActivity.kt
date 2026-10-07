@@ -34,12 +34,9 @@ class DownloadsActivity : LocalizedActivity() {
     private var resumed=false
     private var lastCleanupAt=0L
     @Volatile private var refreshInFlight=false
-    private val ticker=object: Runnable {
-        override fun run() {
-            refresh()
-            if(resumed) main.postDelayed(this, if(rows.any { it.status in ACTIVE_STATUSES } || DownloadService.running) 1_500L else 6_000L)
-        }
-    }
+    @Volatile private var refreshPending=false
+    private var storeObservation: AutoCloseable?=null
+    private val storeChanged=Runnable { if(resumed && !isDestroyed && !isFinishing) refresh() }
     override fun onCreate(state: Bundle?) {
         super.onCreate(state)
         store=OfflineStore(applicationContext)
@@ -83,9 +80,10 @@ class DownloadsActivity : LocalizedActivity() {
         display()
     }
     private fun refresh() {
-        // Never let the 1.5 s active-download ticker build an I/O backlog if storage is slow.
-        if (refreshInFlight) return
+        // Coalesce store notifications so slow storage can never build a refresh backlog.
+        if (refreshInFlight) { refreshPending=true; return }
         refreshInFlight=true
+        refreshPending=false
         runCatching { worker.execute {
             try {
                 val now=System.currentTimeMillis()
@@ -102,8 +100,14 @@ class DownloadsActivity : LocalizedActivity() {
                     rows=items
                     display()
                 }
-            } finally { refreshInFlight=false }
-        } }.onFailure { refreshInFlight=false }
+            } finally {
+                refreshInFlight=false
+                if(refreshPending && resumed) main.post(storeChanged)
+            }
+        } }.onFailure {
+            refreshInFlight=false
+            if(refreshPending && resumed) main.post(storeChanged)
+        }
     }
     private fun dp(value: Int)=(value*resources.displayMetrics.density).toInt()
     private fun display() {
@@ -146,10 +150,24 @@ class DownloadsActivity : LocalizedActivity() {
             else -> worker.execute { store.remove(job.id); main.post { if(!isDestroyed) refresh() } }
         } }
     }
-    override fun onResume() { super.onResume(); resumed=true; main.removeCallbacks(ticker); main.post(ticker) }
-    override fun onPause() { resumed=false; main.removeCallbacks(ticker); super.onPause() }
+    override fun onResume() {
+        super.onResume(); resumed=true
+        storeObservation?.close()
+        storeObservation=store.observe {
+            main.removeCallbacks(storeChanged)
+            main.post(storeChanged)
+        }
+        main.removeCallbacks(storeChanged)
+        main.post(storeChanged)
+    }
+    override fun onPause() {
+        resumed=false
+        storeObservation?.close(); storeObservation=null
+        main.removeCallbacks(storeChanged)
+        super.onPause()
+    }
     override fun onSaveInstanceState(state: Bundle) { state.putInt("filter",filter); super.onSaveInstanceState(state) }
     override fun onTrimMemory(level: Int) { super.onTrimMemory(level); if(::adapter.isInitialized) adapter.trimMemory(level) }
-    override fun onDestroy() { sheet?.dismiss(); adapter.close(); main.removeCallbacksAndMessages(null); worker.shutdownNow(); super.onDestroy() }
+    override fun onDestroy() { storeObservation?.close(); storeObservation=null; sheet?.dismiss(); adapter.close(); main.removeCallbacksAndMessages(null); worker.shutdownNow(); super.onDestroy() }
     companion object { private val ACTIVE_STATUSES=setOf("queued","downloading","processing") }
 }

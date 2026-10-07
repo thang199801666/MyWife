@@ -61,6 +61,18 @@ class ShieldPreferences(context: Context) {
         get() = prefs.getBoolean(KEY_MEMORY_HARDENING, true)
         set(value) = prefs.edit().putBoolean(KEY_MEMORY_HARDENING, value).apply()
 
+    var inactivityWarningEnabled: Boolean
+        get() = prefs.getBoolean(KEY_INACTIVITY_WARNING_ENABLED, true)
+        set(value) = prefs.edit().putBoolean(KEY_INACTIVITY_WARNING_ENABLED, value).apply()
+
+    var inactivityTimeoutMinutes: Int
+        get() = prefs.getInt(KEY_INACTIVITY_TIMEOUT_MINUTES, 30)
+            .takeIf { it in INACTIVITY_TIMEOUT_OPTIONS } ?: 30
+        set(value) = prefs.edit().putInt(
+            KEY_INACTIVITY_TIMEOUT_MINUTES,
+            value.takeIf { it in INACTIVITY_TIMEOUT_OPTIONS } ?: 30
+        ).apply()
+
     var gestureSensitivity: Float
         get() = prefs.getFloat(KEY_GESTURE_SENSITIVITY, 1.0f).coerceIn(0.65f, 1.60f)
         set(value) = prefs.edit().putFloat(KEY_GESTURE_SENSITIVITY, value.coerceIn(0.65f, 1.60f)).apply()
@@ -91,6 +103,12 @@ class ShieldPreferences(context: Context) {
     var compactYouTubeChrome: Boolean
         get() = prefs.getBoolean(KEY_COMPACT_YOUTUBE_CHROME, true)
         set(value) = prefs.edit().putBoolean(KEY_COMPACT_YOUTUBE_CHROME, value).apply()
+
+    /** Optional YouTube-like Shorts chrome auto-hide. Off by default so the native feed
+     * remains unchanged unless the viewer explicitly opts in. */
+    var shortsAutoHideChrome: Boolean
+        get() = prefs.getBoolean(KEY_SHORTS_AUTO_HIDE_CHROME, false)
+        set(value) = prefs.edit().putBoolean(KEY_SHORTS_AUTO_HIDE_CHROME, value).apply()
 
     var autoRepeat: Boolean
         get() = prefs.getBoolean(KEY_AUTO_REPEAT, false)
@@ -256,11 +274,14 @@ class ShieldPreferences(context: Context) {
         private const val KEY_PLAYBACK_RECOVERY = "playback_recovery"
         private const val KEY_SCREEN_OFF_PLAYBACK = "screen_off_playback"
         private const val KEY_MEMORY_HARDENING = "memory_hardening"
+        private const val KEY_INACTIVITY_WARNING_ENABLED = "inactivity_warning_enabled"
+        private const val KEY_INACTIVITY_TIMEOUT_MINUTES = "inactivity_timeout_minutes"
         private const val KEY_GESTURE_SENSITIVITY = "gesture_sensitivity"
         private const val KEY_DOUBLE_TAP_SEEK_SECONDS = "double_tap_seek_seconds"
         private const val KEY_LIGHT_THEME = "light_theme"
         private const val KEY_AMOLED_THEME = "amoled_theme"
         private const val KEY_COMPACT_YOUTUBE_CHROME = "compact_youtube_chrome"
+        private const val KEY_SHORTS_AUTO_HIDE_CHROME = "shorts_auto_hide_chrome"
         private const val KEY_AUTO_REPEAT = "auto_repeat"
         private const val KEY_PREFERRED_QUALITY = "preferred_quality"
         private const val KEY_PREFERRED_QUALITY_MOBILE = "preferred_quality_mobile"
@@ -280,6 +301,8 @@ class ShieldPreferences(context: Context) {
         private const val KEY_WHITELISTED_CHANNELS = "whitelisted_channels"
         private const val KEY_LAST_URL = "last_url"
         private const val KEY_LAST_BROWSE_URL = "last_browse_url"
+
+        val INACTIVITY_TIMEOUT_OPTIONS = listOf(15, 30, 45, 60, 90, 120)
 
         const val QUALITY_AUTO = "auto"
         val SUPPORTED_QUALITY_VALUES = listOf(

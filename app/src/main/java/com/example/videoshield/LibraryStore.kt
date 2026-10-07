@@ -36,6 +36,13 @@ data class QueueAdvanceResult(
     val queueCount: Int
 )
 
+data class LibraryOverviewCounts(
+    val history: Int,
+    val favorites: Int,
+    val queue: Int,
+    val subscriptions: Int
+)
+
 
 data class LibraryIntegrityResult(
     val healthy: Boolean,
@@ -217,8 +224,38 @@ class LibraryStore(context: Context) : SQLiteOpenHelper(context.applicationConte
         }
     }
 
+    /** One cursor for all You-tab summary counts; avoids four independent COUNT queries. */
+    fun overviewCounts(): LibraryOverviewCounts {
+        readableDatabase.rawQuery(
+            """
+            SELECT
+              (SELECT COUNT(*) FROM history),
+              (SELECT COUNT(*) FROM favorites),
+              (SELECT COUNT(*) FROM play_queue),
+              (SELECT COUNT(*) FROM subscriptions)
+            """.trimIndent(),
+            null
+        ).use { cursor ->
+            if (!cursor.moveToFirst()) return LibraryOverviewCounts(0, 0, 0, 0)
+            return LibraryOverviewCounts(cursor.getInt(0), cursor.getInt(1), cursor.getInt(2), cursor.getInt(3))
+        }
+    }
+
     fun history(limit: Int = 200): List<VideoItem> = queryVideos(
         "SELECT video_id,title,channel,url,last_played_at,position_ms,duration_ms FROM history ORDER BY last_played_at DESC LIMIT ?",
+        arrayOf(limit.coerceIn(1, 1000).toString())
+    )
+
+    /** Small indexed Home query: return only sessions that are useful to resume instead of
+     * materializing the complete history list on every Home refresh. */
+    fun continueWatching(limit: Int = 8): List<VideoItem> = queryVideos(
+        """
+        SELECT video_id,title,channel,url,last_played_at,position_ms,duration_ms
+        FROM history
+        WHERE duration_ms>=60000 AND position_ms>=10000 AND position_ms*100 < duration_ms*95
+        ORDER BY last_played_at DESC
+        LIMIT ?
+        """.trimIndent(),
         arrayOf(limit.coerceIn(1, 1000).toString())
     )
 

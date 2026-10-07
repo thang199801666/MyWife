@@ -15,4 +15,5 @@
     <attr name="appSectionAccent" format="color" />
     <attr name="appSelectedSurface" format="color" />
     <attr name="appSelectedText" format="color" />
+    <attr name="appProgressAccent" format="color" />
 </resources>

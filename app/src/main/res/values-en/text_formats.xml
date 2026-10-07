@@ -143,4 +143,29 @@
     <string name="download_error_destination_select" formatted="false">Choose a location to save the file on your device.</string>
     <string name="download_error_already_running" formatted="false">This download is already running.</string>
     <string name="download_error_reset_partial" formatted="false">Could not reset the partial download data.</string>
+
+    <string name="search_filter_all">All</string>
+    <string name="search_filter_videos">Videos</string>
+    <string name="search_filter_channels">Channels</string>
+    <string name="search_filter_playlists">Playlists</string>
+    <string name="search_filters">Filters</string>
+    <string name="search_filter_type">Content type</string>
+    <string name="search_prioritize">Prioritize</string>
+    <string name="search_priority_relevance">Relevance</string>
+    <string name="search_priority_newest">Newest</string>
+    <string name="search_priority_popularity">Popularity</string>
+    <string name="search_upload_date">Upload date</string>
+    <string name="search_upload_any">Any time</string>
+    <string name="search_upload_today">Today</string>
+    <string name="search_upload_week">This week</string>
+    <string name="search_upload_month">This month</string>
+    <string name="search_upload_year">This year</string>
+    <string name="search_duration">Duration</string>
+    <string name="search_duration_any">Any duration</string>
+    <string name="search_duration_under_3">Under 3 minutes</string>
+    <string name="search_duration_3_20">3–20 minutes</string>
+    <string name="search_duration_over_20">Over 20 minutes</string>
+    <string name="search_reset_filters">Reset filters</string>
+    <string name="search_remove_history">Remove %1$s from search history</string>
+    <string name="search_fill_suggestion">Fill suggestion %1$s</string>
 </resources>

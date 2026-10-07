@@ -65,7 +65,13 @@ class SettingsActivity : LocalizedActivity() {
             }
         }
         bind(R.id.settingCompactChrome, p.compactYouTubeChrome) { p.compactYouTubeChrome = it }
+        bind(R.id.settingShortsAutoHideChrome, p.shortsAutoHideChrome) { p.shortsAutoHideChrome = it }
         bind(R.id.settingAutoRepeat, p.autoRepeat) { p.autoRepeat = it }
+        bind(R.id.settingInactivityWarning, p.inactivityWarningEnabled) {
+            p.inactivityWarningEnabled = it
+            refreshPlaybackControls()
+        }
+        findViewById<Button>(R.id.inactivityTimeoutButton).setOnClickListener { cycleInactivityTimeout() }
         bind(R.id.settingCommunitySponsorSkip, p.communitySponsorSkip) { p.communitySponsorSkip = it }
         bind(R.id.settingSkipIntrosOutros, p.skipIntrosOutros) { p.skipIntrosOutros = it }
         findViewById<Button>(R.id.preferredQualityButton).setOnClickListener { cyclePreferredQuality(mobile = false) }
@@ -149,6 +155,13 @@ class SettingsActivity : LocalizedActivity() {
         refreshPlaybackControls()
     }
 
+    private fun cycleInactivityTimeout() {
+        val values = ShieldPreferences.INACTIVITY_TIMEOUT_OPTIONS
+        val index = values.indexOf(p.inactivityTimeoutMinutes).takeIf { it >= 0 } ?: 1
+        p.inactivityTimeoutMinutes = values[(index + 1) % values.size]
+        refreshPlaybackControls()
+    }
+
     private fun cycleDoubleTapSeek() {
         val values = intArrayOf(5, 10, 15, 30)
         val current = p.doubleTapSeekSeconds
@@ -162,6 +175,11 @@ class SettingsActivity : LocalizedActivity() {
         findViewById<Button>(R.id.doubleTapSeekButton).text = getString(R.string.double_tap_seek, p.doubleTapSeekSeconds)
         findViewById<Button>(R.id.preferredQualityButton).text = getString(R.string.wifi_quality, qualityLabel(p.preferredQuality))
         findViewById<Button>(R.id.mobileQualityButton).text = getString(R.string.mobile_quality, qualityLabel(p.preferredQualityMobile))
+        findViewById<Button>(R.id.inactivityTimeoutButton).apply {
+            text = getString(R.string.inactivity_setting_timeout, p.inactivityTimeoutMinutes)
+            isEnabled = p.inactivityWarningEnabled
+            alpha = if (isEnabled) 1f else 0.55f
+        }
     }
 
     private fun cyclePreferredQuality(mobile: Boolean) {

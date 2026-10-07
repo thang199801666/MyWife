@@ -31,6 +31,14 @@
     <string name="ui_continue" formatted="false">Xem tiếp</string>
     <string name="ui_continue_watching" formatted="false">Tiếp tục xem</string>
     <string name="ui_history" formatted="false">Lịch sử</string>
+    <string name="ui_watch_later" formatted="false">Xem sau</string>
+    <string name="ui_save_watch_later" formatted="false">Lưu vào Xem sau</string>
+    <string name="ui_remove_watch_later" formatted="false">Xóa khỏi Xem sau</string>
+    <string name="ui_watch_later_videos" formatted="false">Video đã lưu để xem sau</string>
+    <string name="ui_playlists" formatted="false">Danh sách phát</string>
+    <string name="ui_view_all" formatted="false">Xem tất cả</string>
+    <string name="ui_items_count">%1$d mục</string>
+    <string name="ui_channels_count">%1$d kênh</string>
     <string name="ui_watch_history" formatted="false">Lịch sử xem</string>
     <string name="ui_favorites" formatted="false">Yêu thích</string>
     <string name="ui_queue" formatted="false">Hàng đợi</string>
@@ -53,6 +61,7 @@
     <string name="ui_shuffle" formatted="false">Phát ngẫu nhiên</string>
     <string name="ui_video_thumbnail" formatted="false">Ảnh xem trước video</string>
     <string name="ui_video_options" formatted="false">Tùy chọn video</string>
+    <string name="ui_more" formatted="false">Thêm</string>
     <string name="ui_collection_cover" formatted="false">Ảnh bìa danh sách</string>
     <string name="ui_not_interested" formatted="false">Không quan tâm</string>
     <string name="ui_loading" formatted="false">Đang tải…</string>
@@ -271,6 +280,7 @@
     <string name="diag_release_stress">Kiểm tra độ ổn định bản phát hành %1$s: %2$s</string>
     <string name="diag_last_event">Sự kiện gần nhất: %1$s</string>
     <string name="diag_renderer_guard">Lần thoát bộ kết xuất %1$d/%2$d • bảo vệ %3$s</string>
+    <string name="diag_renderer_guard_detail">Renderer crash %1$d • thu hồi do bộ nhớ %2$d • bảo vệ %3$s</string>
     <string name="diag_window_age"> • thời gian cửa sổ %1$d giây</string>
     <string name="safe_reason_renderer_guard" formatted="false">Bảo vệ lỗi lặp của bộ kết xuất đang hoạt động; tính năng tự tải lại để khôi phục phát tạm thời bị dừng.</string>
     <string name="safe_reason_compatibility_guard" formatted="false">Đã bật chế độ bảo vệ tương thích</string>
@@ -279,4 +289,18 @@
     <string name="safe_reason_player_not_detected" formatted="false">không phát hiện trình phát</string>
     <string name="safe_reason_script_errors">lỗi tập lệnh: %1$d</string>
     <string name="previous_rules_restored" formatted="false">Đã khôi phục bộ quy tắc trước đó.</string>
+    <string name="inactivity_setting_enabled">Nhắc khi xem quá lâu mà không tương tác</string>
+    <string name="inactivity_setting_timeout">Cảnh báo sau %1$d phút</string>
+    <string name="inactivity_setting_timeout_30">Cảnh báo sau 30 phút</string>
+    <string name="inactivity_setting_description">Khi video hoặc Shorts đang phát, Vợ Tui sẽ hỏi lại sau thời gian không tương tác. Nếu không xác nhận trong 30 giây, video sẽ tạm dừng và ứng dụng cho phép màn hình tự tắt.</string>
+    <string name="inactivity_warning_title">Bạn vẫn đang xem chứ?</string>
+    <string name="inactivity_warning_message">Không thấy tương tác gần đây. Video sẽ tạm dừng sau %1$d giây.</string>
+    <string name="inactivity_still_watching">Vẫn đang xem</string>
+    <string name="inactivity_stop_now">Dừng ngay</string>
+    <string name="inactivity_paused">Đã tạm dừng do không có tương tác.</string>
+    <string name="ui_seek_video">Kéo để tua video</string>
+    <string name="ui_playback_speed" formatted="false">Tốc độ phát</string>
+    <string name="ui_shorts_auto_hide_controls">Tự động ẩn điều khiển Shorts khi đang phát</string>
+    <string name="ui_shorts_auto_hide_controls_description">Tùy chọn. Khi bật, chữ và nút phủ trên Shorts sẽ tự mờ đi sau một lúc không tương tác; chạm màn hình để hiện lại. Clear Screen gốc của YouTube vẫn được giữ nguyên.</string>
+    <string name="ui_browse_renderer_recovery_paused">Khôi phục trang duyệt đã tạm dừng • Chọn một tab để thử lại</string>
 </resources>

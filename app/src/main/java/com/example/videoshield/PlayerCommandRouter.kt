@@ -13,7 +13,7 @@ import android.os.Build
  */
 class PlayerCommandRouter(
     private val context: Context,
-    private val onCommand: (command: String, positionMs: Long?) -> Unit
+    private val onCommand: (PlaybackCommand) -> Unit
 ) {
     private var registered = false
 
@@ -23,7 +23,7 @@ class PlayerCommandRouter(
             val position = if (intent.hasExtra(PlaybackService.EXTRA_POSITION_MS)) {
                 intent.getLongExtra(PlaybackService.EXTRA_POSITION_MS, -1L).takeIf { it >= 0L }
             } else null
-            onCommand(command, position)
+            PlaybackServiceCommandCodec.decode(command, position)?.let(onCommand)
         }
     }
 

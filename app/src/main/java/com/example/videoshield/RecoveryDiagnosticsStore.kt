@@ -29,10 +29,11 @@ class RecoveryDiagnosticsStore(context: Context) {
         prefs.edit().putLong(KEY_MANUAL_RETRIES, manualRetries() + 1L).apply()
     }
 
-    fun recordRendererGone(didCrash: Boolean) {
+    fun recordRendererGone(didCrash: Boolean, source: String = "WebView") {
+        val label = source.trim().ifBlank { "WebView" }.take(40)
         prefs.edit()
             .putLong(KEY_RENDERER_EXITS, rendererExits() + 1L)
-            .putString(KEY_LAST_REASON, if (didCrash) "WebView renderer crashed" else "WebView renderer was terminated")
+            .putString(KEY_LAST_REASON, if (didCrash) "$label renderer crashed" else "$label renderer was terminated")
             .putLong(KEY_LAST_AT, System.currentTimeMillis())
             .apply()
     }

@@ -48,7 +48,12 @@
         <Button android:id="@+id/gestureSensitivityButton" android:layout_width="match_parent" android:layout_height="wrap_content" android:minHeight="48dp" android:text="@string/ui_gesture_sensitivity_1" android:textAllCaps="false" />
         <Button android:id="@+id/doubleTapSeekButton" android:layout_width="match_parent" android:layout_height="wrap_content" android:minHeight="48dp" android:text="@string/ui_double_tap_seek_10s" android:textAllCaps="false" />
         <Switch android:id="@+id/settingCompactChrome" style="@style/SettingsSwitch" android:text="@string/ui_minimal_player_chrome_hide_app_bar_while_watching" />
+        <Switch android:id="@+id/settingShortsAutoHideChrome" style="@style/SettingsSwitch" android:text="@string/ui_shorts_auto_hide_controls" />
+        <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:text="@string/ui_shorts_auto_hide_controls_description" android:textColor="?attr/appTextTertiary" android:textSize="12sp" android:paddingBottom="6dp" />
         <Switch android:id="@+id/settingAutoRepeat" style="@style/SettingsSwitch" android:text="@string/ui_always_repeat_the_current_video" />
+        <Switch android:id="@+id/settingInactivityWarning" style="@style/SettingsSwitch" android:text="@string/inactivity_setting_enabled" />
+        <Button android:id="@+id/inactivityTimeoutButton" android:layout_width="match_parent" android:layout_height="wrap_content" android:minHeight="48dp" android:text="@string/inactivity_setting_timeout_30" android:textAllCaps="false" />
+        <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:text="@string/inactivity_setting_description" android:textColor="?attr/appTextTertiary" android:textSize="12sp" android:paddingBottom="6dp" />
         <Button android:id="@+id/preferredQualityButton" android:layout_width="match_parent" android:layout_height="wrap_content" android:minHeight="48dp" android:text="@string/ui_wi_fi_unmetered_quality_auto" android:textAllCaps="false" />
         <Button android:id="@+id/mobileQualityButton" android:layout_width="match_parent" android:layout_height="wrap_content" android:minHeight="48dp" android:text="@string/ui_mobile_metered_quality_auto" android:textAllCaps="false" />
 

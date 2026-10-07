@@ -4,10 +4,10 @@ import org.junit.Assert.*
 import org.junit.Test
 
 class NavigationTargetResolverTest {
-    @Test fun searchReturnsVideoResultsWithEncodedKeyword() {
-        assertEquals("https://m.youtube.com/results?search_query=rick+astley&sp=EgIQAQ%3D%3D",
+    @Test fun searchReturnsUnfilteredResultsWithEncodedKeyword() {
+        assertEquals("https://m.youtube.com/results?search_query=rick+astley",
             NavigationTargetResolver.resolveAddressInput(" rick astley "))
-        assertEquals("https://m.youtube.com/results?search_query=nh%E1%BA%A1c+%26+chill&sp=EgIQAQ%3D%3D",
+        assertEquals("https://m.youtube.com/results?search_query=nh%E1%BA%A1c+%26+chill",
             NavigationTargetResolver.resolveAddressInput("nhạc & chill"))
     }
     @Test fun explicitUrlsAndEmptyInputKeepTheirBehavior() {

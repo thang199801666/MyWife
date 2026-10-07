@@ -1,0 +1,56 @@
+package com.example.videoshield
+
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertTrue
+import org.junit.Test
+
+class BrowseResourceGuardScriptTest {
+    @Test fun browseCleanupIsEventDrivenMediaSourceSafeVirtualizedAndBounded() {
+        val script = BrowseResourceGuardScript.install()
+        assertTrue(script.contains("__votuibeBrowseRouteTransition"))
+        assertTrue(script.contains("__votuibeSuspendBrowseMedia"))
+        assertTrue(script.contains("__votuibeRememberFeedScroll"))
+        assertTrue(script.contains("requestAnimationFrame"))
+        assertTrue(script.contains("requestIdleCallback"))
+        assertTrue(script.contains("IntersectionObserver"))
+        assertTrue(script.contains("contentVisibility='auto'"))
+        assertTrue(script.contains("classifyVelocity"))
+        assertTrue(script.contains("velocityBudget"))
+        assertTrue(script.contains("velocityBand==='fast'"))
+        assertTrue(script.contains("decodePromotions"))
+        assertTrue(script.contains("settleFling"))
+        assertTrue(script.contains("flingSettles"))
+        assertTrue(script.contains("__votuibeSetFeedMemoryPressure"))
+        assertTrue(script.contains("pressureTrims"))
+        assertTrue(script.contains("feedCardState=new WeakMap()"))
+        assertTrue(script.contains("reuseHits"))
+        assertTrue(script.contains("identityChanges"))
+        assertTrue(script.contains("mutationSkips"))
+        assertTrue(script.contains("localityHits"))
+        assertTrue(script.contains("layoutReadsSaved"))
+        assertTrue(script.contains("entry.boundingClientRect"))
+        assertTrue(script.contains("now-previous.at<2400"))
+        assertTrue(script.contains("remainingImages=budget.images"))
+        assertTrue(script.contains("image.fetchPriority=priority"))
+        assertTrue(script.contains("aggressive?'none':'metadata'"))
+        assertTrue(script.contains("sessionStorage"))
+        assertTrue(script.contains("slice(0,8)"))
+        assertTrue(script.contains("compactFeedObserver"))
+        assertTrue(script.contains("ageFeedObserver"))
+        assertTrue(script.contains("observerAgingBudget"))
+        assertTrue(script.contains("feedObserved=new Set()"))
+        assertTrue(script.contains("observer.unobserve(card)"))
+        assertTrue(script.contains("observerPrunes"))
+        assertTrue(script.contains("stateCompactions"))
+        assertTrue(script.contains("observedTargets:feedObserved.size"))
+        assertTrue(script.contains("windowStart"))
+        assertTrue(script.contains("card.isConnected"))
+        assertTrue(script.contains("interactionQuietMs=180"))
+        assertTrue(script.contains("interactionDeferrals"))
+        assertTrue(script.contains("touchstart"))
+        assertFalse(script.contains("setInterval("))
+        assertFalse(script.contains("MutationObserver"))
+        assertFalse(script.contains("node.load("))
+        assertFalse(script.contains("removeAttribute('src')"))
+    }
+}

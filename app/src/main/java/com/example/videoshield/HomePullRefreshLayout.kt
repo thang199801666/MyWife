@@ -116,6 +116,21 @@ class HomePullRefreshLayout @JvmOverloads constructor(
         return true
     }
 
+    /** Rebind the pull gesture to a newly rehydrated browse WebView. */
+    fun bindContentView(view: View) {
+        if (contentView === view) return
+        offsetAnimator?.cancel()
+        offsetAnimator = null
+        removeCallbacks(refreshTimeout)
+        contentView?.translationY = 0f
+        contentView = view
+        refreshing = false
+        pulling = false
+        gestureEligible = false
+        pullOffset = 0f
+        hideIndicator()
+    }
+
     fun finishRefresh() {
         removeCallbacks(refreshTimeout)
         if (!refreshing && pullOffset <= 0.5f) return

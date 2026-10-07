@@ -12,10 +12,10 @@
         <LinearLayout
             android:id="@+id/topBar"
             android:layout_width="match_parent"
-            android:layout_height="60dp"
+            android:layout_height="@dimen/ui_top_bar_height"
             android:orientation="horizontal"
             android:gravity="center_vertical"
-            android:paddingStart="12dp"
+            android:paddingStart="@dimen/ui_space_lg"
             android:paddingEnd="4dp"
             android:background="?attr/appSurface">
 
@@ -41,8 +41,8 @@
 
                 <ImageView
                     android:id="@+id/brandIcon"
-                    android:layout_width="34dp"
-                    android:layout_height="24dp"
+                    android:layout_width="32dp"
+                    android:layout_height="22dp"
                     android:src="@drawable/ic_brand_play"
                     android:contentDescription="@null" />
 
@@ -54,7 +54,7 @@
                     android:gravity="center_vertical"
                     android:text="@string/app_name"
                     android:textColor="?attr/appTextPrimary"
-                    android:textSize="22sp"
+                    android:textSize="20sp"
                     android:textStyle="bold"
                     android:fontFamily="sans-serif-condensed" />
             </LinearLayout>
@@ -63,7 +63,7 @@
                 android:id="@+id/urlInput"
                 android:visibility="gone"
                 android:layout_width="0dp"
-                android:layout_height="42dp"
+                android:layout_height="@dimen/ui_search_field_height"
                 android:layout_weight="1"
                 android:singleLine="true"
                 android:inputType="text"
@@ -72,8 +72,10 @@
                 android:textColor="?attr/appTextPrimary"
                 android:textColorHint="?attr/appTextTertiary"
                 android:textSize="15sp"
-                android:paddingStart="16dp"
-                android:paddingEnd="12dp"
+                android:paddingStart="@dimen/ui_space_xl"
+                android:paddingEnd="@dimen/ui_space_xl"
+                android:layout_marginStart="@dimen/ui_space_xs"
+                android:layout_marginEnd="@dimen/ui_space_xs"
                 android:background="@drawable/bg_address" />
 
             <com.example.videoshield.IconButton
@@ -96,6 +98,57 @@
                 android:contentDescription="@string/ui_settings"
                 android:drawableTop="@drawable/ic_ui_settings" />
         </LinearLayout>
+
+        <HorizontalScrollView
+            android:id="@+id/searchFilterRail"
+            android:layout_width="match_parent"
+            android:layout_height="@dimen/ui_filter_rail_height"
+            android:visibility="gone"
+            android:fillViewport="false"
+            android:scrollbars="none"
+            android:overScrollMode="never"
+            android:background="?attr/appSurface">
+
+            <LinearLayout
+                android:layout_width="wrap_content"
+                android:layout_height="match_parent"
+                android:orientation="horizontal"
+                android:gravity="center_vertical"
+                android:paddingStart="9dp"
+                android:paddingEnd="9dp">
+
+                <Button
+                    android:id="@+id/searchFilterAll"
+                    style="@style/ClientActionButton"
+                    android:text="@string/search_filter_all" />
+
+                <Button
+                    android:id="@+id/searchFilterVideos"
+                    style="@style/ClientActionButton"
+                    android:text="@string/search_filter_videos" />
+
+                <Button
+                    android:id="@+id/searchFilterShorts"
+                    style="@style/ClientActionButton"
+                    android:text="Shorts" />
+
+                <Button
+                    android:id="@+id/searchFilterChannels"
+                    style="@style/ClientActionButton"
+                    android:text="@string/search_filter_channels" />
+
+                <Button
+                    android:id="@+id/searchFilterPlaylists"
+                    style="@style/ClientActionButton"
+                    android:text="@string/search_filter_playlists" />
+
+                <Button
+                    android:id="@+id/searchFilterMore"
+                    style="@style/ClientActionButton"
+                    android:text="@string/search_filters"
+                    android:drawableStart="@drawable/ic_ui_filter" />
+            </LinearLayout>
+        </HorizontalScrollView>
 
         <FrameLayout
             android:id="@+id/browserContainer"
@@ -128,64 +181,109 @@
                     android:layout_width="match_parent"
                     android:layout_height="match_parent" />
 
+                <!-- Native continuity layer shown only while a dead playback renderer is being
+                     replaced. It stays above the WebView but below mini controls, so transport
+                     commands remain usable while the new renderer warms. -->
+                <FrameLayout
+                    android:id="@+id/playerRecoveryVisual"
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    android:background="#FF000000"
+                    android:clickable="true"
+                    android:focusable="false"
+                    android:visibility="gone">
+
+                    <ImageView
+                        android:id="@+id/playerRecoveryThumbnail"
+                        android:layout_width="match_parent"
+                        android:layout_height="match_parent"
+                        android:alpha="0.82"
+                        android:contentDescription="@null"
+                        android:scaleType="centerCrop" />
+
+                    <View
+                        android:layout_width="match_parent"
+                        android:layout_height="match_parent"
+                        android:background="#33000000" />
+
+                    <ProgressBar
+                        style="?android:attr/progressBarStyleSmall"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_gravity="center"
+                        android:indeterminate="true" />
+                </FrameLayout>
+
+                <!-- YouTube-style in-app floating mini player: video remains the card, controls
+                     stay unobtrusive on top of the picture and the red seek line hugs the bottom. -->
                 <com.example.videoshield.SwipeDismissLayout
                     android:id="@+id/miniPlayerChrome"
                     android:layout_width="match_parent"
-                    android:layout_height="56dp"
-                    android:layout_gravity="bottom"
-                    android:orientation="vertical"
-                    android:background="?attr/appSurfaceElevated"
+                    android:layout_height="match_parent"
+                    android:background="@android:color/transparent"
                     android:visibility="gone">
 
-                    <LinearLayout
+                    <FrameLayout
                         android:layout_width="match_parent"
-                        android:layout_height="52dp"
-                        android:gravity="center_vertical"
-                        android:orientation="horizontal"
-                        android:paddingStart="12dp"
-                        android:paddingEnd="4dp">
+                        android:layout_height="match_parent">
 
-                        <LinearLayout
-                            android:layout_width="0dp"
-                            android:layout_height="match_parent"
-                            android:layout_weight="1"
-                            android:gravity="center_vertical"
-                            android:orientation="vertical">
-                            <TextView
-                                android:id="@+id/miniPlayerTitle"
-                                android:layout_width="match_parent"
-                                android:layout_height="wrap_content"
-                                android:maxLines="1"
-                                android:ellipsize="end"
-                                android:text="@string/playing_video"
-                                android:textColor="?attr/appTextPrimary"
-                                android:textSize="13sp"
-                                android:textStyle="bold" />
-                            <TextView
-                                android:id="@+id/miniPlayerChannel"
-                                android:layout_width="match_parent"
-                                android:layout_height="wrap_content"
-                                android:maxLines="1"
-                                android:ellipsize="end"
-                                android:textColor="?attr/appTextSecondary"
-                                android:textSize="11sp" />
-                        </LinearLayout>
+                        <!-- Kept for playback metadata/state compatibility; the modern floating
+                             card intentionally does not reserve an opaque title strip. -->
+                        <TextView
+                            android:id="@+id/miniPlayerTitle"
+                            android:layout_width="1dp"
+                            android:layout_height="1dp"
+                            android:visibility="gone"
+                            android:text="@string/playing_video" />
+                        <TextView
+                            android:id="@+id/miniPlayerChannel"
+                            android:layout_width="1dp"
+                            android:layout_height="1dp"
+                            android:visibility="gone" />
 
-                        <com.example.videoshield.IconButton android:id="@+id/miniPlayPauseButton" style="@style/MiniPlayerButton" android:contentDescription="@string/play_pause"  android:drawableTop="@drawable/ic_ui_pause"/>
-                        <com.example.videoshield.IconButton android:id="@+id/miniExpandButton" style="@style/MiniPlayerButton" android:contentDescription="@string/expand_player"  android:drawableTop="@drawable/ic_ui_expand"/>
-                        <com.example.videoshield.IconButton android:id="@+id/miniCloseButton" style="@style/MiniPlayerButton" android:contentDescription="@string/close_player"  android:drawableTop="@drawable/ic_ui_close"/>
-                    </LinearLayout>
+                        <com.example.videoshield.IconButton
+                            android:id="@+id/miniPlayPauseButton"
+                            style="@style/MiniPlayerOverlayButton"
+                            android:layout_gravity="top|start"
+                            android:layout_marginStart="@dimen/ui_space_md"
+                            android:layout_marginTop="@dimen/ui_space_md"
+                            android:contentDescription="@string/play_pause"
+                            android:drawableTop="@drawable/ic_ui_pause" />
 
-                    <ProgressBar
-                        android:id="@+id/miniPlayerProgress"
-                        style="@android:style/Widget.ProgressBar.Horizontal"
-                        android:layout_width="match_parent"
-                        android:layout_height="4dp"
-                        android:max="1000"
-                        android:progress="0"
-                        android:indeterminate="false"
-                        android:progressTint="#FF1744"
-                        android:progressBackgroundTint="#505050" />
+                        <!-- Tapping the video itself expands, so the old dedicated expand button
+                             remains only as an addressable compatibility view. -->
+                        <com.example.videoshield.IconButton
+                            android:id="@+id/miniExpandButton"
+                            style="@style/MiniPlayerOverlayButton"
+                            android:layout_gravity="center"
+                            android:visibility="gone"
+                            android:contentDescription="@string/expand_player"
+                            android:drawableTop="@drawable/ic_ui_expand" />
+
+                        <com.example.videoshield.IconButton
+                            android:id="@+id/miniCloseButton"
+                            style="@style/MiniPlayerOverlayButton"
+                            android:layout_gravity="top|end"
+                            android:layout_marginEnd="@dimen/ui_space_md"
+                            android:layout_marginTop="@dimen/ui_space_md"
+                            android:contentDescription="@string/close_player"
+                            android:drawableTop="@drawable/ic_ui_close" />
+
+                        <SeekBar
+                            android:id="@+id/miniPlayerProgress"
+                            android:layout_width="match_parent"
+                            android:layout_height="24dp"
+                            android:layout_gravity="bottom"
+                            android:max="1000"
+                            android:progress="0"
+                            android:paddingStart="0dp"
+                            android:paddingEnd="0dp"
+                            android:splitTrack="false"
+                            android:progressTint="?attr/appProgressAccent"
+                            android:progressBackgroundTint="#66FFFFFF"
+                            android:thumb="@drawable/mini_seek_thumb"
+                            android:contentDescription="@string/ui_seek_video" />
+                    </FrameLayout>
                 </com.example.videoshield.SwipeDismissLayout>
 
                 <LinearLayout
@@ -204,26 +302,32 @@
                     <TextView android:id="@+id/errorMessage" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="10dp" android:gravity="center" android:textColor="#BDBDBD" android:textSize="14sp" android:maxLines="4" />
                     <LinearLayout android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginTop="18dp" android:orientation="horizontal">
                         <Button android:id="@+id/errorRetryButton" android:layout_width="wrap_content" android:layout_height="48dp" android:text="@string/ui_retry" />
-                        <Button android:id="@+id/errorHomeButton" android:layout_width="wrap_content" android:layout_height="48dp" android:layout_marginStart="8dp" android:text="@string/close_player" />
+                        <Button android:id="@+id/errorHomeButton" android:layout_width="wrap_content" android:layout_height="48dp" android:layout_marginStart="@dimen/ui_space_md" android:text="@string/close_player" />
                     </LinearLayout>
                 </LinearLayout>
             </com.example.videoshield.PlayerSurfaceLayout>
         </FrameLayout>
+    </LinearLayout>
 
-        <LinearLayout
-            android:id="@+id/bottomBar"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:orientation="vertical"
-            android:background="?attr/appSurface">
+    <!-- Overlay navigation like the modern YouTube client. Keeping the feed surface at a stable
+         size prevents a WebView relayout every time the navigation chrome hides/reappears. -->
+    <LinearLayout
+        android:id="@+id/bottomBar"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_gravity="bottom"
+        android:elevation="@dimen/ui_bottom_nav_elevation"
+        android:orientation="vertical"
+        android:background="?attr/appSurface">
 
             <LinearLayout
                 android:id="@+id/playbackStatusRow"
+                android:visibility="gone"
                 android:layout_width="match_parent"
-                android:layout_height="40dp"
+                android:layout_height="30dp"
                 android:orientation="horizontal"
                 android:gravity="center_vertical"
-                android:paddingHorizontal="12dp">
+                android:paddingHorizontal="@dimen/ui_space_lg">
 
                 <ToggleButton android:id="@+id/filterToggle" android:layout_width="1dp" android:layout_height="1dp" android:visibility="gone" android:textOn="ON" android:textOff="OFF" />
                 <TextView android:id="@+id/statusText" android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1" android:gravity="center_vertical" android:ellipsize="end" android:maxLines="2" android:text="@string/ui_ready" android:textColor="?attr/appTextSecondary" android:textSize="11sp" />
@@ -232,21 +336,41 @@
 
             <HorizontalScrollView
                 android:id="@+id/playbackActionStrip"
+                android:visibility="gone"
                 android:layout_width="match_parent"
-                android:layout_height="50dp"
+                android:layout_height="@dimen/ui_toolbar_button_size"
                 android:fillViewport="true"
                 android:scrollbars="none">
-                <LinearLayout android:layout_width="wrap_content" android:layout_height="match_parent" android:orientation="horizontal" android:gravity="center_vertical" android:paddingHorizontal="8dp">
-                    <Button android:id="@+id/minimizePlayerButton" style="@style/ClientActionButton" android:text="@string/ui_minimize" />
-                    <Button android:id="@+id/autoNextButton" style="@style/ClientActionButton" android:text="@string/auto_next_on" />
+                <LinearLayout
+                    android:layout_width="wrap_content"
+                    android:layout_height="match_parent"
+                    android:orientation="horizontal"
+                    android:gravity="center_vertical"
+                    android:paddingStart="8dp"
+                    android:paddingEnd="8dp">
+
+                    <com.example.videoshield.IconButton
+                        android:id="@+id/minimizePlayerButton"
+                        style="@style/ClientActionIconButton"
+                        android:contentDescription="@string/ui_minimize"
+                        android:drawableTop="@drawable/ic_ui_minimize" />
                     <Button android:id="@+id/subscribeButton" style="@style/ClientActionButton" android:text="@string/ui_subscribe" android:enabled="false" />
                     <Button android:id="@+id/favoriteButton" style="@style/ClientActionButton" android:text="@string/ui_save" android:enabled="false" />
-                    <Button android:id="@+id/queueButton" style="@style/ClientActionButton" android:text="@string/ui_queue" android:enabled="false" />
-                    <Button android:id="@+id/speedButton" style="@style/ClientActionButton" android:text="1×" />
-                    <Button android:id="@+id/qualityButton" style="@style/ClientActionButton" android:text="@string/ui_auto" />
-                    <Button android:id="@+id/repeatButton" style="@style/ClientActionButton" android:text="@string/ui_repeat" />
-                    <Button android:id="@+id/sleepButton" style="@style/ClientActionButton" android:text="@string/ui_sleep" />
-                    <Button android:id="@+id/pipButton" style="@style/ClientActionButton" android:text="@string/pip" />
+                    <Button android:id="@+id/speedButton" style="@style/ClientActionButton" android:visibility="gone" android:text="1×" />
+                    <Button android:id="@+id/qualityButton" style="@style/ClientActionButton" android:visibility="gone" android:text="@string/ui_auto" />
+
+                    <com.example.videoshield.IconButton
+                        android:id="@+id/playbackMoreButton"
+                        style="@style/ClientActionIconButton"
+                        android:contentDescription="@string/ui_video_options"
+                        android:drawableTop="@drawable/ic_ui_more" />
+
+                    <!-- Secondary controls stay addressable for behavior/state, but are exposed through More. -->
+                    <Button android:id="@+id/autoNextButton" style="@style/ClientActionButton" android:visibility="gone" android:text="@string/auto_next_on" />
+                    <Button android:id="@+id/queueButton" style="@style/ClientActionButton" android:visibility="gone" android:text="@string/ui_queue" android:enabled="false" />
+                    <Button android:id="@+id/repeatButton" style="@style/ClientActionButton" android:visibility="gone" android:text="@string/ui_repeat" />
+                    <Button android:id="@+id/sleepButton" style="@style/ClientActionButton" android:visibility="gone" android:text="@string/ui_sleep" />
+                    <Button android:id="@+id/pipButton" style="@style/ClientActionButton" android:visibility="gone" android:text="@string/pip" />
                 </LinearLayout>
             </HorizontalScrollView>
 
@@ -255,7 +379,7 @@
             <LinearLayout
                 android:id="@+id/navigationBar"
                 android:layout_width="match_parent"
-                android:layout_height="64dp"
+                android:layout_height="@dimen/ui_bottom_nav_height"
                 android:orientation="horizontal"
                 android:gravity="center"
                 android:paddingStart="2dp"
@@ -268,8 +392,8 @@
                     android:layout_weight="1">
                     <com.example.videoshield.IconButton
                         android:id="@+id/navCreateButton"
-                        android:layout_width="48dp"
-                        android:layout_height="48dp"
+                        android:layout_width="@dimen/ui_toolbar_button_size"
+                        android:layout_height="@dimen/ui_toolbar_button_size"
                         android:layout_gravity="center"
                         android:minWidth="0dp"
                         android:minHeight="0dp"
@@ -282,7 +406,6 @@
                 <Button android:id="@+id/navLibraryButton" style="@style/BottomNavButton" android:text="@string/ui_you" />
             </LinearLayout>
         </LinearLayout>
-    </LinearLayout>
 
     <com.example.videoshield.FullscreenGestureLayout
         android:id="@+id/fullscreenContainer"
@@ -295,9 +418,11 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_gravity="center"
-            android:background="#CC151515"
-            android:paddingHorizontal="18dp"
-            android:paddingVertical="12dp"
+            android:background="@drawable/bg_gesture_feedback"
+            android:elevation="@dimen/ui_space_md"
+            android:minHeight="@dimen/ui_touch_target"
+            android:paddingHorizontal="@dimen/ui_space_xl"
+            android:paddingVertical="@dimen/ui_space_md"
             android:textColor="#FFFFFF"
             android:textSize="18sp"
             android:textStyle="bold"

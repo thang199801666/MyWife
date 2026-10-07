@@ -124,7 +124,7 @@ class DownloadService : Service() {
     override fun onDestroy() { running=false; if(active.isNotBlank()) DownloadEngine.cancel(active); worker.shutdownNow(); super.onDestroy() }
     override fun onTimeout(startId: Int, fgsType: Int) { if(active.isNotBlank()) cancelled=active; stopSelf() }
     companion object {
-        private const val PROGRESS_NOTIFICATION_INTERVAL_MS = 1_000L
+        private const val PROGRESS_NOTIFICATION_INTERVAL_MS = 2_000L
         private const val PROGRESS_PERSIST_INTERVAL_MS = 3_000L
         @Volatile var running=false
             private set

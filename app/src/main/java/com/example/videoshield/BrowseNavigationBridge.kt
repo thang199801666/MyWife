@@ -2,10 +2,32 @@ package com.example.videoshield
 
 import android.webkit.JavascriptInterface
 
-class BrowseNavigationBridge(private val navigate: (String) -> Unit) {
+/**
+ * Narrow JS bridge used only to promote classic /watch routes into the dedicated player.
+ * It is explicitly closeable because WebView keeps JavaScript interfaces strongly reachable
+ * for the lifetime of the page; closing first breaks the Activity callback chain before the
+ * renderer/view teardown starts.
+ */
+class BrowseNavigationBridge(
+    private val navigate: (String) -> Unit,
+    private val shortsChromeChanged: (Boolean) -> Unit = {}
+) : AutoCloseable {
+    @Volatile private var closed = false
+
     @JavascriptInterface
     fun openVideo(url: String) {
-        if (url.length <= 4096 && YouTubeAdapter.isTrustedBridgeUrl(url)) navigate(url)
+        if (closed || url.length > 4096 || !YouTubeAdapter.isTrustedBridgeUrl(url)) return
+        navigate(url)
+    }
+
+    @JavascriptInterface
+    fun shortsChromeHidden(hidden: Boolean) {
+        if (closed) return
+        shortsChromeChanged(hidden)
+    }
+
+    override fun close() {
+        closed = true
     }
 }
 

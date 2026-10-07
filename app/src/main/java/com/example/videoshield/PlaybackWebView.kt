@@ -8,7 +8,6 @@ import android.view.VelocityTracker
 import android.view.ViewConfiguration
 import android.webkit.WebView
 import org.json.JSONArray
-import kotlin.math.abs
 import kotlin.math.min
 
 /** Keeps the playback renderer active only while the app owns an allowed background session. */
@@ -59,7 +58,9 @@ class PlaybackWebView @JvmOverloads constructor(
         val bounds = cachedVideoBounds?.let { RectF(it) } ?: return false
         bounds.offset(0f, (cachedScrollY - scrollY).toFloat())
         // Keep YouTube's bottom transport strip available for native scrubbing/taps.
-        bounds.bottom -= 18f * resources.displayMetrics.density
+        // A generous guard prevents a slightly diagonal scrub from becoming swipe-to-minimize.
+        val transportGuard = 52f * resources.displayMetrics.density
+        if (PlayerTouchPolicy.inTransportStrip(startY, bounds.bottom, transportGuard)) return false
         return bounds.width() > 0 && bounds.height() > 0 && bounds.contains(startX, startY)
     }
 
@@ -74,7 +75,9 @@ class PlaybackWebView @JvmOverloads constructor(
         val aspectHeight = width * 9f / 16f
         val maxPlayerBottom = min(height * 0.62f, aspectHeight + 72f * density)
         val minPlayerBottom = min(height * 0.45f, 180f * density)
-        return startY in 0f..maxOf(minPlayerBottom, maxPlayerBottom)
+        val playerBottom = maxOf(minPlayerBottom, maxPlayerBottom)
+        if (PlayerTouchPolicy.inTransportStrip(startY, playerBottom, 52f * density)) return false
+        return startY in 0f..playerBottom
     }
 
     private fun refreshVideoBounds(after: (() -> Unit)? = null) {
@@ -179,10 +182,8 @@ class PlaybackWebView @JvmOverloads constructor(
                 velocityTracker?.computeCurrentVelocity(1_000)
                 val yVelocity = velocityTracker?.yVelocity ?: 0f
                 val density = resources.displayMetrics.density
-                val distanceCommit = dy >= 58f * density
-                val flingCommit = dy >= 22f * density && yVelocity >= 900f * density && dy > abs(dx) * 1.05f
                 val minimize = event.actionMasked == MotionEvent.ACTION_UP && dragging && eligible &&
-                    swipeStillAllowed && (distanceCommit || flingCommit)
+                    swipeStillAllowed && VideoSwipePolicy.shouldCommit(dx, dy, yVelocity, density)
                 resetSwipe(cancelPreview = !minimize)
                 if (minimize) onSwipeMinimize?.invoke()
             }
@@ -213,10 +214,4 @@ class PlaybackWebView @JvmOverloads constructor(
         val effective = if (visibility != VISIBLE && keepActiveWhenHidden?.invoke() == true) VISIBLE else visibility
         super.onWindowVisibilityChanged(effective)
     }
-}
-
-/** Require a deliberate downward movement; horizontal scrubbing stays with YouTube. */
-object VideoSwipePolicy {
-    fun downward(dx: Float, dy: Float, threshold: Float): Boolean =
-        dx.isFinite() && dy.isFinite() && dy >= threshold && dy > abs(dx) * 1.20f
 }
