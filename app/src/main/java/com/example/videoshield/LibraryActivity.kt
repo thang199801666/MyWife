@@ -315,7 +315,8 @@ class LibraryActivity : LocalizedActivity() {
         title.visibility = if (overview) View.GONE else View.VISIBLE
         findViewById<Button>(R.id.closeLibraryButton).visibility = if (overview) View.GONE else View.VISIBLE
         findViewById<Button>(R.id.librarySearchToggle).visibility = if (overview) View.GONE else View.VISIBLE
-        profileHeader.visibility = if (overview) View.VISIBLE else View.GONE
+        profileHeader.visibility = View.GONE
+        findViewById<View>(R.id.downloadsButton).visibility = View.GONE
         findViewById<View>(R.id.libraryShortcuts).visibility = if (overview) View.VISIBLE else View.GONE
         modeTabs.visibility = if (overview) View.GONE else View.VISIBLE
         if (overview && search.visibility == View.VISIBLE) { search.visibility = View.GONE; search.setText("") }

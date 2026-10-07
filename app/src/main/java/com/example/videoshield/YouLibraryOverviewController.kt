@@ -75,10 +75,6 @@ internal class YouLibraryOverviewController(
         if (snapshot.history.isNotEmpty()) {
             addVideoSection(activity.getString(R.string.ui_history), snapshot.history, Section.HISTORY)
         }
-        if (snapshot.continueWatching.isNotEmpty()) {
-            addVideoSection(activity.getString(R.string.ui_continue_watching), snapshot.continueWatching, Section.CONTINUE)
-        }
-
         addPlaylistSection(snapshot)
         addLibraryShortcuts(snapshot)
     }
@@ -117,27 +113,18 @@ internal class YouLibraryOverviewController(
             setTextAppearance(R.style.YouTextSectionTitle)
             setPadding(ui.spaceXl, 0, ui.spaceXl, ui.spaceMd)
         })
-        sectionRoot.addView(HorizontalScrollView(activity).apply {
-            isHorizontalScrollBarEnabled = false
-            overScrollMode = View.OVER_SCROLL_NEVER
-            clipToPadding = false
-            setPadding(ui.spaceXl, 0, ui.spaceXs, ui.spaceXs)
-            addView(LinearLayout(activity).apply {
-                orientation = LinearLayout.HORIZONTAL
-                addView(collectionCard(
-                    title = activity.getString(R.string.ui_watch_later),
-                    subtitle = activity.getString(R.string.ui_items_count, snapshot.watchLaterCount),
-                    coverVideoId = snapshot.watchLater.firstOrNull()?.videoId.orEmpty(),
-                    icon = R.drawable.ic_ui_bookmark,
-                    action = { onOpenSection(Section.WATCH_LATER) }
-                ))
-                addView(collectionCard(
-                    title = activity.getString(R.string.ui_queue),
-                    subtitle = activity.getString(R.string.ui_items_count, snapshot.queueCount),
-                    coverVideoId = snapshot.queue.firstOrNull()?.videoId.orEmpty(),
-                    icon = R.drawable.ic_ui_queue,
-                    action = { onOpenSection(Section.QUEUE) }
-                ))
+        sectionRoot.addView(LinearLayout(activity).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(ui.spaceLg, 0, ui.spaceLg, 0)
+            addView(shortcutRow(R.drawable.ic_ui_bookmark,
+                activity.getString(R.string.ui_watch_later),
+                activity.getString(R.string.ui_items_count, snapshot.watchLaterCount)) {
+                onOpenSection(Section.WATCH_LATER)
+            })
+            addView(shortcutRow(R.drawable.ic_ui_queue,
+                activity.getString(R.string.ui_queue),
+                activity.getString(R.string.ui_items_count, snapshot.queueCount)) {
+                onOpenSection(Section.QUEUE)
             })
         })
         root.addView(sectionRoot)

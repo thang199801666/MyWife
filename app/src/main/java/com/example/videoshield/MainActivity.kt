@@ -2833,7 +2833,7 @@ class MainActivity : LocalizedActivity() {
             pictureInPicture = false,
             minimalPlaybackChrome = preferences.compactYouTubeChrome && playerSurfaceController.expanded
         )
-        topBar.visibility = if (chrome.showAppBar) View.VISIBLE else View.GONE
+        topBar.visibility = if (chrome.showAppBar && playerSurfaceController.expanded) View.VISIBLE else View.GONE
         // Runtime/compatibility status is still maintained internally, but it no longer
         // occupies permanent space under the video. The current YouTube player keeps this
         // surface focused on content and primary actions.

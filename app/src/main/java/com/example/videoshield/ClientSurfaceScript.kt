@@ -386,7 +386,6 @@ object ClientSurfaceScript {
               (document.head || document.documentElement).appendChild(style);
             }
             style.textContent = `
-              ytm-mobile-topbar-renderer,
               ytm-pivot-bar-renderer,
               ytm-app-promo-renderer,
               ytm-mealbar-promo-renderer,
@@ -398,12 +397,22 @@ object ClientSurfaceScript {
               }
               body { margin: 0 !important; -webkit-tap-highlight-color: transparent !important; }
               ytm-app {
-                padding-top: 0 !important;
+                padding-top: 48px !important;
                 padding-bottom: ${BOTTOM_NAV_OVERLAY_INSET_PX}px !important;
                 scroll-padding-bottom: ${BOTTOM_NAV_OVERLAY_INSET_PX}px !important;
               }
+              /* Keep YouTube's search entry, search overlay and account history. */
+              ytm-mobile-topbar-renderer { background:${pageBackground} !important; }
+              .mobile-topbar-logo {
+                width:112px !important; min-width:112px; height:48px !important;
+                display:flex !important; align-items:center !important; flex-shrink:0 !important;
+              }
+              .mobile-topbar-logo > * { display:none !important; }
+              .mobile-topbar-logo::after {
+                content:'Vợ Tui'; font-size:20px; font-weight:600; white-space:nowrap;
+              }
 
-              /* Native app chrome owns top/bottom navigation. Match the denser, rounded
+              /* Native app chrome owns bottom navigation. Match the denser, rounded
                  mobile visual language without replacing YouTube's own feed structure. */
               ytm-feed-filter-chip-bar-renderer,
               ytm-chip-cloud-renderer {
