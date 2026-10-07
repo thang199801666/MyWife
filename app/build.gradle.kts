@@ -19,8 +19,8 @@ android {
         applicationId = "com.example.videoshield"
         minSdk = 26
         targetSdk = 37
-        versionCode = 102
-        versionName = "0.2.0"
+        versionCode = 103
+        versionName = "0.2.1"
         ndk { abiFilters += listOf("arm64-v8a", "armeabi-v7a", "x86_64", "x86") }
     }
 

@@ -379,6 +379,32 @@ object ClientSurfaceScript {
         (() => {
           try {
             const id = 'youtoobee-browse-surface-style';
+            const pinToolbar = () => {
+              const toolbar = document.querySelector('ytm-mobile-topbar-renderer');
+              if (!toolbar) return false;
+              if (window.__votuibePinnedToolbar === toolbar) return true;
+              window.__votuibeToolbarObserver?.disconnect();
+              window.__votuibePinnedToolbar = toolbar;
+              const keepVisible = () => {
+                if (toolbar.classList.contains('out')) toolbar.classList.remove('out');
+              };
+              // YouTube's scroll handler toggles its hidden state independently of
+              // CSS layout. Keep that state visible without replacing search nodes.
+              window.__votuibeToolbarObserver = new MutationObserver(keepVisible);
+              window.__votuibeToolbarObserver.observe(toolbar, {attributes:true, attributeFilter:['class']});
+              keepVisible();
+              return true;
+            };
+            // The policy can run before YouTube creates its toolbar after reload.
+            // Observe insertion only until that node arrives, then disconnect.
+            if (!pinToolbar() && !window.__votuibeWaitToolbarObserver) {
+              window.__votuibeWaitToolbarObserver = new MutationObserver(() => {
+                if (!pinToolbar()) return;
+                window.__votuibeWaitToolbarObserver.disconnect();
+                window.__votuibeWaitToolbarObserver = null;
+              });
+              window.__votuibeWaitToolbarObserver.observe(document.documentElement, {childList:true, subtree:true});
+            }
             let style = document.getElementById(id);
             if (!style) {
               style = document.createElement('style');
@@ -398,16 +424,30 @@ object ClientSurfaceScript {
               body { margin: 0 !important; -webkit-tap-highlight-color: transparent !important; }
               ytm-app {
                 padding-top: 48px !important;
+                /* Local Home shelves precede ytm-app. Its overflow clip would hide
+                   the fixed toolbar once those shelves scroll over its boundary. */
+                overflow: visible !important;
                 padding-bottom: ${BOTTOM_NAV_OVERLAY_INSET_PX}px !important;
                 scroll-padding-bottom: ${BOTTOM_NAV_OVERLAY_INSET_PX}px !important;
               }
               /* Keep YouTube's search entry, search overlay and account history. */
-              ytm-mobile-topbar-renderer { background:${pageBackground} !important; }
+              ytm-mobile-topbar-renderer {
+                position:fixed !important; top:0 !important; left:0 !important; right:0 !important;
+                /* Own a compositor layer: YouTube toggles sticky-player.out during
+                   scroll, which can otherwise leave stale hidden toolbar pixels. */
+                transform:translateZ(0) !important; will-change:transform !important;
+                transition:none !important;
+                z-index:1000 !important; background:${pageBackground} !important;
+              }
               .mobile-topbar-logo {
-                width:112px !important; min-width:112px; height:48px !important;
-                display:flex !important; align-items:center !important; flex-shrink:0 !important;
+                width:140px !important; min-width:140px; height:48px !important;
+                display:flex !important; align-items:center !important; gap:6px; flex-shrink:0 !important;
               }
               .mobile-topbar-logo > * { display:none !important; }
+              .mobile-topbar-logo::before {
+                content:''; width:30px; height:22px; flex-shrink:0;
+                background:center / contain no-repeat url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 30 22'%3E%3Crect width='30' height='22' rx='6' fill='%23ff0033'/%3E%3Cpath d='M12 6L21 11L12 16Z' fill='white'/%3E%3C/svg%3E");
+              }
               .mobile-topbar-logo::after {
                 content:'Vợ Tui'; font-size:20px; font-weight:600; white-space:nowrap;
               }

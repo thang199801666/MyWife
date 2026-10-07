@@ -59,7 +59,8 @@ class HomePullRefreshLayout @JvmOverloads constructor(
             isFocusable = false
         }
         addView(indicator, LayoutParams(dp(36), dp(36), Gravity.TOP or Gravity.CENTER_HORIZONTAL).apply {
-            topMargin = dp(10)
+            // The website toolbar stays anchored above the refresh indicator.
+            topMargin = dp(58)
         })
     }
 
@@ -166,7 +167,9 @@ class HomePullRefreshLayout @JvmOverloads constructor(
 
     private fun setPullOffset(value: Float) {
         pullOffset = value.coerceIn(0f, maxPullDistance)
-        contentView?.translationY = pullOffset
+        // The browse WebView also contains the toolbar and search history overlay.
+        // Animate only the indicator so pulling cannot move those controls.
+        contentView?.translationY = 0f
         val progress = (pullOffset / triggerDistance).coerceIn(0f, 1f)
         showIndicator()
         indicator.alpha = (0.2f + progress * 0.8f).coerceIn(0f, 1f)
