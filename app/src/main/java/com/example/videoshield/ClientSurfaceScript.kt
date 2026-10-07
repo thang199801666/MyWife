@@ -52,9 +52,16 @@ object ClientSurfaceScript {
           if (!style) { style=document.createElement('style'); style.id=id; (document.head||document.documentElement).appendChild(style); }
           style.textContent=`
             html,body { overflow:hidden !important; background:#000 !important; }
-            video { position:fixed !important; top:0 !important; left:0 !important;
+            /* Reset the whole composited player, not just video. YouTube keeps
+               offsets/transforms on its containers after the watch viewport shrinks. */
+            #player, #player-container-id, .html5-video-player, .html5-video-container, video {
+              position:fixed !important; top:0 !important; left:0 !important;
               width:100vw !important; height:100vh !important;
-              object-fit:contain !important; background:#000 !important; z-index:2147483646 !important; }
+              min-width:0 !important; max-width:none !important; max-height:none !important;
+              margin:0 !important; padding:0 !important; transform:none !important;
+              object-fit:contain !important; background:#000 !important; z-index:2147483646 !important;
+            }
+            #player, #player-container-id { overflow:visible !important; }
             .ytp-chrome-top,.ytp-chrome-bottom,.ytp-gradient-top,.ytp-gradient-bottom,
             .ytp-pause-overlay,.ytp-endscreen-content { display:none !important; }
             button,[role="button"] { visibility:hidden !important; }

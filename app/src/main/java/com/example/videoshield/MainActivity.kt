@@ -3352,25 +3352,28 @@ class MainActivity : LocalizedActivity() {
 
     private fun setBrowseChromeHidden(hidden: Boolean, animated: Boolean) {
         if (!::bottomBar.isInitialized) return
-        if (hidden && playerSurfaceController.visible) return
+        // Feed scrolling must keep all five native navigation items on screen.
+        // Only an actual fullscreen/PiP surface can request hidden chrome.
+        val hide = hidden && (customView != null || isInPictureInPictureMode)
+        if (hide && playerSurfaceController.visible) return
 
-        val targetTranslation = if (hidden) {
+        val targetTranslation = if (hide) {
             (bottomBar.height.takeIf { it > 0 } ?: uiMetrics.px(R.dimen.ui_bottom_nav_height)).toFloat()
         } else 0f
-        val alreadySettled = browseChromeHidden == hidden &&
+        val alreadySettled = browseChromeHidden == hide &&
             bottomBar.visibility == View.VISIBLE &&
             kotlin.math.abs(bottomBar.translationY - targetTranslation) < 0.5f
         if (alreadySettled) return
 
-        browseChromeHidden = hidden
+        browseChromeHidden = hide
         bottomBar.animate().cancel()
         // bottomBar is an overlay in activity_main. Never set it GONE for scroll chrome: doing so
         // would resize the WebView and force Chromium to relayout/repaint the feed. PiP/fullscreen
         // can still explicitly set GONE because those are surface transitions, not feed scrolling.
         bottomBar.visibility = View.VISIBLE
-        bottomBar.isClickable = !hidden
-        bottomBar.isFocusable = !hidden
-        bottomBar.importantForAccessibility = if (hidden) {
+        bottomBar.isClickable = !hide
+        bottomBar.isFocusable = !hide
+        bottomBar.importantForAccessibility = if (hide) {
             View.IMPORTANT_FOR_ACCESSIBILITY_NO_HIDE_DESCENDANTS
         } else {
             View.IMPORTANT_FOR_ACCESSIBILITY_AUTO
@@ -3383,7 +3386,7 @@ class MainActivity : LocalizedActivity() {
 
         bottomBar.animate()
             .translationY(targetTranslation)
-            .setDuration(if (hidden) 150L else 170L)
+            .setDuration(if (hide) 150L else 170L)
             .setInterpolator(android.view.animation.PathInterpolator(0.20f, 0f, 0f, 1f))
             .start()
     }
@@ -4449,4 +4452,3 @@ class MainActivity : LocalizedActivity() {
     }
 
 }
-

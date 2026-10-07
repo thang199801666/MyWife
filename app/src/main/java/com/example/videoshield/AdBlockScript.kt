@@ -35,7 +35,9 @@ object AdBlockScript {
     }
 
     fun setPowerConstrained(constrained: Boolean): String =
-        "window.__videoShieldSetPowerConstrained && window.__videoShieldSetPowerConstrained(${if (constrained) "true" else "false"})"
+        // This snippet is followed by IIFEs in the combined page policy. A newline
+        // alone would call its return value and abort the native-chrome CSS.
+        "window.__videoShieldSetPowerConstrained && window.__videoShieldSetPowerConstrained(${if (constrained) "true" else "false"});"
 
     fun setPreferredQuality(quality: String): String {
         val safe = quality.takeIf { it in ShieldPreferences.SUPPORTED_QUALITY_VALUES } ?: "adaptive"
